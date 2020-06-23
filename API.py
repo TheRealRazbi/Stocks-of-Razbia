@@ -71,7 +71,7 @@ class API:
         return self.twitch_key
 
     def generate_streamlabs_token(self):
-        webbrowser.open("https://streamlabs.com/api/v1.0/authorize?response_type=code&client_id=vLylBKwHLDIPfhUkOKexM2f6xhLe7rqmKJaeU0kB&redirect_uri=https://razbi.funcity.org/stocks-chat-minigame/generate_token/&scope=points.read&points.write")
+        webbrowser.open("https://streamlabs.com/api/v1.0/authorize?response_type=code&client_id=vLylBKwHLDIPfhUkOKexM2f6xhLe7rqmKJaeU0kB&redirect_uri=https://razbi.funcity.org/stocks-chat-minigame/generate_token/&scope=points.read+points.write")
         token = validate_input("Please input the generated token: ", character_min=40, hidden=True)
 
         with open("lib/streamlabs_key", "wb") as f:

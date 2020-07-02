@@ -72,26 +72,6 @@ class Company(database.Base):
     def __repr__(self):
         return f"Name: '{self.abbv}' aka '{self.full_name}' | stock_price: {self.stock_price:.2f} | total_value: {self.market_cap}"
 
-    @property
-    def bankrupt(self):
-        return self._bankrupt
-
-    @bankrupt.setter
-    def bankrupt(self, other):
-        self._bankrupt = other
-        if other:
-            self.clear()
-
-    def clear(self):
-        if self.rich:
-            self.overlord.rich -= 1
-        else:
-            self.overlord.poor -= 1
-        if not self.abbv == 'DFLT':
-            self.overlord.names[self.abbv] = self.full_name
-            self.overlord.companies["active_companies"].remove(self)
-            self.overlord.companies["bankrupt_companies"].append(self)
-
 
 if __name__ == '__main__':
     # c = Company(15, None)

@@ -76,7 +76,15 @@ class Overlord:
             if res:
                 self.stock_increase += f"{company.abbv.upper()}[{company.stock_price-company.price_diff}"
                 self.stock_increase += f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}], "
-
+            else:
+                if company.rich:
+                    self.rich -= 1
+                else:
+                    self.poor -= 1
+                if not company.abbv == 'DFLT':
+                    self.names[company.abbv] = company.full_name
+                    self.companies["active_companies"].remove(self)
+                    self.companies["bankrupt_companies"].append(self)
 
     def clear_bankrupt(self):
         for index_company, company in enumerate(self.companies["bankrupt_companies"]):

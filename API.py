@@ -10,6 +10,8 @@ from asyncirc.server import Server
 from irclib.parser import Message
 from user import User
 from custom_tools import validate_input
+from sqlalchemy.inspection import inspect
+import database
 # from commands import BuyCommand
 import commands
 
@@ -115,13 +117,27 @@ class API:
         #         return
         #     print(f"The user {user} has bought {value}")
 
-    async def fetch_user(self, name):
-        for user in self.users:
-            if user == name:
-                return user
+    @staticmethod
+    async def fetch_user(name, session):
+        return session.query(User).filter_by(name=name).first()
 
-    async def generate_user(self, name):
-        possible_user = await self.fetch_user(name)
+        # filtered_q = q.filter(User.name == name)
+        # print(q)
+        # return
+        # columns = [column.name for column in inspect(database.Base).c]
+        # print(columns)
+        # table = inspect(database.engine)
+        # print(table.get_table_names())
+
+        # print(User.metadata)
+
+        # for user in self.users:
+        #     if user == name:
+        #         return user
+        pass
+
+    async def generate_user(self, name, session):
+        possible_user = await self.fetch_user(name, session)
         if possible_user is None:
             user = User(name=name, overlord=self.overlord)
             self.users.append(user)

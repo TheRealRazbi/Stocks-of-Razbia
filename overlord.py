@@ -6,11 +6,10 @@ import asyncio
 import commands
 from contexts import UserContext
 from user import User
+import database
 
 
 class Overlord:
-    pass
-
     def __init__(self, loop=None):
         self.last_check = time.time()
         self.loop = asyncio.get_event_loop()
@@ -78,6 +77,7 @@ class Overlord:
                 self.stock_increase += f"{company.abbv.upper()}[{company.stock_price-company.price_diff}"
                 self.stock_increase += f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}], "
 
+
     def clear_bankrupt(self):
         for index_company, company in enumerate(self.companies["bankrupt_companies"]):
             if index_company == 0:
@@ -123,18 +123,23 @@ class Overlord:
 
 
 if __name__ == '__main__':
-    pass
-    o = Overlord()
-    user = User('razbith3player', o)
-    ctx = UserContext(user, o.api)
-    amount = 100
-    company_abbv = 'GOLD'
-    commands.buy_stocks(ctx, amount, company_abbv)
-    # try:
-    #     o.loop.run_until_complete(o.api.start_read_chat())
-    # finally:
-    #     o.loop.stop()
+    def start(func, overlord):
+        return overlord.loop.run_until_complete(func)
 
+    o = Overlord()
+    # user = User('razbith3player', o)
+    # ctx = UserContext(user, o.api)
+    # amount = 100
+    # company_abbv = 'GOLD'
+    # commands.buy_stocks(ctx, amount, company_abbv)
+    database.Base.metadata.create_all(database.engine)
+    session = database.Session()
+    session.add(User('razbith3player', o))
+    session.add(Company(5, o))
+    session.add(database.SharesDB(session.query(User).filter_by(name='razbith3player').first(),
+                                  session.query(Company).filter_by(full_name='default').first(),
+                                  100))
+    print(session.query(database.SharesDB).filter_by(user_id='razbith3player'))
 
     # months = 10
     # while True:

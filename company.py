@@ -1,14 +1,27 @@
 import random
 from decimal import *
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship
+import database
 
 
-class Company:
-    def __init__(self, starting_price, overlord, rich=False, name=None):
+class Company(database.Base):
+    __tablename__ = 'company'
+
+    id = Column(Integer, primary_key=True)
+    full_name = Column(String, nullable=False)
+    abbreviation = Column(String(4), nullable=False)
+
+    def __init__(self, starting_price, overlord, rich=False, name=None, **kwargs):
         self.overlord = overlord
         if name is None:
             name = ["dflt", "default"]
         self.abbv = name[0]
         self.full_name = name[1]
+        kwargs['full_name'] = self.full_name
+        kwargs['abbreviation'] = self.abbv
+        super().__init__(**kwargs)
 
         if self.abbv != 'dflt':
             overlord.names[self.abbv] = self.full_name

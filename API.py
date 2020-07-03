@@ -8,7 +8,7 @@ import asyncio
 from asyncirc.protocol import IrcProtocol
 from asyncirc.server import Server
 from irclib.parser import Message
-from user import User
+from database import User
 from custom_tools import validate_input
 from sqlalchemy.inspection import inspect
 import database

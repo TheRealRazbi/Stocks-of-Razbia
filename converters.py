@@ -1,5 +1,5 @@
 from typing import runtime_checkable, Protocol, Type, Optional
-from company import Company
+from database import Company
 
 registered_converters = {}
 

@@ -1,11 +1,11 @@
-from company import Company
+from database import Company
 import time
 import random
 from API import API
 import asyncio
 import commands
 from contexts import UserContext
-from user import User
+from database import User
 import database
 
 
@@ -135,19 +135,15 @@ if __name__ == '__main__':
         return overlord.loop.run_until_complete(func)
 
     o = Overlord()
+    session = database.Session()
+    session.add(database.Company.create(5))
+    session.commit()
+
     # user = User('razbith3player', o)
     # ctx = UserContext(user, o.api)
     # amount = 100
     # company_abbv = 'GOLD'
     # commands.buy_stocks(ctx, amount, company_abbv)
-    database.Base.metadata.create_all(database.engine)
-    session = database.Session()
-    session.add(User('razbith3player', o))
-    session.add(Company(5, o))
-    session.add(database.SharesDB(session.query(User).filter_by(name='razbith3player').first(),
-                                  session.query(Company).filter_by(full_name='default').first(),
-                                  100))
-    print(session.query(database.SharesDB).filter_by(user_id='razbith3player'))
 
     # months = 10
     # while True:

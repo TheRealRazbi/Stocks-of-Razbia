@@ -1,8 +1,8 @@
 from typing import List
 import asyncio
 
-from company import Company
-from user import User
+from database import Company
+from database import User
 # from API import API
 from converters import BasicConverter
 import inspect

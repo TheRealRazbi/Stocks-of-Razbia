@@ -1,4 +1,4 @@
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 
 __all__ = ["Company"]
 import random
@@ -24,7 +24,7 @@ class Company(Base):
     max_decrease = Column(t.Float, default=0.2)
     decay_rate = Column(t.Float, default=0.015)
 
-    shares = relationship("Shares", backref="company")
+    shares = relationship("Shares", backref=backref("company", cascade="on delete"))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -7,9 +7,10 @@ from .db import Base
 class Shares(Base):
     __tablename__ = 'shares'
 
-    user_id = Column(ForeignKey('user.id'), primary_key=True)
+    user_id = Column(ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
 
-    company_id = Column(ForeignKey('company.id'), primary_key=True)
+    # company_id = Column(ForeignKey('company.id', ondelete='CASCADE'), primary_key=True)
+    company_id = Column(ForeignKey('company.id', ondelete='CASCADE'), primary_key=True)
 
     amount = Column(t.Integer, nullable=False)
 

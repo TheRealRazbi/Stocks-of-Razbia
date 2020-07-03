@@ -24,7 +24,7 @@ class Company(Base):
     max_decrease = Column(t.Float, default=0.2)
     decay_rate = Column(t.Float, default=0.015)
 
-    shares = relationship("Shares", backref=backref("company", cascade="on delete"))
+    shares = relationship("Shares", backref=backref("company"))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -58,10 +58,6 @@ class Company(Base):
     def market_cap(self):
         return round(self.stock_price*100)
 
-    def __str__(self):
-        return f"Name: '{self.abbv}' aka '{self.full_name}' "\
-               f"| stock_price: {self.stock_price:.2f} | total_value: {self.market_cap}"
-
     @classmethod
     def create(cls, starting_price, name=None, **kwargs):
         if name is None:
@@ -73,6 +69,15 @@ class Company(Base):
             **kwargs,
         )
 
+    def __str__(self):
+        return f"Name: '{self.abbv}' aka '{self.full_name}' "\
+               f"| stock_price: {self.stock_price:.2f} | total_value: {self.market_cap}"
+
+    def __repr__(self):
+        return self._repr(
+            **self._getattrs("id", "abbv", "rich", "stock_price"),
+            # TODO: Change this to include what you want
+        )
 
 if __name__ == '__main__':
     pass

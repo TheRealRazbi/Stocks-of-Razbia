@@ -10,7 +10,7 @@ class _Base:
     def __repr__(self) -> str:
         return self._repr(**self._getattrs("id"))
 
-    def _getattrs(self, *attrs):
+    def _getattrs(self, *attrs: str):
         return {attr: getattr(self, attr) for attr in attrs}
 
     def _repr(self, **fields: typing.Any) -> str:

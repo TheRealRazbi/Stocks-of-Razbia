@@ -1,4 +1,5 @@
 from sqlalchemy import Column, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import sqltypes as t
 
 from .db import Base
@@ -9,7 +10,6 @@ class Shares(Base):
 
     user_id = Column(ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
 
-    # company_id = Column(ForeignKey('company.id', ondelete='CASCADE'), primary_key=True)
     company_id = Column(ForeignKey('company.id', ondelete='CASCADE'), primary_key=True)
 
     amount = Column(t.Integer, nullable=False)

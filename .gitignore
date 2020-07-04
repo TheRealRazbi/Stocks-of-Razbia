@@ -9,3 +9,5 @@
 /templates/
 /user_feedback/
 /.idea/
+/db.sqlite
+/db.sqlite-journal

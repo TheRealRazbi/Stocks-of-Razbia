@@ -11,7 +11,7 @@ class User(Base):
     id = Column(t.Integer, primary_key=True)
     name = Column(t.String, nullable=False)
 
-    shares = relationship("Shares", backref="user")
+    shares = relationship("Shares", backref="user", passive_deletes=True)
 
     def __str__(self):
         return f'username: "{self.name}"'

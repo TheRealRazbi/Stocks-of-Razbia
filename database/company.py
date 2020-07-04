@@ -18,18 +18,20 @@ class Company(Base):
 
     rich = Column(t.Boolean, default=False)
     stock_price = Column(t.Float)
+    months = Column(t.Integer, default=0)  # age
 
     increase_chance = Column(t.Integer, default=50)  # percentage
     max_increase = Column(t.Float, default=0.2)
     max_decrease = Column(t.Float, default=0.2)
     decay_rate = Column(t.Float, default=0.015)
 
-    shares = relationship("Shares", backref=backref("company"))
+    bankrupt = Column(t.Boolean, default=False)
+
+    shares = relationship("Shares", backref="company", passive_deletes=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.price_diff = 0
-        self.bankrupt = False
 
     def iterate(self):
         if self.bankrupt:
@@ -47,6 +49,7 @@ class Company(Base):
         self.max_decrease += self.decay_rate
         if self.max_decrease > 1:
             self.max_decrease = 1
+        self.months += 1
 
         if self.stock_price <= 0.5:
             self.bankrupt = True
@@ -78,6 +81,7 @@ class Company(Base):
             **self._getattrs("id", "abbv", "rich", "stock_price"),
             # TODO: Change this to include what you want
         )
+
 
 if __name__ == '__main__':
     pass

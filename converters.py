@@ -1,5 +1,6 @@
 from typing import runtime_checkable, Protocol, Type, Optional
 from database import Company
+import asyncio
 
 registered_converters = {}
 
@@ -12,6 +13,14 @@ class Converter(Protocol):
 
 
 class ConversionError(Exception):
+    pass
+
+
+class ConverterNotFound(Exception):
+    pass
+
+
+class CompanyNotFound(Exception):
     pass
 
 
@@ -30,9 +39,12 @@ class BasicConverter:
 class CompanyConverter(Converter):
     @classmethod
     def convert(cls, ctx, arg: str):
-        company = ctx.api.overlord.find_company(arg.lower())
+        company = ctx.api.overlord.find_company(arg.upper(), ctx.session)
         if company is None:
-            raise ConversionError("Company doesn't exist")
+            # asyncio.run_coroutine_threadsafe(ctx.api.send_chat_message(f'Company "{arg.upper()}" not found'), ctx.api.overlord.loop)
+            ctx.api.send_chat_message(f'Company "{arg.upper()}" not found'), ctx.api.overlord.loop
+            print(f'Company "{arg}" not found')
+            raise CompanyNotFound
         return company
 
 

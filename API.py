@@ -10,9 +10,11 @@ from asyncirc.server import Server
 from irclib.parser import Message
 from database import User
 from custom_tools import validate_input
+import database
 from sqlalchemy.inspection import inspect
 import database
-# from commands import BuyCommand
+import contexts
+# from commands import buy_stocks
 import commands
 
 
@@ -26,7 +28,7 @@ class API:
         self.name = self.get_user()['twitch']['name'].strip()
         self.users = []
         self.conn = None
-        # self.commands = [BuyCommand]
+        self.commands = {'!buy_stocks': (commands.buy_stocks, "!buy_stocks <amount> <company>")}
         self.loop = loop
 
     def load_keys(self):
@@ -104,46 +106,44 @@ class API:
     async def handler(self, conn, message: Message):
         # print("This is a user message", message)
         print(f"Parameters: {message.parameters[1]}")
-        user = message.prefix.user
-        print(f"User: {user}")
-        params = message.parameters[1].lower()
-        await BuyCommand.check(message, self)
-        # if params.startswith('!buy'):
-        #     try:
-        #         value = int(params.split()[1])
-        #     except IndexError:
-        #         return
-        #     except ValueError:
-        #         return
-        #     print(f"The user {user} has bought {value}")
+        username = message.prefix.user
+        print(f"User: {username}")
+
+        command_name, *args = message.parameters[1].split()
+        if command_name in self.commands:
+            session = database.Session()
+            ctx = contexts.UserContext(await self.generate_user(username, session=session), self, session=session)
+            try:
+                self.commands[command_name][0](ctx, *args)
+            except commands.ConversionError as e:
+
+                self.send_chat_message(f'Usage: {self.commands[command_name][1]}')
+            except commands.CompanyNotFound:
+                pass
+        # commands.buy_stocks(ctx, message.parameters[1])
+        # print()
+        # params = message.parameters[1].lower()
+
+        # commands.buy_stocks()
 
     @staticmethod
     async def fetch_user(name, session):
         return session.query(User).filter_by(name=name).first()
 
-        # filtered_q = q.filter(User.name == name)
-        # print(q)
-        # return
-        # columns = [column.name for column in inspect(database.Base).c]
-        # print(columns)
-        # table = inspect(database.engine)
-        # print(table.get_table_names())
-
-        # print(User.metadata)
-
-        # for user in self.users:
-        #     if user == name:
-        #         return user
-        pass
-
-    async def generate_user(self, name, session):
-        possible_user = await self.fetch_user(name, session)
-        if possible_user is None:
-            user = User(name=name, overlord=self.overlord)
-            self.users.append(user)
-            return user
-        else:
-            return possible_user
+    @staticmethod
+    async def generate_user(name, session=None):
+        local_session = False
+        if session is None:
+            local_session = True
+            session = database.Session()
+        user = session.query(User).filter_by(name=name).first()
+        if not user:
+            user = User(name=name)
+            session.add(user)
+            session.commit()
+        if local_session:
+            session.close()
+        return user
 
     async def start_read_chat(self):
         server = [Server("irc.chat.twitch.tv", 6667, password=self.twitch_key)]
@@ -154,9 +154,21 @@ class API:
         # self.conn.send(f"PRIVMSG #{self.name} hello")
         await asyncio.sleep(24 * 60 * 60 * 365)
 
-    async def send_chat_message(self, message):
+    def send_chat_message(self, message):
         if self.conn:
-            self.conn.send(f"PRIVMSG #{self.name} {message}")
+            self.conn.send(f"PRIVMSG #{self.name} :{message}")
+            print(f"Message sent {message}")
+        else:
+            print('No connection yet')
+
+    def subtract_points(self, user, amount):
+        url = "https://streamlabs.com/api/v1.0/points/subtract"
+        querystring = {"access_token": self.streamlabs_token,
+                       "username": user,
+                       "channel": self.name,
+                       "points": amount}
+        return json.loads(requests.request("POST", url, data=querystring).text)
+        # print(res.text)
 
 
 if __name__ == '__main__':

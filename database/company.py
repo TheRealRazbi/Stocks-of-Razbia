@@ -74,7 +74,7 @@ class Company(Base):
 
     def __str__(self):
         return f"Name: '{self.abbv}' aka '{self.full_name}' "\
-               f"| stock_price: {self.stock_price:.2f} | total_value: {self.market_cap}"
+               f"| stock_price: {self.stock_price:.2f} | age: {self.months} months"
 
     def __repr__(self):
         return self._repr(

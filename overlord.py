@@ -145,20 +145,25 @@ class Overlord:
                 most_expensive = company
         return most_expensive
 
-    def buy_stocks(self, amount, user):
-        pass
+    def delete_table_contents(self, table, session=None):
+        local_session = False
+        if session is None:
+            session = database.Session()
+            local_session = True
+        session.query(table).delete()
+        if table == database.Company:
+            self.rich = 0
+            self.poor = 0
+        session.commit()
+        if local_session:
+            session.close()
 
     def delete_all(self):
         session = database.Session()
-        companies = session.query(database.Company).all()
-        for company in companies:
-            session.delete(company)
-        users = session.query(database.User).all()
-        for user in users:
-            session.delete(user)
-        session.commit()
-        self.rich = 0
-        self.poor = 0
+        self.delete_table_contents(database.Company, session=session)
+        self.delete_table_contents(database.User, session=session)
+        self.delete_table_contents(database.Shares, session=session)
+        session.close()
 
 
 if __name__ == '__main__':
@@ -174,9 +179,24 @@ if __name__ == '__main__':
         session.add(share)
         session.commit()
 
-    o = Overlord()
-    # o.delete_all()
+    def test_iteration(overlord: Overlord):
+        months = 60
+        now = time.time()
+        while overlord.months <= months:
+            start(overlord.run(), overlord)
+        print(f"{months} months took {round(time.time()-now, 3)}")
 
+    o = Overlord()
+
+    # session = database.Session()
+    # user = session.query(User).get(1)
+    # print(user.points(o.api))
+    # print(o.api.subtract_points(user.name, 1))
+    # print(user.points(api=o.api))
+
+    # o.delete_all()
+    # start(o.api.start_read_chat(), o)
+    # start(o.api.send_chat_message('hello'), o)
     # session = database.Session()
     # session.delete(session.query(Company).get(1))
     # session.commit()
@@ -187,11 +207,7 @@ if __name__ == '__main__':
     # company_abbv = 'GOLD'
     # commands.buy_stocks(ctx, amount, company_abbv)
 
-    months = 60
-    now = time.time()
-    while o.months <= months:
-        start(o.run(), o)
-    print(f"{months} months took {round(time.time()-now, 3)}")
+
 
 
 

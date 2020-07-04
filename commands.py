@@ -6,7 +6,8 @@ from database import User
 # from API import API
 from converters import BasicConverter
 import inspect
-from converters import Converter, ConversionError, registered_converters
+from converters import Converter, ConversionError, registered_converters, ConverterNotFound, CompanyNotFound
+import database
 
 
 def handle_annotations_args(func):
@@ -42,12 +43,11 @@ def command(name=None):
 
 
 def convert(ctx, annotation, arg):
-    print(registered_converters)
     if isinstance(annotation, Converter):
         return annotation.convert(ctx, arg)
     elif annotation in registered_converters:
         return registered_converters[annotation].convert(ctx, arg)
-    raise ConversionError("No converter found ...")
+    raise ConverterNotFound("No converter found ...")
 
 
 def prepare_args(ctx, command: Command, args: List[str]):
@@ -56,9 +56,9 @@ def prepare_args(ctx, command: Command, args: List[str]):
     converted_args = []
     len_diff = len(args) - len(command.args)
     if len_diff > 0:
-        raise ValueError("I have no idea what is this | len_diff > 0")
+        raise ConversionError("I have no idea what is this | len_diff > 0")
     elif len_diff < 0:
-        raise ValueError("I have no idea what is this | len_diff < 0")
+        raise ConversionError("I have no idea what is this | len_diff < 0")
 
     return [
         convert(ctx, annotation, arg)
@@ -68,9 +68,26 @@ def prepare_args(ctx, command: Command, args: List[str]):
 
 
 @command()
-def buy_stocks(ctx, amount: int, company_abbv: Company):
-    print(ctx)
+def buy_stocks(ctx, amount: int, company: Company):
+    # print(ctx)
+    # print(company)
+    # print(amount)
+    points = ctx.user.points(ctx.api)
+    cost = int(amount*company.stock_price)
+    if points >= cost:
+        ctx.api.send_chat_message(f"@{ctx.user.name} just bought {amount} of {company.abbv}")
+        ctx.session.add(database.Shares(ctx.user.id, company.id, amount))
+        ctx.api.subtract_points(ctx.user, cost)
+        ctx.session.commit()
+    else:
+        ctx.api.send_chat_message(f"You have {points} points, you require {cost} aka {cost-points} more")
     pass
+
+
+@command()
+def sell_stocks(ctx, amount: int, company: Company):
+    points = ctx.user.points(ctx.api)
+    cost = int(amount*company.stock_price)
 
 
 if __name__ == '__main__':

@@ -2,6 +2,9 @@ from sqlalchemy import Column
 from sqlalchemy.sql import sqltypes as t
 from sqlalchemy.orm import relationship
 
+import requests
+import json
+
 from .db import Base
 
 
@@ -21,3 +24,10 @@ class User(Base):
             **self._getattrs("id", "name", "shares"),
         )
 
+    def points(self, api):
+        url = "https://streamlabs.com/api/v1.0/points"
+        querystring = {"access_token": api.streamlabs_token,
+                       "username": self.name,
+                       "channel": api.name,
+                       }
+        return json.loads(requests.request("GET", url, params=querystring).text)["points"]

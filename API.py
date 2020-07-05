@@ -28,7 +28,11 @@ class API:
         self.name = self.get_user()['twitch']['name'].strip()
         self.users = []
         self.conn = None
-        self.commands = {'!buy_stocks': (commands.buy_stocks, "!buy_stocks <amount> <company>")}
+        self.commands = {'!buy_stocks': (commands.buy_stocks, "!stocks buy <amount> <company>"),
+                         '!sell_stocks': (commands.sell_stocks, "!stocks sell <amount> <company>"),
+                         '!info_company': (commands.info_company, "!company info <company>"),
+                         '!turtle_thing': (commands.test_turtle, "!turtle_thing thing"),
+                         }
         self.loop = loop
 
     def load_keys(self):
@@ -151,6 +155,7 @@ class API:
         self.conn.register('PRIVMSG', self.handler)
         await self.conn.connect()
         self.conn.send(f"JOIN #{self.name}")
+        print("start_read_chat ready")
         # self.conn.send(f"PRIVMSG #{self.name} hello")
         await asyncio.sleep(24 * 60 * 60 * 365)
 
@@ -167,8 +172,8 @@ class API:
                        "username": user,
                        "channel": self.name,
                        "points": amount}
-        return json.loads(requests.request("POST", url, data=querystring).text)
-        # print(res.text)
+
+        return json.loads(requests.request("POST", url, data=querystring).text)["points"]
 
 
 if __name__ == '__main__':

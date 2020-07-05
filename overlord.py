@@ -123,12 +123,12 @@ class Overlord:
 
     def display_update(self, session):
         if self.stock_increase:
-            print(self.stock_increase[:-2])
+            self.api.send_chat_message(self.stock_increase[:-2])
             self.stock_increase = ''
-        print(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
-              f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
+        self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
+                                   f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
         if self.bankrupt_info:
-            print(self.bankrupt_info[:-2])
+            self.api.send_chat_message(self.bankrupt_info[:-2])
             self.bankrupt_info = ''
 
     @staticmethod
@@ -179,8 +179,7 @@ if __name__ == '__main__':
         session.add(share)
         session.commit()
 
-    def test_iteration(overlord: Overlord):
-        months = 60
+    def test_iteration(overlord: Overlord, months=60):
         now = time.time()
         while overlord.months <= months:
             start(overlord.run(), overlord)
@@ -191,11 +190,15 @@ if __name__ == '__main__':
     # session = database.Session()
     # user = session.query(User).get(1)
     # print(user.points(o.api))
-    # print(o.api.subtract_points(user.name, 1))
-    # print(user.points(api=o.api))
+    # print(o.api.subtract_points(user.name, -1))
+    # print(user.points(o.api))
 
     # o.delete_all()
-    # start(o.api.start_read_chat(), o)
+    start(o.api.start_read_chat(), o)
+    # start(test_iteration(o), o)
+
+
+
     # start(o.api.send_chat_message('hello'), o)
     # session = database.Session()
     # session.delete(session.query(Company).get(1))

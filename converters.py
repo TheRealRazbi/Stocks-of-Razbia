@@ -41,7 +41,6 @@ class CompanyConverter(Converter):
     def convert(cls, ctx, arg: str):
         company = ctx.api.overlord.find_company(arg.upper(), ctx.session)
         if company is None:
-            # asyncio.run_coroutine_threadsafe(ctx.api.send_chat_message(f'Company "{arg.upper()}" not found'), ctx.api.overlord.loop)
             ctx.api.send_chat_message(f'Company "{arg.upper()}" not found'), ctx.api.overlord.loop
             print(f'Company "{arg}" not found')
             raise CompanyNotFound

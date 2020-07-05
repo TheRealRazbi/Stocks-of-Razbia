@@ -1,5 +1,8 @@
 import time
 import random
+
+import sqlalchemy as sql
+
 from API import API
 import asyncio
 import commands
@@ -113,12 +116,15 @@ class Overlord:
 
     def load_rich_poor(self):
         session = database.Session()
-        companies = session.query(Company).all()
-        for company in companies:
-            if company.rich:
-                self.rich += 1
+        for data in session.query(
+                Company.rich,
+                sql.func.count()
+        ).group_by(Company.rich).all():
+            rich, count = data
+            if rich:
+                self.rich = count
             else:
-                self.poor += 1
+                self.poor = count
         session.close()
 
     def display_update(self, session):
@@ -171,10 +177,10 @@ if __name__ == '__main__':
         return overlord.loop.run_until_complete(func)
 
     def test_basic_share(session):
-        session.add(database.Company.create(5))
-        session.add(database.User(name='razbith3player'))
-        user = session.query(User).get(1)
-        company = session.query(Company).get(1)
+        user = database.User(name='razbith3player')
+        company = database.Company.create(5)
+        session.add(user)
+        session.add(company)
         share = database.Shares(user=user, company=company, amount=69)
         session.add(share)
         session.commit()
@@ -196,8 +202,6 @@ if __name__ == '__main__':
     # o.delete_all()
     start(o.api.start_read_chat(), o)
     # start(test_iteration(o), o)
-
-
 
     # start(o.api.send_chat_message('hello'), o)
     # session = database.Session()

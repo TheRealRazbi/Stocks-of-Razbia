@@ -72,6 +72,10 @@ class Company(Base):
             **kwargs,
         )
 
+    @classmethod
+    def find_by_abbreviation(cls, abbreviation:str, session):
+        return session.query(cls).filter_by(abbv=abbreviation).first()
+
     def __str__(self):
         return f"Name: '{self.abbv}' aka '{self.full_name}' "\
                f"| stock_price: {self.stock_price:.2f} | age: {self.months} months"
@@ -81,7 +85,3 @@ class Company(Base):
             **self._getattrs("id", "abbv", "rich", "stock_price"),
             # TODO: Change this to include what you want
         )
-
-
-if __name__ == '__main__':
-    pass

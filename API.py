@@ -1,5 +1,7 @@
 import webbrowser
 from getpass import getpass
+from typing import Union, Dict
+
 import requests
 import pickle
 import json
@@ -19,7 +21,7 @@ import commands
 
 
 class API:
-    def __init__(self, overlord=None, loop=None):
+    def __init__(self, overlord=None, loop=None, prefix="!"):
         self.overlord = overlord
         self.client_id = 'vLylBKwHLDIPfhUkOKexM2f6xhLe7rqmKJaeU0kB'
         self.streamlabs_token = ''
@@ -28,11 +30,8 @@ class API:
         self.name = self.get_user()['twitch']['name'].strip()
         self.users = []
         self.conn = None
-        self.commands = {'!buy_stocks': (commands.buy_stocks, "!stocks buy <amount> <company>"),
-                         '!sell_stocks': (commands.sell_stocks, "!stocks sell <amount> <company>"),
-                         '!info_company': (commands.info_company, "!company info <company>"),
-                         '!turtle_thing': (commands.test_turtle, "!turtle_thing thing"),
-                         }
+        self.prefix = prefix
+        self.commands: Dict[str, Union[commands.Command, commands.Group]] = {}
         self.loop = loop
 
     def load_keys(self):
@@ -107,23 +106,31 @@ class API:
         async with session.get(url) as response:
             return await response.text()
 
+    async def create_context(self, username, session):
+        user = await self.generate_user(username, session=session)
+        return contexts.UserContext(user=user, api=self, session=session)
+
     async def handler(self, conn, message: Message):
         # print("This is a user message", message)
-        print(f"Parameters: {message.parameters[1]}")
+        text: str = message.parameters[1]
+        print(f"Parameters: {text}")
+
         username = message.prefix.user
         print(f"User: {username}")
-
-        command_name, *args = message.parameters[1].split()
+        if not text.startswith(self.prefix):
+            return
+        text = text[len(self.prefix):]
+        command_name, *args = text.split()
         if command_name in self.commands:
-            session = database.Session()
-            ctx = contexts.UserContext(await self.generate_user(username, session=session), self, session=session)
-            try:
-                self.commands[command_name][0](ctx, *args)
-            except commands.ConversionError as e:
+            with database.Session() as session:
+                ctx = self.create_context(username, session)
+                try:
+                    self.commands[command_name](ctx, *args)
+                except commands.BadArgumentCount as e:
+                    self.send_chat_message(f'Usage: {self.prefix}{e.usage}')
+                except commands.CommandError as e:
+                    self.send_chat_message(e.msg)
 
-                self.send_chat_message(f'Usage: {self.commands[command_name][1]}')
-            except commands.CompanyNotFound:
-                pass
         # commands.buy_stocks(ctx, message.parameters[1])
         # print()
         # params = message.parameters[1].lower()
@@ -174,6 +181,13 @@ class API:
                        "points": amount}
 
         return json.loads(requests.request("POST", url, data=querystring).text)["points"]
+
+    def command(self, **kwargs):
+        return commands.command(registry=self.commands, **kwargs)
+
+    def group(self, **kwargs):
+        return commands.group(registry=self.commands, **kwargs)
+
 
 
 if __name__ == '__main__':

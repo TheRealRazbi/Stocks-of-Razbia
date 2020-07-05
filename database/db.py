@@ -1,13 +1,22 @@
 __all__ = ["engine", "Session", "Base"]
 
-import typing
-
-from sqlalchemy import create_engine,  event
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine, event
+from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import sessionmaker, exc
 
 
-class _Base:
+def _fk_pragma_on_connect(dbapi_con, con_record):
+    """This will enable foreign keys on SQLite"""
+    dbapi_con.execute('PRAGMA foreign_keys=ON')
+
+
+engine = create_engine('sqlite:///db.sqlite', echo=False)
+event.listen(engine, 'connect', _fk_pragma_on_connect)
+Session = sessionmaker(bind=engine)
+
+
+@as_declarative(bind=engine)
+class Base:
     def __repr__(self) -> str:
         return self._repr(**self._getattrs("id"))
 
@@ -30,15 +39,3 @@ class _Base:
         if at_least_one_attached_attribute:
             return f"<{self.__class__.__name__}({','.join(field_strings)})>"
         return f"<{self.__class__.__name__} {id(self)}>"
-
-
-def _fk_pragma_on_connect(dbapi_con, con_record):
-    """This will enable foreign keys on SQLite"""
-    dbapi_con.execute('PRAGMA foreign_keys=ON')
-
-
-engine = create_engine('sqlite:///db.sqlite', echo=False)
-event.listen(engine, 'connect', _fk_pragma_on_connect)
-Session = sessionmaker(bind=engine)
-Base: typing.Type[_Base] = declarative_base(bind=engine, cls=_Base)
-

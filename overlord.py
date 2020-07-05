@@ -6,6 +6,7 @@ import sqlalchemy as sql
 from API import API
 import asyncio
 import commands
+from bot_commands import register_commands
 from contexts import UserContext
 from database import User, Company
 import database
@@ -192,7 +193,7 @@ if __name__ == '__main__':
         print(f"{months} months took {round(time.time()-now, 3)}")
 
     o = Overlord()
-
+    register_commands(o.api)
     # session = database.Session()
     # user = session.query(User).get(1)
     # print(user.points(o.api))

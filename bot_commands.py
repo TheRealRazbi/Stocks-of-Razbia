@@ -8,6 +8,7 @@ import database
 
 def register_commands(api: API):
     stocks = api.group(name="stocks")
+    company = api.group(name="company")
 
     @stocks.command(usage="<amount> <company>")
     def buy(ctx, amount: int, company: Company):
@@ -41,17 +42,17 @@ def register_commands(api: API):
                 message += f"They require {amount-share.amount} more"
             ctx.api.send_chat_message(message)
 
-    @api.command()
-    def info_company(ctx, company: Company):
+    @company.command(usage="<company>")
+    def info(ctx, company: Company):
         ctx.api.send_chat_message(company)
 
-    @api.command()
-    def test_turtle(ctx, thing: str):
-        message = ""
-        for i in range(100):
-            message += "thing"
-
-        ctx.api.send_chat_message(message)
+    # @api.command()
+    # def test_turtle(ctx, thing: str):
+    #     message = ""
+    #     for i in range(100):
+    #         message += "thing"
+    #
+    #     ctx.api.send_chat_message(message)
 
 
 if __name__ == '__main__':

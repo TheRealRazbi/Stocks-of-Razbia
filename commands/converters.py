@@ -37,7 +37,7 @@ class BasicConverter:
     def convert(cls, _, arg):
         try:
             return cls.type(arg)
-        except TypeError as e:
+        except ValueError as e:
             raise exc.ConversionError(
                 arg,
                 msg_format=(cls.msg or "{value} is not a valid value")
@@ -50,7 +50,7 @@ class CompanyConverter(Converter):
         arg = arg.upper()
         company = Company.find_by_abbreviation(arg, ctx.session)
         if company is None:
-            raise exc.CompanyNotFound(arg)
+            raise exc.CompanyNotFound(arg.lower())
         return company
 
 

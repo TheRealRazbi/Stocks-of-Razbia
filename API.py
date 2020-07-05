@@ -18,6 +18,8 @@ import database
 import contexts
 # from commands import buy_stocks
 import commands
+from termcolor import colored
+import contextlib
 
 
 class API:
@@ -122,8 +124,8 @@ class API:
         text = text[len(self.prefix):]
         command_name, *args = text.split()
         if command_name in self.commands:
-            with database.Session() as session:
-                ctx = self.create_context(username, session)
+            with contextlib.closing(database.Session()) as session:
+                ctx = await self.create_context(username, session)
                 try:
                     self.commands[command_name](ctx, *args)
                 except commands.BadArgumentCount as e:
@@ -164,14 +166,15 @@ class API:
         self.conn.send(f"JOIN #{self.name}")
         print("start_read_chat ready")
         # self.conn.send(f"PRIVMSG #{self.name} hello")
-        await asyncio.sleep(24 * 60 * 60 * 365)
+        await asyncio.sleep(24 * 60 * 60 * 365 * 100)
 
-    def send_chat_message(self, message):
+    def send_chat_message(self, message: str):
         if self.conn:
             self.conn.send(f"PRIVMSG #{self.name} :{message}")
-            print(f"Message sent {message}")
+            if message != '':
+                print(f"{colored('Message sent:', 'blue')} {colored(message, 'yellow')}")
         else:
-            print('No connection yet')
+            print(f'{colored("No connection yet", "red")}')
 
     def subtract_points(self, user, amount):
         url = "https://streamlabs.com/api/v1.0/points/subtract"

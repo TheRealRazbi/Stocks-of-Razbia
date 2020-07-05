@@ -10,6 +10,7 @@ from bot_commands import register_commands
 from contexts import UserContext
 from database import User, Company
 import database
+import pickle
 
 
 class Overlord:
@@ -18,16 +19,17 @@ class Overlord:
         self.last_check = time.time()
         self.loop = asyncio.get_event_loop()
         self.api = API(overlord=self, loop=loop)
-        # self.iterate_cooldown = 30
-        self.iterate_cooldown = 0
+        register_commands(self.api)
+        self.iterate_cooldown = 5
+        # self.iterate_cooldown = 0
 
         self.max_companies = 10
         self.spawn_ranges = {
             "poor_range": (3, 10),
             "expensive_range": (10, 30),
         }
-        self.stock_increase = ''
-        self.bankrupt_info = ''
+        self.stock_increase = []
+        self.bankrupt_info = []
 
         self.names = {}
         self.load_names()
@@ -36,10 +38,10 @@ class Overlord:
         self.poor = 0
         self.load_rich_poor()
 
-        self.months = 0
+        self.load_age()
 
     async def run(self):
-        time_since_last_run = time.time() - self.last_check + self.iterate_cooldown  # TODO: remove self.iterate_cooldown
+        time_since_last_run = time.time() - self.last_check  # + self.iterate_cooldown  # TODO: remove self.iterate_cooldown
         if time_since_last_run > self.iterate_cooldown*1:
             self.last_check = time.time()
             session = database.Session()
@@ -50,9 +52,10 @@ class Overlord:
 
             self.display_update(session)
             self.months += 1
+            self.update_age()
             session.close()
         else:
-            await asyncio.sleep(0)
+            await asyncio.sleep(3)
             # time.sleep(self.iterate_cooldown-time_since_last_run)
 
     def spawn_companies(self, session):
@@ -82,8 +85,10 @@ class Overlord:
         for index_company, company in enumerate(session.query(Company).all()):
             res = company.iterate()
             if res:
-                self.stock_increase += f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.2f}"
-                self.stock_increase += f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}], "
+                stock_increase = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}"\
+                                 f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}]"
+                self.stock_increase.append(stock_increase)
+
             else:
                 if company.rich:
                     self.rich -= 1
@@ -96,9 +101,12 @@ class Overlord:
 
     def clear_bankrupt(self, session):
         for index_company, company in enumerate(session.query(Company).filter_by(bankrupt=True)):
-            if index_company == 0:
-                self.bankrupt_info += "The following companies bankrupt: "
-            self.bankrupt_info += f'{company.abbv.upper()}, '
+            self.bankrupt_info.append(f'{company.abbv.upper()}')
+            shares = session.query(database.Shares).filter_by(company_id=company.id).all()
+            for share in shares:
+                user = session.query(database.User).get(share.user_id)
+                self.api.subtract_points(user.name, -share.amount)
+                # print(f"Refunded {share.amount} points to @{user.name}")
             session.delete(company)
             session.commit()
 
@@ -128,15 +136,42 @@ class Overlord:
                 self.poor = count
         session.close()
 
+    def load_age(self):
+        try:
+            with open("lib/age", "r") as f:
+                self.months = int(f.read().strip())
+        except FileNotFoundError:
+            with open("lib/age", "w") as f:
+                f.write('0')
+            self.load_age()
+
+    def update_age(self):
+        with open("lib/age", "w") as f:
+            f.write(str(self.months))
+
     def display_update(self, session):
         if self.stock_increase:
-            self.api.send_chat_message(self.stock_increase[:-2])
-            self.stock_increase = ''
-        self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
-                                   f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
+            self.api.send_chat_message(f'Month: {self.months} | {", ".join(self.stock_increase)}')
+            self.stock_increase = []
+        # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
+        #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
         if self.bankrupt_info:
-            self.api.send_chat_message(self.bankrupt_info[:-2])
-            self.bankrupt_info = ''
+            self.api.send_chat_message(f'The following companies bankrupt: {", ".join(self.bankrupt_info)}')
+            self.bankrupt_info = []
+
+    @staticmethod
+    def get_companies_for_updates(session):
+        res = []
+        res_set_temp = set()
+        for share in session.query(database.Shares):
+            res_set_temp.add(share.company_id)
+
+        if len(res) < 3:
+            richest_companies = session.query(database.Company).order_by(Company.stock_price).limit(3-len(res)).all()
+            for company in richest_companies:
+                message = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}"\
+                          f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}]"
+                res.append(message)
 
     @staticmethod
     def find_company(abbreviation: str, session):
@@ -172,28 +207,32 @@ class Overlord:
         self.delete_table_contents(database.Shares, session=session)
         session.close()
 
+    def main_loop(self):
+        pass
+
+
+def start(func, overlord):
+    return overlord.loop.run_until_complete(func)
+
+
+async def iterate_forever(overlord: Overlord):
+    await asyncio.sleep(3)
+    now = time.time()
+    # while overlord.months <= months:
+    while True:
+        await overlord.run()
+    # print(f"{months} months took {round(time.time()-now, 3)}")
+
+
+async def iterate_forever_and_start_reading_chat(overlord: Overlord):
+    asyncio.create_task(overlord.api.start_read_chat())
+    await iterate_forever(overlord)
+    o.api.send_chat_message("")
+    await asyncio.sleep(60 * 60 * 365 * 100)
 
 if __name__ == '__main__':
-    def start(func, overlord):
-        return overlord.loop.run_until_complete(func)
-
-    def test_basic_share(session):
-        user = database.User(name='razbith3player')
-        company = database.Company.create(5)
-        session.add(user)
-        session.add(company)
-        share = database.Shares(user=user, company=company, amount=69)
-        session.add(share)
-        session.commit()
-
-    def test_iteration(overlord: Overlord, months=60):
-        now = time.time()
-        while overlord.months <= months:
-            start(overlord.run(), overlord)
-        print(f"{months} months took {round(time.time()-now, 3)}")
-
     o = Overlord()
-    register_commands(o.api)
+    start(iterate_forever_and_start_reading_chat(o), o)
     # session = database.Session()
     # user = session.query(User).get(1)
     # print(user.points(o.api))
@@ -201,7 +240,7 @@ if __name__ == '__main__':
     # print(user.points(o.api))
 
     # o.delete_all()
-    start(o.api.start_read_chat(), o)
+    # start(o.api.start_read_chat(), o)
     # start(test_iteration(o), o)
 
     # start(o.api.send_chat_message('hello'), o)
@@ -214,7 +253,6 @@ if __name__ == '__main__':
     # amount = 100
     # company_abbv = 'GOLD'
     # commands.buy_stocks(ctx, amount, company_abbv)
-
 
 
 

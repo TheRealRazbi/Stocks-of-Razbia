@@ -10,7 +10,7 @@ def _fk_pragma_on_connect(dbapi_con, con_record):
     dbapi_con.execute('PRAGMA foreign_keys=ON')
 
 
-engine = create_engine('sqlite:///db.sqlite', echo=True)
+engine = create_engine('sqlite:///db.sqlite', echo=False)
 event.listen(engine, 'connect', _fk_pragma_on_connect)
 Session = sessionmaker(bind=engine)
 

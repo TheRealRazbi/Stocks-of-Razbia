@@ -39,6 +39,8 @@ class Group:
         self.sub_commands = {}
 
     def __call__(self, ctx, *args):
+        if not args:
+            raise CommandError("Valid subcommands : " + ", ".join(self.sub_commands.keys()))
         sub_command_name, *rest = args
         if sub_command_name in self.sub_commands:
             return self.sub_commands[sub_command_name](ctx, *rest)

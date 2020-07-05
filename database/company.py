@@ -1,12 +1,14 @@
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, backref
 
 __all__ = ["Company"]
 import random
 
-from sqlalchemy import Column
+from sqlalchemy import Column, select, func
 from sqlalchemy.sql import sqltypes as t
 
 from .db import Base
+from .shares import Shares
 
 
 class Company(Base):
@@ -44,7 +46,7 @@ class Company(Base):
 
         initial_price = round(self.stock_price, 2)
         self.stock_price = round(self.stock_price * amount, 2)
-        self.price_diff = round(initial_price - self.stock_price, 2)
+        self.price_diff = round(initial_price - self.stock_price, 1)
 
         self.max_decrease += self.decay_rate
         if self.max_decrease > 1:
@@ -76,9 +78,19 @@ class Company(Base):
     def find_by_abbreviation(cls, abbreviation:str, session):
         return session.query(cls).filter_by(abbv=abbreviation).first()
 
+    # @hybrid_property
+    # def remaining_shares(self):
+    #     return 100 - sum(share.amount for share in self.shares)  # TODO: fix the self.shares
+    #
+    # @remaining_shares.expression
+    # def remaining_shares(cls):
+    #     return 100 - select([func.sum(Shares.amount)]).where(
+    #         Shares.company_id == cls.id
+    #     ).label("remaining_shares")
+
     def __str__(self):
         return f"Name: '{self.abbv}' aka '{self.full_name}' "\
-               f"| stock_price: {self.stock_price:.2f} | age: {self.months} months"
+               f"| stock_price: {self.stock_price:.2f} | lifespan: {self.months} months"
 
     def __repr__(self):
         return self._repr(

@@ -8,6 +8,14 @@ import requests
 from asyncirc.protocol import IrcProtocol
 from asyncirc.server import Server
 from irclib.parser import Message
+import sqlalchemy
+from sqlalchemy import Column, select, func, create_engine, event, ForeignKey
+from sqlalchemy.sql import sqltypes as t
+from sqlalchemy.ext.declarative import as_declarative
+from sqlalchemy.orm import sessionmaker, exc, relationship
+from sqlalchemy.ext.hybrid import hybrid_property
+
+import pkg_resources
 
 os.system("cls")
 
@@ -26,8 +34,11 @@ def start_screen(first='Start'):
 
 
 def check_for_updates():
+    print(f"If there's any error that prevents program from starting, please tell {colored('Razbi', 'magenta')} about it. "
+          f"Those are usually solved by deleting {colored('lib/db.sqlite', 'green')}")
+    input("Press enter to continue...")
     porcelain.pull("lib/code/")
-    print(f"{colored('Program Updated [if there was any update available]', 'green')}")
+    print(f"{colored('Program Updated [if there was any update available, the following text should let you figure that out]', 'green')}")
     start_screen()
 
 

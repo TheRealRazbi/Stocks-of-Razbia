@@ -71,10 +71,13 @@ class API:
             self.load_twitch_key()
 
     def generate_twitch_key(self):
-        input(
-            "Despite what the site will say, after you generate the token, put it back here so the minigame can read the chat. Press any key to continue...")
+        input(colored(
+            "Despite what the site will say, after you generate the token, put it back here so the minigame can read the chat. Press any key to continue...", 'red'))
         webbrowser.open("https://twitchapps.com/tmi/")
         # self.twitch_key = getpass("Please generate an IRC token and paste it here: ").strip()
+        print(f"""
+        {colored("For security reason whatever you will write next won't be shown, but it's still written. "
+                 "To paste you need to right click and paste, you can't use CTRL+V", 'red')}""")
         self.twitch_key = validate_input("Please generate an IRC token and paste it here: ", color='magenta', hidden=True)
         with open("lib/twitch_key", "wb") as f:
             pickle.dump(self.twitch_key, f)
@@ -82,6 +85,9 @@ class API:
 
     def generate_streamlabs_token(self):
         webbrowser.open("https://streamlabs.com/api/v1.0/authorize?response_type=code&client_id=vLylBKwHLDIPfhUkOKexM2f6xhLe7rqmKJaeU0kB&redirect_uri=https://razbi.funcity.org/stocks-chat-minigame/generate_token/&scope=points.read+points.write")
+        print(f"""
+{colored("For security reason whatever you will write next won't be shown, but it's still written. "
+         "To paste you need to right click and paste, you can't use CTRL+V", 'red')}""")
         token = validate_input("Please input the generated token: ", character_min=40, hidden=True, color='magenta')
 
         with open("lib/streamlabs_key", "wb") as f:

@@ -117,7 +117,7 @@ class Overlord:
     def load_names(self):
         session = database.Session()
         companies = session.query(Company).all()
-        with open("company_names.txt", "r") as f:
+        with open("lib/code/company_names.txt", "r") as f:
             for line in f:
                 temp = line.strip().split('|')
                 if temp[0].strip():

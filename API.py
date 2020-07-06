@@ -74,14 +74,15 @@ class API:
         input(
             "Despite what the site will say, after you generate the token, put it back here so the minigame can read the chat. Press any key to continue...")
         webbrowser.open("https://twitchapps.com/tmi/")
-        self.twitch_key = getpass("Please generate an IRC token and paste it here: ").strip()
+        # self.twitch_key = getpass("Please generate an IRC token and paste it here: ").strip()
+        self.twitch_key = validate_input("Please generate an IRC token and paste it here: ", color='purple', hidden=True)
         with open("lib/twitch_key", "wb") as f:
             pickle.dump(self.twitch_key, f)
         return self.twitch_key
 
     def generate_streamlabs_token(self):
         webbrowser.open("https://streamlabs.com/api/v1.0/authorize?response_type=code&client_id=vLylBKwHLDIPfhUkOKexM2f6xhLe7rqmKJaeU0kB&redirect_uri=https://razbi.funcity.org/stocks-chat-minigame/generate_token/&scope=points.read+points.write")
-        token = validate_input("Please input the generated token: ", character_min=40, hidden=True)
+        token = validate_input("Please input the generated token: ", character_min=40, hidden=True, color='purple')
 
         with open("lib/streamlabs_key", "wb") as f:
             pickle.dump(token, f)
@@ -115,10 +116,10 @@ class API:
     async def handler(self, conn, message: Message):
         # print("This is a user message", message)
         text: str = message.parameters[1]
-        print(f"Parameters: {text}")
+        # print(f"Parameters: {text}")
 
         username = message.prefix.user
-        print(f"User: {username}")
+        # print(f"User: {username}")
         if not text.startswith(self.prefix):
             return
         text = text[len(self.prefix):]
@@ -132,12 +133,6 @@ class API:
                     self.send_chat_message(f'Usage: {self.prefix}{e.usage}')
                 except commands.CommandError as e:
                     self.send_chat_message(e.msg)
-
-        # commands.buy_stocks(ctx, message.parameters[1])
-        # print()
-        # params = message.parameters[1].lower()
-
-        # commands.buy_stocks()
 
     @staticmethod
     async def fetch_user(name, session):
@@ -164,7 +159,8 @@ class API:
         self.conn.register('PRIVMSG', self.handler)
         await self.conn.connect()
         self.conn.send(f"JOIN #{self.name}")
-        print("start_read_chat ready")
+        print(f"{colored('Ready to read chat commands', 'green')}. "
+              f"To see all available commands type {colored('!stocks', 'cyan')} in the twitch chat")
         # self.conn.send(f"PRIVMSG #{self.name} hello")
         await asyncio.sleep(24 * 60 * 60 * 365 * 100)
 
@@ -192,9 +188,7 @@ class API:
         return commands.group(registry=self.commands, **kwargs)
 
 
-
 if __name__ == '__main__':
-    pass
     api = API()
 
     loop = asyncio.get_event_loop()

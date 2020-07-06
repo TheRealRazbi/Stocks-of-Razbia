@@ -5,23 +5,24 @@ import sqlalchemy as sql
 
 from API import API
 import asyncio
-import commands
+# import commands
 from bot_commands import register_commands
-from contexts import UserContext
+# from contexts import UserContext
 from database import User, Company
 import database
-import pickle
+import custom_tools
+from termcolor import colored
 
 
 class Overlord:
     def __init__(self, loop=None):
         database.Base.metadata.create_all()
-        self.last_check = time.time()
+        self.last_check = 0
         self.loop = asyncio.get_event_loop()
         self.api = API(overlord=self, loop=loop)
         register_commands(self.api)
-        self.iterate_cooldown = 5
-        # self.iterate_cooldown = 0
+        self.iterate_cooldown = 30*60
+        # self.iterate_cooldown = 3
 
         self.max_companies = 10
         self.spawn_ranges = {
@@ -30,9 +31,11 @@ class Overlord:
         }
         self.stock_increase = []
         self.bankrupt_info = []
+        self.owners_of_bankrupt_companies = set()
 
         self.names = {}
         self.load_names()
+        self.load_currency_name()
 
         self.rich = 0
         self.poor = 0
@@ -41,8 +44,8 @@ class Overlord:
         self.load_age()
 
     async def run(self):
-        time_since_last_run = time.time() - self.last_check  # + self.iterate_cooldown  # TODO: remove self.iterate_cooldown
-        if time_since_last_run > self.iterate_cooldown*1:
+        time_since_last_run = time.time() - self.last_check
+        if time_since_last_run > self.iterate_cooldown:
             self.last_check = time.time()
             session = database.Session()
 
@@ -106,6 +109,7 @@ class Overlord:
             for share in shares:
                 user = session.query(database.User).get(share.user_id)
                 self.api.subtract_points(user.name, -share.amount)
+                self.owners_of_bankrupt_companies.add(f'@{user.name}')
                 # print(f"Refunded {share.amount} points to @{user.name}")
             session.delete(company)
             session.commit()
@@ -151,27 +155,40 @@ class Overlord:
 
     def display_update(self, session):
         if self.stock_increase:
-            self.api.send_chat_message(f'Month: {self.months} | {", ".join(self.stock_increase)}')
+            companies_to_announce, owners = self.get_companies_for_updates(session)
+            # self.api.send_chat_message(f'Month: {self.months} | {", ".join(self.stock_increase)}')
+            self.api.send_chat_message(f'Year: {int(self.months/12)} | Month: {self.months%12} | '
+                                       f'{", ".join(companies_to_announce)} {" ".join(owners)}')
             self.stock_increase = []
         # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
         #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
         if self.bankrupt_info:
-            self.api.send_chat_message(f'The following companies bankrupt: {", ".join(self.bankrupt_info)}')
+            self.api.send_chat_message(f'The following companies bankrupt: {", ".join(self.bankrupt_info)} '
+                                       f'{" ".join(self.owners_of_bankrupt_companies)}')
             self.bankrupt_info = []
 
     @staticmethod
     def get_companies_for_updates(session):
         res = []
-        res_set_temp = set()
-        for share in session.query(database.Shares):
-            res_set_temp.add(share.company_id)
+        owners = session.query(database.User.name).filter(database.User.shares).all()
+        owners = [f'@{user}' for user in owners]
+
+        for company in session.query(Company).filter(Company.shares).all():
+            if len(res) >= 5:
+                break
+            message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
+            res.append(message)
 
         if len(res) < 3:
-            richest_companies = session.query(database.Company).order_by(Company.stock_price).limit(3-len(res)).all()
+            richest_companies = session.query(database.Company).order_by(Company.stock_price.desc()).limit(3-len(res)).all()
             for company in richest_companies:
-                message = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}"\
-                          f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}]"
-                res.append(message)
+                # message = f"{company.abbv.upper()}[{company.stock_price - company.price_diff:.1f}{company.price_diff:+}]"
+                message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff / company.stock_price * 100:+.1f}%]"
+                if company.stock_price < 0:
+                    print("A company has like stock_price under 0, I have absolutely no idea how was this possible, please tell Razbi about it")
+                if message not in res:
+                    res.append(message)
+        return res, owners
 
     @staticmethod
     def find_company(abbreviation: str, session):
@@ -210,13 +227,37 @@ class Overlord:
     def main_loop(self):
         pass
 
+    def load_currency_name(self):
+        try:
+            with open("lib/currency_name", "r") as f:
+                self.currency_name = f.read().strip()
+        except FileNotFoundError:
+            with open("lib/currency_name", "w") as f:
+                res = custom_tools.validate_input("How would you want to call your points? E.g.: 'points', 'souls', 'bullets': ", color='green', character_min=4)
+                f.write(res)
+                print(f'{colored(f"Points alias called {res} was saved successfully", "yellow")}')
+            self.load_currency_name()
+
+    @staticmethod
+    def display_credits():
+        print(f"""
+--------------------------------------------------------------------------
+Welcome to {colored('Stocks of Razbia', 'green')}
+This program is open-source and you can read the code at {colored('https://github.com/TheRealRazbi/Stocks-of-Razbia', 'yellow')}
+In fact you can even read the code by opening {colored('lib/code/', 'green')}
+You can check for updates when you start the program and pick the other option.
+This program was made by {colored('Razbi', 'magenta')} and {colored('Nesami', 'magenta')}
+Program started at {colored(str(time.strftime('%H : %M')), 'cyan')}
+--------------------------------------------------------------------------\n
+        """)
+
 
 def start(func, overlord):
     return overlord.loop.run_until_complete(func)
 
 
 async def iterate_forever(overlord: Overlord):
-    await asyncio.sleep(3)
+    await asyncio.sleep(5)
     now = time.time()
     # while overlord.months <= months:
     while True:
@@ -232,6 +273,7 @@ async def iterate_forever_and_start_reading_chat(overlord: Overlord):
 
 if __name__ == '__main__':
     o = Overlord()
+    # print(", ".join(o.api.commands))
     start(iterate_forever_and_start_reading_chat(o), o)
     # session = database.Session()
     # user = session.query(User).get(1)

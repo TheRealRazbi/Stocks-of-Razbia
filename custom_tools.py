@@ -1,7 +1,8 @@
 from getpass import getpass
+from termcolor import colored
 
 
-def validate_input(message: str, character_min=0, hidden=False, requires_int=False, int_range=(1, 3)):
+def validate_input(message: str, character_min=0, hidden=False, requires_int=False, int_range=(1, 3), color=None):
     """
     :param message: The message the user will be shown
     :param character_min: The minimum amount of character for input to pass-through
@@ -12,6 +13,8 @@ def validate_input(message: str, character_min=0, hidden=False, requires_int=Fal
     """
     if not message.endswith(' '):
         message += ' '
+    if color is not None:
+        message = colored(message, color)
     while True:
         invalid = False
         if not hidden:
@@ -39,6 +42,7 @@ def validate_input(message: str, character_min=0, hidden=False, requires_int=Fal
                     break
             else:
                 break
+
     return res
 
 

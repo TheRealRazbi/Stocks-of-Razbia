@@ -20,6 +20,7 @@ class Company(Base):
 
     rich = Column(t.Boolean, default=False)
     stock_price = Column(t.Float)
+    price_diff = Column(t.Float, default=0)
     months = Column(t.Integer, default=0)  # age
 
     increase_chance = Column(t.Integer, default=50)  # percentage
@@ -33,7 +34,7 @@ class Company(Base):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.price_diff = 0
+        # self.price_diff = 0
 
     def iterate(self):
         if self.bankrupt:
@@ -59,10 +60,6 @@ class Company(Base):
 
         return self.price_diff
 
-    @property
-    def market_cap(self):
-        return round(self.stock_price*100)
-
     @classmethod
     def create(cls, starting_price, name=None, **kwargs):
         if name is None:
@@ -75,22 +72,25 @@ class Company(Base):
         )
 
     @classmethod
-    def find_by_abbreviation(cls, abbreviation:str, session):
+    def find_by_abbreviation(cls, abbreviation: str, session):
         return session.query(cls).filter_by(abbv=abbreviation).first()
 
-    # @hybrid_property
-    # def remaining_shares(self):
-    #     return 100 - sum(share.amount for share in self.shares)  # TODO: fix the self.shares
-    #
-    # @remaining_shares.expression
-    # def remaining_shares(cls):
-    #     return 100 - select([func.sum(Shares.amount)]).where(
-    #         Shares.company_id == cls.id
-    #     ).label("remaining_shares")
+    @hybrid_property
+    def remaining_shares(self):
+        return 100 - sum(share.amount for share in self.shares)
+
+    @remaining_shares.expression
+    def remaining_shares(cls):
+        return 100 - select([func.sum(Shares.amount)]).where(
+            Shares.company_id == cls.id
+        ).label("remaining_shares")
 
     def __str__(self):
-        return f"Name: '{self.abbv}' aka '{self.full_name}' "\
-               f"| stock_price: {self.stock_price:.2f} | lifespan: {self.months} months"
+        years = int(self.months / 12)
+        months = self.months % 12
+        return f"Name: '{self.abbv}' aka '{self.full_name}' | stock_price: {self.stock_price:.2f} | " \
+               f"lifespan: {years} {'years' if not years == 1 else 'year'} " \
+               f"and {months} {'months' if not months == 1 else 'month'} | Remaining stocks: {self.remaining_shares}"
 
     def __repr__(self):
         return self._repr(

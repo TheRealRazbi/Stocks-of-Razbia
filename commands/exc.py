@@ -19,6 +19,7 @@ class BadArgumentCount(CommandError):
     def usage(self):
         return self.func.usage
 
+
 class ConversionError(CommandError):
     msg_format = "{value} is not a valid value"
 

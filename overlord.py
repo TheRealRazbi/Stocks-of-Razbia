@@ -158,7 +158,8 @@ class Overlord:
             companies_to_announce, owners = self.get_companies_for_updates(session)
             # self.api.send_chat_message(f'Month: {self.months} | {", ".join(self.stock_increase)}')
             self.api.send_chat_message(f'Year: {int(self.months/12)} | Month: {self.months%12} | '
-                                       f'{", ".join(companies_to_announce)} {" ".join(owners)}')
+                                       f'{", ".join(companies_to_announce)} {" ".join(owners)} | '
+                                       f'Use "!company all" to display all of them.')
             self.stock_increase = []
         # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
         #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")

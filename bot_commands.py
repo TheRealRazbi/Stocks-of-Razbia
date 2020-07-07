@@ -105,6 +105,10 @@ def register_commands(api: API):
     def stocks(ctx):
         ctx.api.send_chat_message(f"Available stocks-related chat commands: {', '.join(ctx.api.commands)}")
 
+    @api.command()
+    def info_minigame(ctx):
+        ctx.api.send_chat_message("This is a stock simulation minigame made by Razbi and Nesami. "
+                                  "Each 30 min equals to a month in-game. Use '!stocks' for printing commands.")
     # @api.command()
     # def test_turtle(ctx, thing: str):
     #     message = ""

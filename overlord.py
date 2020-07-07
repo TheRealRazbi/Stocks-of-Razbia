@@ -67,6 +67,8 @@ class Overlord:
             companies_to_spawn = self.max_companies - session.query(Company).count()
             if companies_to_spawn > 5:
                 companies_to_spawn = 5
+        if session.query(Company).count() == 0 and companies_to_spawn == 5:
+            self.api.send_chat_message("First 5 companies spawned. use '!company all' to see them.")
 
         for _ in range(companies_to_spawn):
             random_abbv = random.choice(list(self.names.items()))

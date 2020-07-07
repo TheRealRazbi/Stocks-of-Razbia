@@ -1,13 +1,14 @@
 In this minigame users can buy and sell stocks for companies.
-Each 30 min a month in-game passes:  
+Each 30 min irl means 1 month in-game:  
 Each month: 
 -5 companies spawn with a max of 10
 -price of each existing company goes up or down randomly
 -an announcement appears talking about the price change on top 3 highest price companies
--the announcement prioritizes the companies users have stocks at
+-the announcement prioritizes the companies where users have stocks at
 -as each company gets older, it has a higher chance of losing more and more money
 -if a company gets bankrupt, it is being announced and it refunds a small amount of money to everyone who had stocks at that company
--companies the users have stocks at are slightly more likely to gain more money
+-companies, the users have stocks at, are slightly more likely to gain more money
 
 
-The minigame and all companies are hosted locally. As this is currently in the testing version, everything is subject to change.
+The minigame and all companies are hosted locally.
+As this is currently in the testing version, everything is subject to change.

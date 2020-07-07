@@ -60,7 +60,7 @@ def print_explanations():
                             ]
 
         explanation = color_with_list(explanation, words_and_colors)
-        print(f'{explanation}')
+        print(f'\n{explanation}\n')
         start_screen()
     else:
         print(f"{colored('Please install the minigame first', 'red')}")

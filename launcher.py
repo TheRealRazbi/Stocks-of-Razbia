@@ -14,7 +14,7 @@ from sqlalchemy.sql import sqltypes as t
 from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import sessionmaker, exc, relationship
 from sqlalchemy.ext.hybrid import hybrid_property
-import dummy
+import sqlalchemy.ext.baked
 
 os.system("cls")
 

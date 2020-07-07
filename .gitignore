@@ -9,3 +9,5 @@
 __pycache__
 /Stocks of Razbia.spec
 /dummy.py
+/build/
+/dist/

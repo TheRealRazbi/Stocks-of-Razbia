@@ -170,8 +170,8 @@ class Overlord:
     @staticmethod
     def get_companies_for_updates(session):
         res = []
-        owners = session.query(database.User.name).filter(database.User.shares).all()
-        owners = [f'@{user}' for user in owners]
+        owners = session.query(database.User).filter(database.User.shares).all()
+        owners = [f'@{user.name}' for user in owners]
 
         for company in session.query(Company).filter(Company.shares).all():
             if len(res) >= 5:

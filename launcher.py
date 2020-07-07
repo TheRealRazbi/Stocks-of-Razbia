@@ -24,11 +24,11 @@ def start_screen(first='Start'):
           f"2 - {colored('Print Explanations', color='yellow')}\n"
           f"3 - {colored('Check for Updates', color='green')}\n"
           f"4 - {colored('Quit', color='red')}\n")
-    if first == 'Install':
+    if first == 'Start':
         print(colored("Please consider using the Print Explanations option in case it's unclear what the minigame does.", 'red'))
-    choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 3))
+    choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 4))
     if choice == 4:
-        sys.exit()
+        raise SystemExit(0)
     elif choice == 3:
         check_for_updates()
     elif choice == 1:
@@ -48,21 +48,30 @@ def color_with_list(text: str, words_and_colors: list):
 
 
 def print_explanations():
-    try:
-        with open("lib/code/explanation.txt", "r") as f:
-            explanation = f.read().strip()
-    except FileNotFoundError:
-        with open("explanation.txt", "r") as f:
-            explanation = f.read().strip()
-    words_and_colors = ['companies', 'yellow', 'company', 'yellow', 'stocks', 'cyan', 'announcement', 'blue',
-                        'month', 'green', 'months', 'green', 'announced', 'blue', 'bankrupt', 'red', 'users', 'magenta',
-                        ]
+    if os.path.exists('lib/code/'):
+        try:
+            with open("lib/code/explanation.txt", "r") as f:
+                explanation = f.read().strip()
+        except FileNotFoundError:
+            with open("explanation.txt", "r") as f:
+                explanation = f.read().strip()
+        words_and_colors = ['companies', 'yellow', 'company', 'yellow', 'stocks', 'cyan', 'announcement', 'blue',
+                            'month', 'green', 'months', 'green', 'announced', 'blue', 'bankrupt', 'red', 'users', 'magenta',
+                            ]
 
-    explanation = color_with_list(explanation, words_and_colors)
-    print(f'{explanation}')
+        explanation = color_with_list(explanation, words_and_colors)
+        print(f'{explanation}')
+        start_screen()
+    else:
+        print(f"{colored('Please install the minigame first', 'red')}")
+        start_screen(first='Install')
 
 
 def check_for_updates():
+    if not os.path.exists('lib/code/'):
+        print(f"{colored('Please install the minigame first', 'red')}")
+        start_screen(first='Install')
+
     print(f"If there's any error that prevents program from starting, please tell {colored('Razbi', 'magenta')} about it. "
           f"Those are usually solved by deleting {colored('lib/db.sqlite', 'green')}")
     input("Press enter to continue...")

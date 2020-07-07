@@ -21,15 +21,45 @@ os.system("cls")
 
 def start_screen(first='Start'):
     print(f"1 - {colored(first, color='cyan')}\n"
-          f"2 - {colored('Check for Updates', color='green')}\n"
-          f"3 - {colored('Quit', color='red')}\n")
+          f"2 - {colored('Print Explanations', color='yellow')}\n"
+          f"3 - {colored('Check for Updates', color='green')}\n"
+          f"4 - {colored('Quit', color='red')}\n")
+    if first == 'Install':
+        print(colored("Please consider using the Print Explanations option in case it's unclear what the minigame does.", 'red'))
     choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 3))
-    if choice == 3:
-        quit()
-    elif choice == 2:
+    if choice == 4:
+        sys.exit()
+    elif choice == 3:
         check_for_updates()
     elif choice == 1:
         start_program()
+    elif choice == 2:
+        print_explanations()
+
+
+def color_this(text: str, word_and_color: tuple):
+    return text.replace(word_and_color[0], f"{colored(*word_and_color)}")
+
+
+def color_with_list(text: str, words_and_colors: list):
+    for word, color in zip(words_and_colors[::2], words_and_colors[1::2]):
+        text = color_this(text, (word, color))
+    return text
+
+
+def print_explanations():
+    try:
+        with open("lib/code/explanation.txt", "r") as f:
+            explanation = f.read().strip()
+    except FileNotFoundError:
+        with open("explanation.txt", "r") as f:
+            explanation = f.read().strip()
+    words_and_colors = ['companies', 'yellow', 'company', 'yellow', 'stocks', 'cyan', 'announcement', 'blue',
+                        'month', 'green', 'months', 'green', 'announced', 'blue', 'bankrupt', 'red', 'users', 'magenta',
+                        ]
+
+    explanation = color_with_list(explanation, words_and_colors)
+    print(f'{explanation}')
 
 
 def check_for_updates():
@@ -48,7 +78,7 @@ def install_program():
 
 
 def start_program():
-    print(f"{colored('If you want the program to automatically check updates and start automatically upon open. Please check the config', 'red')}")
+    # print(f"{colored('If you want the program to automatically check updates and start automatically upon open. Please check the config', 'red')}")
     if not os.path.exists('lib/'):
         os.mkdir('lib/')
     if not os.path.exists('lib/code/'):

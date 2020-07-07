@@ -108,7 +108,8 @@ def register_commands(api: API):
     @api.command()
     def info_minigame(ctx):
         ctx.api.send_chat_message("This is a stock simulation minigame made by Razbi and Nesami. "
-                                  "Each 30 min equals to a month in-game. Use '!stocks' for printing commands.")
+                                  "Each 30 min equals to a month in-game. For a more in-depth explanation, please go to"
+                                  "https://github.com/TheRealRazbi/Stocks-of-Razbia/blob/master/explanation.txt")
     # @api.command()
     # def test_turtle(ctx, thing: str):
     #     message = ""

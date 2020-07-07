@@ -12,6 +12,7 @@ from database import User, Company
 import database
 import custom_tools
 from termcolor import colored
+import math
 
 
 class Overlord:
@@ -68,6 +69,7 @@ class Overlord:
             if companies_to_spawn > 5:
                 companies_to_spawn = 5
         if session.query(Company).count() == 0 and companies_to_spawn == 5:
+            print(colored("hint: you can type the commands only in your twitch chat", "green"))
             self.api.send_chat_message("First 5 companies spawned. use '!company all' to see them.")
 
         for _ in range(companies_to_spawn):
@@ -93,7 +95,13 @@ class Overlord:
                 stock_increase = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}"\
                                  f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}]"
                 self.stock_increase.append(stock_increase)
+                shares = session.query(database.Shares).filter_by(company_id=company.id)
+                for share in shares:
+                    cost = math.ceil(math.ceil(share.amount*company.stock_price)*.1)
+                    user = session.query(User).get(share.user_id)
+                    self.api.subtract_points(user.name, -cost)
 
+                session.commit()
             else:
                 if company.rich:
                     self.rich -= 1

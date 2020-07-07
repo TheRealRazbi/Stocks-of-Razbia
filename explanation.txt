@@ -3,6 +3,7 @@ Each 30 min irl means 1 month in-game:
 Each month: 
 -5 companies spawn with a max of 10
 -price of each existing company goes up or down randomly
+-users gain points equal to 10% of the value of the stocks they own
 -an announcement appears talking about the price change on top 3 highest price companies
 -the announcement prioritizes the companies where users have stocks at
 -as each company gets older, it has a higher chance of losing more and more money

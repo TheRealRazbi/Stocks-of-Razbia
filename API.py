@@ -177,7 +177,7 @@ class API:
         if self.conn:
             self.conn.send(f"PRIVMSG #{self.name} :{message}")
             if message != '':
-                print(f"{colored('Message sent:', 'blue')} {colored(message, 'yellow')}")
+                print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
         else:
             print(f'{colored("No connection yet", "red")}')
 

@@ -8,6 +8,7 @@ import database
 
 def register_commands(api: API):
     company = api.group(name="company")
+    my = api.group(name="my")
 
     @api.command(usage="<company> <amount>")
     def buy(ctx, company: Company, amount: int):
@@ -26,7 +27,7 @@ def register_commands(api: API):
                 ctx.session.add(database.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount))
             company.increase_chance += .15 * amount
             ctx.session.commit()
-            ctx.api.subtract_points(ctx.user.name, cost)
+            ctx.api.upgraded_subtract_points(ctx.user, cost, ctx.session)
         else:
             ctx.api.send_chat_message(f"@{ctx.user.name} has {points} {ctx.api.overlord.currency_name} and requires {cost} aka {cost-points} more")
 
@@ -35,7 +36,7 @@ def register_commands(api: API):
         cost = math.ceil(amount*company.stock_price)
         share = ctx.session.query(database.Shares).get((ctx.user.id, company.id))
         if share and share.amount >= amount:
-            ctx.api.subtract_points(ctx.user.name, -cost)
+            ctx.api.upgraded_subtract_points(ctx.user, -cost, ctx.session)
             share.amount -= amount
             if share.amount == 0:
                 ctx.session.delete(share)
@@ -53,7 +54,9 @@ def register_commands(api: API):
         share = ctx.session.query(database.Shares).get((ctx.user.id, company.id))
         if share:
             cost = math.ceil(share.amount*company.stock_price)
-            ctx.api.subtract_points(ctx.user.name, -cost)
+            ctx.api.upgraded_subtract_points(ctx.user, -cost, ctx.session)
+            company = ctx.sssion.query(Company).get(share.company_id)
+            company.increase_chance -= .15 * share.amount
             ctx.api.send_chat_message(
                 f"@{ctx.user.name} has sold {share.amount} stocks for {cost} {ctx.api.overlord.currency_name}")
             ctx.session.delete(share)
@@ -79,7 +82,7 @@ def register_commands(api: API):
                 ctx.session.add(database.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount))
             company.increase_chance += .15 * amount
             ctx.session.commit()
-            ctx.api.subtract_points(ctx.user.name, cost)
+            ctx.api.upgraded_subtract_points(ctx.user, cost, ctx.session)
         else:
             ctx.api.send_chat_message(f"@{ctx.user.name} has {points} {ctx.api.overlord.currency_name} and requires {cost} aka {cost-points} more")
 
@@ -93,12 +96,13 @@ def register_commands(api: API):
         companies = ctx.session.query(database.Company).all()
         for company in companies:
             # message = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}{company.price_diff:+}]"
-            message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
+            # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
+            message = company.announcement_description
             res.append(message)
         ctx.api.send_chat_message(", ".join(res))
 
     @company.command(usage="<company>")
-    def remaining_shares(ctx, company: Company):
+    def shares(ctx, company: Company):
         ctx.api.send_chat_message(company.remaining_shares)
 
     @api.command()
@@ -110,6 +114,29 @@ def register_commands(api: API):
         ctx.api.send_chat_message("This is a stock simulation minigame made by Razbi and Nesami. "
                                   "Each 30 min equals to a month in-game. For a more in-depth explanation, please go to "
                                   "https://github.com/TheRealRazbi/Stocks-of-Razbia/blob/master/explanation.txt")
+
+    @my.command()
+    def shares(ctx):
+        res = []
+        shares = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id).all()
+        if shares:
+            for share in shares:
+                company = ctx.session.query(Company).get(share.company_id).announcement_description
+                res.append(f"{company}: {share.amount}")
+
+            ctx.api.send_chat_message(", ".join(res))
+        else:
+            ctx.api.send_chat_message(f"@{ctx.user.name} doesn't own any shares.")
+
+    @my.command()
+    def points(ctx):
+        ctx.api.send_chat_message(f"@{ctx.user.name} currently has {ctx.user.points(ctx.api)} {ctx.api.overlord.currency_name}")
+
+    @my.command()
+    def profit(ctx):
+        profit_str = ctx.user.profit_str
+        profit = f"@{ctx.user.name} Profit: {profit_str[0]} Profit Percentage: {profit_str[1]}"
+        ctx.api.send_chat_message(profit)
     # @api.command()
     # def test_turtle(ctx, thing: str):
     #     message = ""

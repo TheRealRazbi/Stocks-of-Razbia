@@ -14,6 +14,9 @@ class User(Base):
     id = Column(t.Integer, primary_key=True)
     name = Column(t.String, nullable=False)
 
+    gain = Column(t.Integer, default=0)
+    lost = Column(t.Integer, default=0)
+
     shares = relationship("Shares", backref="user", passive_deletes=True)
 
     def __str__(self):
@@ -31,3 +34,13 @@ class User(Base):
                        "channel": api.name,
                        }
         return json.loads(requests.request("GET", url, params=querystring).text)["points"]
+
+    @property
+    def profit_str(self):
+        profit = f'{self.gain - self.lost:+}'
+        try:
+            percentage_profit = f'{(self.gain / self.lost * 100):+.2f}%'
+        except ZeroDivisionError:
+            percentage_profit = f'0%'
+        return profit, percentage_profit
+

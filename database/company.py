@@ -40,10 +40,10 @@ class Company(Base):
         if self.bankrupt:
             return
 
-        if random.randrange(1, 100) > self.increase_chance:
+        if random.randrange(1, 100) < self.increase_chance:
             amount = random.uniform(1, 1 + self.max_increase)
         else:
-            amount = random.uniform(1-self.max_decrease, 1)
+            amount = random.uniform(1 - self.max_decrease, 1)
 
         initial_price = round(self.stock_price, 2)
         self.stock_price = round(self.stock_price * amount, 2)
@@ -85,10 +85,15 @@ class Company(Base):
             Shares.company_id == cls.id
         ).label("remaining_shares")
 
+    @property
+    def announcement_description(self):
+        return f"{self.abbv.upper()}[{self.stock_price:.1f}{-(self.price_diff/self.stock_price*100):+.1f}%]"
+
     def __str__(self):
         years = int(self.months / 12)
         months = self.months % 12
         return f"Name: '{self.abbv}' aka '{self.full_name}' | stock_price: {self.stock_price:.2f} | " \
+               f"price change: {-(self.price_diff/self.stock_price*100):+.1f}% | " \
                f"lifespan: {years} {'years' if not years == 1 else 'year'} " \
                f"and {months} {'months' if not months == 1 else 'month'} | Remaining stocks: {self.remaining_shares}"
 

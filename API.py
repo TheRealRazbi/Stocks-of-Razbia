@@ -181,7 +181,7 @@ class API:
         else:
             print(f'{colored("No connection yet", "red")}')
 
-    def subtract_points(self, user, amount):
+    def subtract_points(self, user: str, amount: int):
         url = "https://streamlabs.com/api/v1.0/points/subtract"
         querystring = {"access_token": self.streamlabs_token,
                        "username": user,
@@ -189,6 +189,14 @@ class API:
                        "points": amount}
 
         return json.loads(requests.request("POST", url, data=querystring).text)["points"]
+
+    def upgraded_subtract_points(self, user: User, amount: int, session):
+        if amount < 0:
+            user.gain += -amount
+        elif amount > 0:
+            user.lost += amount
+        session.commit()
+        self.subtract_points(user.name, amount)
 
     def command(self, **kwargs):
         return commands.command(registry=self.commands, **kwargs)

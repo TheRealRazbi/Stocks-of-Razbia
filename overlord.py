@@ -187,14 +187,16 @@ class Overlord:
         for company in session.query(Company).filter(Company.shares).all():
             if len(res) >= 5:
                 break
-            message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
+            # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
+            message = company.announcement_description
             res.append(message)
 
         if len(res) < 3:
             richest_companies = session.query(database.Company).order_by(Company.stock_price.desc()).limit(3-len(res)).all()
             for company in richest_companies:
                 # message = f"{company.abbv.upper()}[{company.stock_price - company.price_diff:.1f}{company.price_diff:+}]"
-                message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff / company.stock_price * 100:+.1f}%]"
+                # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
+                message = company.announcement_description
                 if company.stock_price < 0:
                     print("A company has like stock_price under 0, I have absolutely no idea how was this possible, please tell Razbi about it")
                 if message not in res:

@@ -79,7 +79,7 @@ class API:
         "Please switch to a scene without Window Capture of the browser and without DisplayCapture, as the token will be shown in blank text.", 'red')}""")
         input("Press enter to continue with that warning in mind: ")
         webbrowser.open("https://twitchapps.com/tmi/")
-        self.twitch_key = validate_input("Please generate an IRC token and paste it here: ", color='magenta', character_min=36)
+        self.twitch_key = validate_input("Please generate the twitch IRC token and paste it here: ", color='magenta', character_min=36, character_max=36)
         with open("lib/twitch_key", "wb") as f:
             pickle.dump(self.twitch_key, f)
         return self.twitch_key
@@ -91,7 +91,7 @@ class API:
         input("Press enter to continue with that warning in mind: ")
 
         webbrowser.open("https://streamlabs.com/api/v1.0/authorize?response_type=code&client_id=vLylBKwHLDIPfhUkOKexM2f6xhLe7rqmKJaeU0kB&redirect_uri=https://razbi.funcity.org/stocks-chat-minigame/generate_token/&scope=points.read+points.write")
-        token = validate_input("Please input the generated token: ", character_min=40, color='magenta')
+        token = validate_input("Please input the generated token: ", character_min=40, character_max=40, color='magenta')
 
         with open("lib/streamlabs_key", "wb") as f:
             pickle.dump(token, f)

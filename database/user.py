@@ -38,8 +38,13 @@ class User(Base):
     @property
     def profit_str(self):
         profit = f'{self.gain - self.lost:+}'
+        symbol = '+'
+        gain, lost = self.gain, self.lost
         try:
-            percentage_profit = f'{(self.gain / self.lost * 100):+.2f}%'
+            if self.lost > self.gain:
+                symbol = '-'
+                gain, lost = lost, gain
+            percentage_profit = f'{symbol}{(gain / lost * 100):.0f}% of points invested'
         except ZeroDivisionError:
             percentage_profit = f'0%'
         return profit, percentage_profit

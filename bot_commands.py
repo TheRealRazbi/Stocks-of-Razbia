@@ -55,7 +55,7 @@ def register_commands(api: API):
         if share:
             cost = math.ceil(share.amount*company.stock_price)
             ctx.api.upgraded_subtract_points(ctx.user, -cost, ctx.session)
-            company = ctx.sssion.query(Company).get(share.company_id)
+            company = ctx.session.query(Company).get(share.company_id)
             company.increase_chance -= .15 * share.amount
             ctx.api.send_chat_message(
                 f"@{ctx.user.name} has sold {share.amount} stocks for {cost} {ctx.api.overlord.currency_name}")
@@ -103,11 +103,11 @@ def register_commands(api: API):
 
     @company.command(usage="<company>")
     def shares(ctx, company: Company):
-        ctx.api.send_chat_message(company.remaining_shares)
+        ctx.api.send_chat_message(f"@{ctx.user.name} '{company.abbv}' has {company.remaining_shares} remaining shares")
 
     @api.command()
     def stocks(ctx):
-        ctx.api.send_chat_message(f"Available stocks-related chat commands: {', '.join(ctx.api.commands)}")
+        ctx.api.send_chat_message(f"Available minigame-related chat commands: {', '.join(ctx.api.commands)}")
 
     @api.command()
     def info_minigame(ctx):
@@ -135,7 +135,7 @@ def register_commands(api: API):
     @my.command()
     def profit(ctx):
         profit_str = ctx.user.profit_str
-        profit = f"@{ctx.user.name} Profit: {profit_str[0]} Profit Percentage: {profit_str[1]}"
+        profit = f"@{ctx.user.name} Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1]}"
         ctx.api.send_chat_message(profit)
     # @api.command()
     # def test_turtle(ctx, thing: str):

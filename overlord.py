@@ -70,7 +70,7 @@ class Overlord:
                 companies_to_spawn = 5
         if session.query(Company).count() == 0 and companies_to_spawn == 5:
             print(colored("hint: you can type the commands only in your twitch chat", "green"))
-            self.api.send_chat_message("First 5 companies spawned. use '!company all' to see them.")
+            self.api.send_chat_message("First 5 companies spawned. use '!company all' to see them. Use !stocks to see all available commands")
 
         for _ in range(companies_to_spawn):
             random_abbv = random.choice(list(self.names.items()))
@@ -99,7 +99,7 @@ class Overlord:
                 for share in shares:
                     cost = math.ceil(math.ceil(share.amount*company.stock_price)*.1)
                     user = session.query(User).get(share.user_id)
-                    self.api.subtract_points(user.name, -cost)
+                    self.api.upgraded_subtract_points(user, -cost, session)
 
                 session.commit()
             else:
@@ -169,7 +169,7 @@ class Overlord:
             # self.api.send_chat_message(f'Month: {self.months} | {", ".join(self.stock_increase)}')
             self.api.send_chat_message(f'Year: {int(self.months/12)} | Month: {self.months%12} | '
                                        f'{", ".join(companies_to_announce)} {" ".join(owners)} | '
-                                       f'Use "!company all" to display all of them.')
+                                       f'Use "!stocks" to display all available commands.')
             self.stock_increase = []
         # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
         #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")

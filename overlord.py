@@ -25,10 +25,10 @@ class Overlord:
         self.iterate_cooldown = 30*60
         # self.iterate_cooldown = 3
 
-        self.max_companies = 10
+        self.max_companies = 5
         self.spawn_ranges = {
-            "poor_range": (3, 10),
-            "expensive_range": (10, 30),
+            "poor_range": (5, 15),
+            "expensive_range": (15, 40),
         }
         self.stock_increase = []
         self.bankrupt_info = []
@@ -64,13 +64,15 @@ class Overlord:
 
     def spawn_companies(self, session):
         companies_to_spawn = 0
+        spawned_companies = []
         if session.query(Company).count() < self.max_companies:
             companies_to_spawn = self.max_companies - session.query(Company).count()
-            if companies_to_spawn > 5:
-                companies_to_spawn = 5
-        if session.query(Company).count() == 0 and companies_to_spawn == 5:
+            if companies_to_spawn > 3:
+                companies_to_spawn = 3
+        if session.query(Company).count() == 0 and companies_to_spawn == 3:
             print(colored("hint: you can type the commands only in your twitch chat", "green"))
-            self.api.send_chat_message("First 5 companies spawned. use '!company all' to see them. Use !stocks to see all available commands")
+            self.api.send_chat_message(f"First {companies_to_spawn} companies spawned. use '!company all' to see them. "
+                                       "Use !stocks to see all available commands. Remember: company_abbreviation[current_price, price_change]")
 
         for _ in range(companies_to_spawn):
             random_abbv = random.choice(list(self.names.items()))
@@ -86,6 +88,9 @@ class Overlord:
                 self.rich += 1
             company = Company.create(starting_price, name=random_abbv, rich=rich)
             session.add(company)
+            spawned_companies.append(f"({company.abbv}) {company.full_name}, stock_price: {company.stock_price:.1f}")
+        if spawned_companies:
+            self.api.send_chat_message(f"Newly spawned companies: {' | '.join(spawned_companies)}")
         session.commit()
 
     def iterate_companies(self, session):
@@ -187,6 +192,8 @@ class Overlord:
         for company in session.query(Company).filter(Company.shares).all():
             if len(res) >= 5:
                 break
+            if company.price_diff == 0:
+                continue
             # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
             message = company.announcement_description
             res.append(message)
@@ -194,6 +201,8 @@ class Overlord:
         if len(res) < 3:
             richest_companies = session.query(database.Company).order_by(Company.stock_price.desc()).limit(3-len(res)).all()
             for company in richest_companies:
+                if company.price_diff == 0:
+                    continue
                 # message = f"{company.abbv.upper()}[{company.stock_price - company.price_diff:.1f}{company.price_diff:+}]"
                 # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
                 message = company.announcement_description
@@ -236,9 +245,6 @@ class Overlord:
         self.delete_table_contents(database.User, session=session)
         self.delete_table_contents(database.Shares, session=session)
         session.close()
-
-    def main_loop(self):
-        pass
 
     def load_currency_name(self):
         try:

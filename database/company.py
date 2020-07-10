@@ -24,7 +24,7 @@ class Company(Base):
     months = Column(t.Integer, default=0)  # age
 
     increase_chance = Column(t.Integer, default=50)  # percentage
-    max_increase = Column(t.Float, default=0.2)
+    max_increase = Column(t.Float, default=0.3)
     max_decrease = Column(t.Float, default=0.2)
     decay_rate = Column(t.Float, default=0.015)
 

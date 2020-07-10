@@ -30,3 +30,6 @@ class ConversionError(CommandError):
 
 class CompanyNotFound(ConversionError):
     msg_format = 'Company "{value}" not found'
+
+# class CompanyNotFoundNorInt(ConversionError):
+#     msg_format = ''

@@ -5,7 +5,7 @@ from typing import runtime_checkable, Protocol, Type, Optional, Sequence
 
 from . import exc
 from database import Company
-
+from multi_arg import IntOrStrAll, CompanyOrIntOrAll
 
 registered_converters = {}
 
@@ -13,7 +13,7 @@ registered_converters = {}
 @runtime_checkable
 class Converter(Protocol):
     @classmethod
-    def convert(cls, ctx, arg):
+    def convert(cls, ctx, arg: str):
         ...
 
 
@@ -54,6 +54,44 @@ class CompanyConverter(Converter):
         return company
 
 
+class IntOrAllConverter(Converter):
+    @classmethod
+    def convert(cls, ctx, arg: str):
+        arg = arg.lower()
+        if arg == 'all':
+            return arg
+        try:
+            arg = int(arg)
+        except ValueError as e:
+            raise exc.ConversionError(
+                arg,
+                msg_format="'{value}' needs to be either an Integer or 'all'"
+            ) from e
+        return arg
+
+        # if company is None:
+        #     raise exc.CompanyNotFound(arg.lower())
+        # return company
+
+
+class CompanyOrAllStr(Converter):
+    @classmethod
+    def convert(cls, ctx, arg: str):
+        arg = arg.lower()
+        if arg == 'all':
+            return arg
+        try:
+            arg = int(arg)
+            return arg
+        except ValueError:
+            pass
+        arg = arg.upper()
+        company = Company.find_by_abbreviation(arg, ctx.session)
+        if company is None:
+            raise exc.ConversionError(f"'{arg}' is not 'all',nor an integer, nor a Company so it's")
+        return company
+
+
 IntConverter = create_basic_converter(
     "IntConverter", int,
     msg="{value} is not a valid integer"
@@ -63,3 +101,5 @@ StrConverter = create_basic_converter(
     msg="This should never happen, if you ever see this message, things got REAL wrong."
 )
 register_converter(CompanyConverter, Company)
+register_converter(IntOrAllConverter, IntOrStrAll)
+register_converter(CompanyOrAllStr, CompanyOrIntOrAll)

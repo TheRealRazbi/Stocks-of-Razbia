@@ -10,6 +10,20 @@ Each month:
 -if a company gets bankrupt, it is being announced and it refunds a small amount of money to everyone who had stocks at that company
 -companies, the users have stocks at, are slightly more likely to gain more money
 
+Commands List:
+-!stocks | display all commands
+-!buy <company> <amount> | amount is an integer or 'all'
+-!sell <company> <amount> | amount is an integer or 'all'
+-!company all | to show all companies
+-!company info <company> | show info about a company such as full-name
+-!company shares <company> | it will show the remaining shares
+-!my shares | it will show you all the shares you own
+-!my profit | it will show you all the profit from all points invested
+-!my points | to see your points [in case it uses a different points of system than the stream]
+-!info_company | display a link to this
+
+SUMMARY IF YOU ARE IN A HURRY:
+-buy stocks with !buy | see companies with !company all | sell stocks with !sell | see specific info with !company info
 
 
 The minigame and all companies are hosted locally.

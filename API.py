@@ -124,7 +124,7 @@ class API:
 
     async def handler(self, conn, message: Message):
         # print("This is a user message", message)
-        text: str = message.parameters[1]
+        text: str = message.parameters[1].lower()
         # print(f"Parameters: {text}")
 
         username = message.prefix.user
@@ -169,7 +169,7 @@ class API:
         await self.conn.connect()
         self.conn.send(f"JOIN #{self.name}")
         print(f"{colored('Ready to read chat commands', 'green')}. "
-              f"To see all available commands type {colored('!stocks', 'cyan')} in the twitch chat")
+              f"To see all available commands type {colored('!stocks', 'green')} in the twitch chat")
         # self.conn.send(f"PRIVMSG #{self.name} hello")
         await asyncio.sleep(24 * 60 * 60 * 365 * 100)
 

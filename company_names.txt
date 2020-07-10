@@ -1,12 +1,7 @@
 Razbi's Bot Solutions|RZBI
-Woodcutters|WOOD
-Stone Miners|MINE
 KirkovKalasnikov's Kalasnikovs Store|AK47
-Potato Farmers|FARM
 Nerzul007's Tavern|TAVR
 DragomirCM's Writers Guild|WRTR
-Bob's Builders|BLDG
-King's Musicians|MUSC
 Video Producers of GenAssassin200|VID
 DeadLight10's Design Studio|DSGN
 Dentist Office of Doctorul_|DENT
@@ -14,7 +9,7 @@ Bogdahoh's Carbonated Water|AQUA
 Morhenwolf's Web Solutions|WEB
 Snaketooth1337's Snake Farm|SNAK
 Rukkard's Gym|GYM
-EvilStarCommunity's Game Dev Company|GAME
+EvilStarRomania's Game Dev Company|GAME
 Adi_Kappahalla's Police Department|KAPD
 Codrin_gg_hs's DJs|DJ
 TheVulkan's Voice Acting Company|VOIC

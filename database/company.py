@@ -24,9 +24,9 @@ class Company(Base):
     months = Column(t.Integer, default=0)  # age
 
     increase_chance = Column(t.Integer, default=50)  # percentage
-    max_increase = Column(t.Float, default=0.2)
-    max_decrease = Column(t.Float, default=0.2)
-    decay_rate = Column(t.Float, default=0.015)
+    max_increase = Column(t.Float, default=0.3)
+    max_decrease = Column(t.Float, default=0.25)
+    decay_rate = Column(t.Float, default=0.02)
 
     bankrupt = Column(t.Boolean, default=False)
 
@@ -34,7 +34,6 @@ class Company(Base):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self.price_diff = 0
 
     def iterate(self):
         if self.bankrupt:

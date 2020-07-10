@@ -1,7 +1,7 @@
 In this minigame users can buy and sell stocks for companies.
 Each 30 min irl means 1 month in-game:  
 Each month: 
--5 companies spawn until they reach 10 companies in total
+-3 companies spawn until they reach 5 companies in total
 -price of each existing company goes up or down randomly
 -users gain points equal to 10% of the value of the stocks they own
 -an announcement appears talking about the price change on top 3 highest priced companies

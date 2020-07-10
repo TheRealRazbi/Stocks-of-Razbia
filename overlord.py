@@ -72,7 +72,7 @@ class Overlord:
         if session.query(Company).count() == 0 and companies_to_spawn == 3:
             print(colored("hint: you can type the commands only in your twitch chat", "green"))
             self.api.send_chat_message(f"First {companies_to_spawn} companies spawned. use '!company all' to see them. "
-                                       "Use !stocks to see all available commands. Remember: company_abbreviation[current_price, price_change]")
+                                       "Use !stocks to see basic available commands. Remember: company_abbreviation[current_price, price_change]")
 
         for _ in range(companies_to_spawn):
             random_abbv = random.choice(list(self.names.items()))

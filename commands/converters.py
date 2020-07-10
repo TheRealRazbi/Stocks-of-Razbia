@@ -88,7 +88,7 @@ class CompanyOrAllStr(Converter):
         arg = arg.upper()
         company = Company.find_by_abbreviation(arg, ctx.session)
         if company is None:
-            raise exc.ConversionError(f"'{arg}' is not 'all',nor an integer, nor a Company so it's")
+            raise exc.ConversionError(f"'{arg}' is not 'all', not an integer, nor a Company so it's")
         return company
 
 

@@ -25,10 +25,10 @@ class Overlord:
         self.iterate_cooldown = 30*60
         # self.iterate_cooldown = 3
 
-        self.max_companies = 5
+        self.max_companies = 7
         self.spawn_ranges = {
-            "poor_range": (5, 15),
-            "expensive_range": (15, 40),
+            "poor_range": (6, 15),
+            "expensive_range": (15, 35),
         }
         self.stock_increase = []
         self.bankrupt_info = []
@@ -67,11 +67,11 @@ class Overlord:
         spawned_companies = []
         if session.query(Company).count() < self.max_companies:
             companies_to_spawn = self.max_companies - session.query(Company).count()
-            if companies_to_spawn > 3:
-                companies_to_spawn = 3
-        if session.query(Company).count() == 0 and companies_to_spawn == 3:
+            if companies_to_spawn > 4:
+                companies_to_spawn = 4
+        if session.query(Company).count() == 0 and companies_to_spawn == 4:
             print(colored("hint: you can type the commands only in your twitch chat", "green"))
-            self.api.send_chat_message(f"First {companies_to_spawn} companies spawned. use '!company all' to see them. "
+            self.api.send_chat_message(f"First {companies_to_spawn} companies spawned. use '!companies' to see them. "
                                        "Use !stocks to see basic available commands. Remember: company_abbreviation[current_price, price_change]")
 
         for _ in range(companies_to_spawn):
@@ -292,8 +292,11 @@ async def iterate_forever_and_start_reading_chat(overlord: Overlord):
 
 if __name__ == '__main__':
     o = Overlord()
-    # print(", ".join(o.api.commands))
-    start(iterate_forever_and_start_reading_chat(o), o)
+    # start(iterate_forever_and_start_reading_chat(o), o)
+    import config_server
+    config_server.app.extensions['overlord'] = o
+    config_server.app.run()
+
     # session = database.Session()
     # user = session.query(User).get(1)
     # print(user.points(o.api))

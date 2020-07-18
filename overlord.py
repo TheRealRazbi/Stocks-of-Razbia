@@ -13,11 +13,14 @@ import database
 import custom_tools
 from termcolor import colored
 import math
+import os
+import config_server
 
 
 class Overlord:
     def __init__(self, loop=None):
         database.Base.metadata.create_all()
+        session = database.Session()
         self.last_check = 0
         self.loop = asyncio.get_event_loop()
         self.api = API(overlord=self, loop=loop)
@@ -25,24 +28,29 @@ class Overlord:
         self.iterate_cooldown = 30*60
         # self.iterate_cooldown = 3
 
-        self.max_companies = 5
+        self.max_companies = 7
         self.spawn_ranges = {
-            "poor_range": (5, 15),
-            "expensive_range": (15, 40),
+            "poor_range": (6, 15),
+            "expensive_range": (15, 35),
         }
+        self.settings = {'currency_name': ('', config_server.SettingForm)}
+
         self.stock_increase = []
         self.bankrupt_info = []
         self.owners_of_bankrupt_companies = set()
 
         self.names = {}
         self.load_names()
-        self.load_currency_name()
+        # self.currency_name = ''
+        self.load_currency_name(session=session)
 
         self.rich = 0
         self.poor = 0
         self.load_rich_poor()
 
-        self.load_age()
+        self.months = 0
+        self.load_age(session=session)
+        session.close()
 
     async def run(self):
         time_since_last_run = time.time() - self.last_check
@@ -56,7 +64,7 @@ class Overlord:
 
             self.display_update(session)
             self.months += 1
-            self.update_age()
+            self.update_age(session)
             session.close()
         else:
             await asyncio.sleep(3)
@@ -67,12 +75,13 @@ class Overlord:
         spawned_companies = []
         if session.query(Company).count() < self.max_companies:
             companies_to_spawn = self.max_companies - session.query(Company).count()
-            if companies_to_spawn > 3:
-                companies_to_spawn = 3
-        if session.query(Company).count() == 0 and companies_to_spawn == 3:
+            if companies_to_spawn > 4:
+                companies_to_spawn = 4
+        if session.query(Company).count() == 0 and companies_to_spawn == 4:
             print(colored("hint: you can type the commands only in your twitch chat", "green"))
-            self.api.send_chat_message(f"First {companies_to_spawn} companies spawned. use '!company all' to see them. "
-                                       "Use !stocks to see basic available commands. Remember: company_abbreviation[current_price, price_change]")
+            self.api.send_chat_message(f"Welcome to Stocks of Razbia. "
+                                       "Use '!stocks' to see basic available commands. Remember: company_abbreviation[current_price, price_change] "
+                                       "tip: you don't have to type company names in caps. ")
 
         for _ in range(companies_to_spawn):
             random_abbv = random.choice(list(self.names.items()))
@@ -155,18 +164,28 @@ class Overlord:
                 self.poor = count
         session.close()
 
-    def load_age(self):
-        try:
-            with open("lib/age", "r") as f:
-                self.months = int(f.read().strip())
-        except FileNotFoundError:
-            with open("lib/age", "w") as f:
-                f.write('0')
-            self.load_age()
+    def load_age(self, session):
+        age = session.query(database.Settings).get('age')
+        if age is None:
+            if os.path.exists('lib/age'):
+                with open('lib/age', "r") as f:
+                    age = f.read()
+                session.add(database.Settings(key='age', value=age))
+                session.commit()
+                os.remove('lib/age')
+            else:
+                session.add(database.Settings(key='age', value='0'))
+                session.commit()
+                age = 0
+        else:
+            age = age.value
 
-    def update_age(self):
-        with open("lib/age", "w") as f:
-            f.write(str(self.months))
+        self.months = int(age)
+
+    def update_age(self, session):
+        age = session.query(database.Settings).get('age')
+        age.value = str(self.months)
+        session.commit()
 
     def display_update(self, session):
         if self.stock_increase:
@@ -246,16 +265,31 @@ class Overlord:
         self.delete_table_contents(database.Shares, session=session)
         session.close()
 
-    def load_currency_name(self):
-        try:
-            with open("lib/currency_name", "r") as f:
-                self.currency_name = f.read().strip()
-        except FileNotFoundError:
-            with open("lib/currency_name", "w") as f:
-                res = custom_tools.validate_input("How would you want to call your points? E.g.: 'points', 'souls', 'bullets': ", color='green', character_min=4)
-                f.write(res)
-                print(f'{colored(f"Points alias called {res} was saved successfully", "yellow")}')
-            self.load_currency_name()
+    def load_currency_name(self, session):
+        currency_name = session.query(database.Settings).get('currency_name')
+        if currency_name is None:
+            try:
+                with open("lib/currency_name", "r") as f:
+                    currency_name = f.read().strip()
+                os.remove('lib/currency_name')
+            except FileNotFoundError:
+                currency_name = custom_tools.validate_input(
+                    "How would you want to call your points? E.g.: 'points', 'souls', 'bullets': ", color='green',
+                    character_min=4)
+                print(f'{colored(f"Points alias called {currency_name} was saved successfully. [Tip: these are just a label and they do not affect what currency the minigame uses]", "yellow")}')
+            session.add(database.Settings(key='currency_name', value=currency_name))
+            session.commit()
+        else:
+            currency_name = currency_name.value
+        self.currency_name = currency_name
+
+    @property
+    def currency_name(self):
+        return self.settings['currency_name'][0]
+
+    @currency_name.setter
+    def currency_name(self, other):
+        self.settings['currency_name'] = (other, self.settings['currency_name'][1])
 
     @staticmethod
     def display_credits():
@@ -264,6 +298,7 @@ class Overlord:
 Welcome to {colored('Stocks of Razbia', 'green')}
 This program is open-source and you can read the code at {colored('https://github.com/TheRealRazbi/Stocks-of-Razbia', 'yellow')}
 In fact you can even read the code by opening {colored('lib/code/', 'green')}
+ALL the minigame files are stored in the same folder as the executable, in the {colored('lib/', 'green')}
 You can check for updates when you start the program and pick the other option.
 This program was made by {colored('Razbi', 'magenta')} and {colored('Nesami', 'magenta')}
 Program started at {colored(str(time.strftime('%H : %M')), 'cyan')}
@@ -291,9 +326,13 @@ async def iterate_forever_and_start_reading_chat(overlord: Overlord):
     await asyncio.sleep(60 * 60 * 365 * 100)
 
 if __name__ == '__main__':
+
     o = Overlord()
+
+    config_server.app.overlord = o
+    config_server.app.run()
     # print(", ".join(o.api.commands))
-    start(iterate_forever_and_start_reading_chat(o), o)
+    # start(iterate_forever_and_start_reading_chat(o), o)
     # session = database.Session()
     # user = session.query(User).get(1)
     # print(user.points(o.api))

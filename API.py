@@ -169,7 +169,7 @@ class API:
         await self.conn.connect()
         self.conn.send(f"JOIN #{self.name}")
         print(f"{colored('Ready to read chat commands', 'green')}. "
-              f"To see all available commands type {colored('!stocks', 'green')} in the twitch chat")
+              f"To see all basic commands type {colored('!stocks', 'magenta')} in the twitch chat")
         # self.conn.send(f"PRIVMSG #{self.name} hello")
         await asyncio.sleep(24 * 60 * 60 * 365 * 100)
 

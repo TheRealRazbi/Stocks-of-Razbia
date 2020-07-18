@@ -21,7 +21,7 @@ os.system("cls")
 
 def start_screen(first='Start'):
     print(f"1 - {colored(first, color='cyan')}\n"
-          f"2 - {colored('Print Explanations', color='yellow')}\n"
+          f"2 - {colored('Introduction', color='yellow')}\n"
           f"3 - {colored('Check for Updates', color='green')}\n"
           f"4 - {colored('Quit', color='red')}\n")
     if first == 'Start':
@@ -34,7 +34,7 @@ def start_screen(first='Start'):
     elif choice == 1:
         start_program()
     elif choice == 2:
-        print_explanations()
+        print_intro()
 
 
 def color_this(text: str, word_and_color: tuple):
@@ -47,7 +47,7 @@ def color_with_list(text: str, words_and_colors: list):
     return text
 
 
-def print_explanations():
+def print_intro():
     if os.path.exists('lib/code/'):
         try:
             with open("lib/code/explanation.txt", "r") as f:

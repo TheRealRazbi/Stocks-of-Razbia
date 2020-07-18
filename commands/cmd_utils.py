@@ -18,9 +18,7 @@ def convert(ctx, annotation, arg):
 
 def prepare_args(ctx, command: "Command", args: t.Sequence[str]):
     len_diff = len(args) - len(command.args)
-    if len_diff > 0:
-        raise exc.BadArgumentCount("I have no idea what is this | len_diff > 0", func=command)
-    elif len_diff < 0:
+    if len_diff < 0:
         raise exc.BadArgumentCount("I have no idea what is this | len_diff < 0", func=command)
 
     return [

@@ -15,6 +15,7 @@ from termcolor import colored
 import math
 import os
 import config_server
+import config_server.forms
 
 
 class Overlord:
@@ -33,7 +34,8 @@ class Overlord:
             "poor_range": (6, 15),
             "expensive_range": (15, 35),
         }
-        self.settings = {'currency_name': ('', config_server.SettingForm)}
+        self.settings = {'currency_name': config_server.forms.CurrencyNameForm}
+        self._cache = {}
 
         self.stock_increase = []
         self.bankrupt_info = []
@@ -41,7 +43,6 @@ class Overlord:
 
         self.names = {}
         self.load_names()
-        # self.currency_name = ''
         self.load_currency_name(session=session)
 
         self.rich = 0
@@ -265,31 +266,34 @@ class Overlord:
         self.delete_table_contents(database.Shares, session=session)
         session.close()
 
-    def load_currency_name(self, session):
+    @staticmethod
+    def load_currency_name(session):
         currency_name = session.query(database.Settings).get('currency_name')
         if currency_name is None:
-            try:
+            if os.path.exists('lib/currency_name'):
                 with open("lib/currency_name", "r") as f:
                     currency_name = f.read().strip()
                 os.remove('lib/currency_name')
-            except FileNotFoundError:
+            else:
                 currency_name = custom_tools.validate_input(
                     "How would you want to call your points? E.g.: 'points', 'souls', 'bullets': ", color='green',
                     character_min=4)
                 print(f'{colored(f"Points alias called {currency_name} was saved successfully. [Tip: these are just a label and they do not affect what currency the minigame uses]", "yellow")}')
             session.add(database.Settings(key='currency_name', value=currency_name))
             session.commit()
-        else:
-            currency_name = currency_name.value
-        self.currency_name = currency_name
 
     @property
     def currency_name(self):
-        return self.settings['currency_name'][0]
+        if 'currency_name' in self._cache.keys():
+            return self._cache['currency_name']
+        session = database.Session()
+        currency_name = session.query(database.Settings).get('currency_name').value
+        self._cache['currency_name'] = currency_name
+        return currency_name
 
-    @currency_name.setter
-    def currency_name(self, other):
-        self.settings['currency_name'] = (other, self.settings['currency_name'][1])
+    def mark_dirty(self, setting):
+        if f'{setting}' in self._cache.keys():
+            del self._cache[setting]
 
     @staticmethod
     def display_credits():

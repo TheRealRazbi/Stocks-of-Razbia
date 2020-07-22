@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+        {% for message in get_flashed_messages() %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+		<div>
+            <form action = '/settings/api/streamlabs_token' method = "get">
+                Streamlabs token:
+                <input type = "submit" value = "generate" />
+            </form>
+        </div>
+        <div>
+            <form action = '/settings/api/twitch_token' method = "get">
+                Twitch token:
+                <input type = "submit" value = "generate" />
+            </form>
+        </div>
+	</div>
+{% endblock %}

@@ -14,8 +14,8 @@ class User(Base):
     id = Column(t.Integer, primary_key=True)
     name = Column(t.String, nullable=False)
 
-    gain = Column(t.Integer, default=0)
-    lost = Column(t.Integer, default=0)
+    gain = Column(t.Integer, default=1)
+    lost = Column(t.Integer, default=1)
 
     shares = relationship("Shares", backref="user", passive_deletes=True)
 

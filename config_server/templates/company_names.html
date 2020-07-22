@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+{#    {% load wtforms %}#}
+        <form method="POST">
+            {% for message in get_flashed_messages() %}
+              <div class="flash">{{ message }}</div>
+            {% endfor %}
+
+            <div>
+                <ol>
+                {% for name in names %}
+                    <li> Company Name: {{ name[0] }} | Company Abbreviation: {{ name[1] }}</li>
+{#                        {{ form.value(class="css_class") }}#}
+                {% endfor %}
+                </ol>
+            </div>
+        </form>
+    </div>
+{#        {% for company in companies %}#}
+{#			{{ company.full_name }} <br/>#}
+{#		{% endfor %}	</div>#}
+{% endblock %}

@@ -3,6 +3,7 @@ __all__ = ["engine", "Session", "Base"]
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import sessionmaker, exc
+import os
 
 
 def _fk_pragma_on_connect(dbapi_con, con_record):
@@ -10,7 +11,11 @@ def _fk_pragma_on_connect(dbapi_con, con_record):
     dbapi_con.execute('PRAGMA foreign_keys=ON')
 
 
-engine = create_engine('sqlite:///db.sqlite', echo=False)
+if os.path.exists('db.sqlite'):
+    os.replace('db.sqlite', 'lib/db.sqlite')
+
+
+engine = create_engine('sqlite:///lib/db.sqlite', echo=False)
 event.listen(engine, 'connect', _fk_pragma_on_connect)
 Session = sessionmaker(bind=engine)
 

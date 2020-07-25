@@ -43,7 +43,7 @@ class Overlord:
 
         self.names = {}
         self.load_names()
-        self.load_currency_name(session=session)
+        # self.load_currency_name(session=session)
 
         self.rich = 0
         self.poor = 0
@@ -287,8 +287,14 @@ class Overlord:
         if 'currency_name' in self._cache.keys():
             return self._cache['currency_name']
         session = database.Session()
-        currency_name = session.query(database.Settings).get('currency_name').value
-        self._cache['currency_name'] = currency_name
+        if currency_name := session.query(database.Settings).get('currency_name'):
+            currency_name = currency_name.value
+            self._cache['currency_name'] = currency_name
+        else:
+            currency_name = 'points'
+            self._cache['currency_name'] = currency_name
+            session.add(database.Settings(key='currency_name', value=currency_name))
+            session.commit()
         return currency_name
 
     def mark_dirty(self, setting):

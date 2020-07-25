@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+        {% for message in get_flashed_messages() %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+
+        <form method="POST">
+            <div>
+
+                Currency System: {{ setup_form.currency_system}}<br>
+                Currency Name:   {{ setup_form.currency_name }}<br>
+{#                {{ form.value(class="css_class") }}#}
+                <p><input type="submit" value="Save"></p>
+            </div>
+        </form>
+
+        {% if not tokens_loaded %}
+            <form action = '/settings/api/' method = "get">
+                API Tokens not found. Please generate them.
+                <input type = "submit" value = "generate tokens" />
+            </form>
+        {% endif %}
+
+        {% if setup_form.errors %}
+            <ul class="errors">
+                {% for field_name, field_errors in setup_form.errors|dictsort if field_errors %}
+                    {% for error in field_errors %}
+                        <li>{{ setup_form[field_name].label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+	</div>
+{% endblock %}

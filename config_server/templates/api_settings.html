@@ -6,16 +6,32 @@
           <div class="flash">{{ message }}</div>
         {% endfor %}
 		<div>
-            <form action = '/settings/api/streamlabs_token' method = "get">
+            <form action = '/settings/api/streamlabs_token/generate_token' method = "get">
                 Streamlabs token:
                 <input type = "submit" value = "generate" />
+                {% if streamlabs_token %}
+                [Loaded]
+                {% else %}
+                [Not Found]
+                {% endif %}
             </form>
         </div>
         <div>
-            <form action = '/settings/api/twitch_token' method = "get">
+            <form action = '/settings/api/twitch_token/generate_token' method = "get">
                 Twitch token:
                 <input type = "submit" value = "generate" />
+                {% if twitch_token %}
+                [Loaded]
+                {% else %}
+                [Not Found]
+                {% endif %}
             </form>
         </div>
+        <div>
+            <form action = '/' method = "get">
+                <input type="submit" value="back">
+            </form>
+        </div>
+
 	</div>
 {% endblock %}

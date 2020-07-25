@@ -26,10 +26,12 @@ class API:
     def __init__(self, overlord=None, loop=None, prefix="!"):
         self.overlord = overlord
         self.client_id = 'vLylBKwHLDIPfhUkOKexM2f6xhLe7rqmKJaeU0kB'
-        self.streamlabs_token = ''
+        self._cache = {}
+        self.streamlabs_key = ''
         self.twitch_key = ''
+        self.tokens_ready = False
         self.load_keys()
-        self.name = self.get_user()['twitch']['name'].strip()
+        self._name = None
         self.users = []
         self.conn = None
         self.prefix = prefix
@@ -37,40 +39,29 @@ class API:
         self.loop = loop
 
     def load_keys(self):
-        self.load_streamlabs_key()
-        self.load_twitch_key()
+        session = database.Session()
+        self.load_key(key_name='streamlabs_key', generate_function=self.generate_streamlabs_key, session=session)
+        self.load_key(key_name='twitch_key', generate_function=self.generate_twitch_key, session=session)
+        if self.twitch_key and self.streamlabs_key and self.currency_system:
+            self.tokens_ready = True
 
-    def load_streamlabs_key(self):
-        try:
-            with open("lib/streamlabs_key", "rb") as f:
-                try:
-                    self.streamlabs_token = pickle.load(f)
-                except EOFError:
-                    self.generate_streamlabs_token()
-                if self.streamlabs_token is None:
-                    self.generate_streamlabs_token()
+    def load_key(self, key_name, generate_function=None, session=None):
+        if session is None:
+            session = database.Session()
+        key_db = session.query(database.Settings).get(key_name)
+        if key_db:
+            setattr(self, key_name, key_db.value)
+        else:
+            if os.path.exists(f'lib/{key_name}'):
+                with open(f'lib/{key_name}', 'rb') as f:
+                    key = pickle.load(f)
+                session.add(database.Settings(key=f'{key_name}', value=key))
+                session.commit()
+                os.remove(f'lib/{key_name}')
+            # else:
+            #     setattr(self, key_name, generate_function())
 
-        except FileNotFoundError:
-            with open("lib/streamlabs_key", "w"):
-                pass
-            self.load_streamlabs_key()
-
-    def load_twitch_key(self):
-        try:
-            with open("lib/twitch_key", "rb") as f:
-                try:
-                    twitch_key = pickle.load(f)
-                except EOFError:
-                    twitch_key = self.generate_twitch_key()
-                if twitch_key is None:
-                    twitch_key = self.generate_twitch_key()
-            self.twitch_key = twitch_key
-        except FileNotFoundError:
-            with open("lib/twitch_key", "w"):
-                pass
-            self.load_twitch_key()
-
-    def generate_twitch_key(self):
+    def generate_twitch_key(self, session=None):
         input(colored(
             "Despite what the site will say, after you generate the token, put it back here so the minigame can read the chat. Press any key to continue...", 'red'))
         # self.twitch_key = getpass("Please generate an IRC token and paste it here: ").strip()
@@ -79,29 +70,46 @@ class API:
         "Please switch to a scene without Window Capture of the browser and without DisplayCapture, as the token will be shown in blank text.", 'red')}""")
         input("Press enter to continue with that warning in mind: ")
         webbrowser.open("https://twitchapps.com/tmi/")
-        self.twitch_key = validate_input("Please generate the twitch IRC token and paste it here: ", color='magenta', character_min=36, character_max=36)
-        with open("lib/twitch_key", "wb") as f:
-            pickle.dump(self.twitch_key, f)
+        self.twitch_key = validate_input("Please generate the twitch IRC token and paste it here: ", color='magenta', character_min=30, character_max=30)
+
+        if session is None:
+            session = database.Session()
+        twitch_key_db = session.query(database.Settings).get('twitch_key')
+        if twitch_key_db:
+            twitch_key_db.value = self.twitch_key
+        else:
+            session.add(database.Settings(key='twitch_key', value=self.twitch_key))
+        session.commit()
+        # with open("lib/twitch_key", "wb") as f:
+        #     pickle.dump(self.twitch_key, f)
         return self.twitch_key
 
-    def generate_streamlabs_token(self):
+    def generate_streamlabs_key(self, session=None):
         print(f"""
 {colored("For security reasons if you are streaming right now: "
         "Please switch to a scene without Window Capture of the browser and without DisplayCapture, as the token will be shown in blank text.", 'red')}""")
         input("Press enter to continue with that warning in mind: ")
 
         webbrowser.open("https://streamlabs.com/api/v1.0/authorize?response_type=code&client_id=vLylBKwHLDIPfhUkOKexM2f6xhLe7rqmKJaeU0kB&redirect_uri=https://razbi.funcity.org/stocks-chat-minigame/generate_token/&scope=points.read+points.write")
-        token = validate_input("Please input the generated token: ", character_min=40, character_max=40, color='magenta')
+        self.streamlabs_key = validate_input("Please input the generated token: ", character_min=40, character_max=40, color='magenta')
 
-        with open("lib/streamlabs_key", "wb") as f:
-            pickle.dump(token, f)
+        # with open("lib/streamlabs_key", "wb") as f:
+        #     pickle.dump(token, f)
+        if session is None:
+            session = database.Session()
+        streamlabs_key_db = session.query(database.Settings).get('streamlabs_key')
+        if streamlabs_key_db:
+            streamlabs_key_db.value = self.streamlabs_key
+        else:
+            session.add(database.Settings(key='streamlabs_key', value=self.streamlabs_key))
+        session.commit()
 
-        self.streamlabs_token = token
-        return self.streamlabs_token
+        # self.streamlabs_key = token
+        return self.streamlabs_key
 
     def get_points(self, user: str):
         url = "https://streamlabs.com/api/v1.0/points"
-        querystring = {"access_token": self.streamlabs_token,
+        querystring = {"access_token": self.streamlabs_key,
                        "username": user,
                        "channel": self.name}
         res = requests.request("GET", url, params=querystring)
@@ -109,9 +117,13 @@ class API:
 
     def get_user(self, *args):
         url = "https://streamlabs.com/api/v1.0/user"
-        querystring = {"access_token": self.streamlabs_token}
+        querystring = {"access_token": self.streamlabs_key}
         response = requests.request("GET", url, params=querystring)
-        return json.loads(response.text)
+        response_loaded = json.loads(response.text)
+        if 'twitch' not in response_loaded.keys():
+            print("Didn't find 'twitch' in the api.get_user()")
+            print(response_loaded)
+        return response_loaded
 
     @staticmethod
     async def fetch(session, url):
@@ -183,7 +195,7 @@ class API:
 
     def subtract_points(self, user: str, amount: int):
         url = "https://streamlabs.com/api/v1.0/points/subtract"
-        querystring = {"access_token": self.streamlabs_token,
+        querystring = {"access_token": self.streamlabs_key,
                        "username": user,
                        "channel": self.name,
                        "points": amount}
@@ -203,6 +215,31 @@ class API:
 
     def group(self, **kwargs):
         return commands.group(registry=self.commands, **kwargs)
+
+    @property
+    def name(self):
+        if self._name:
+            return self._name
+        self._name = self.get_user()['twitch']['name'].strip()
+        return self._name
+
+    @property
+    def currency_system(self):
+        if 'currency_system' in self._cache.keys():
+            return self._cache['currency_system']
+        session = database.Session()
+        currency_system_db = session.query(database.Settings).get('currency_system')
+        if currency_system_db is not None:
+            self._cache['currency_system'] = currency_system_db.value
+        else:
+            self._cache['currency_system'] = ''
+            session.add(database.Settings(key='currency_system', value=''))
+            session.commit()
+        return self._cache['currency_system']
+
+    def mark_dirty(self, setting):
+        if f'{setting}' in self._cache.keys():
+            del self._cache[setting]
 
 
 if __name__ == '__main__':

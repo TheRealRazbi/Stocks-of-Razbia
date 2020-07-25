@@ -1,4 +1,4 @@
-from wtforms import Form, BooleanField, StringField, validators
+from wtforms import Form, BooleanField, StringField, validators, SelectField
 
 
 class UsernameForm(Form):
@@ -14,3 +14,9 @@ class CurrencyNameForm(Form):
     value = StringField('value', [validators.Length(min=4)])
 
 
+class SetupForm(Form):
+    currency_system = SelectField('Currency System', choices=[('', 'Please pick a currency system'),
+                                                              ('streamlabs', 'Streamlabs Extension'),
+                                                              ('streamlabs_local', 'Streamlabs Local[not available yet]'),
+                                                              ('stream_elements', 'Stream Elements[not available yet]')])
+    currency_name = StringField('Currency Name', [validators.Length(min=4)])

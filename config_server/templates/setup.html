@@ -16,7 +16,7 @@
             </div>
         </form>
 
-        {% if not tokens_loaded %}
+        {% if not twitch_key or not streamlabs_key %}
             <form action = '/settings/api/' method = "get">
                 API Tokens not found. Please generate them.
                 <input type = "submit" value = "generate tokens" />
@@ -31,6 +31,14 @@
                     {% endfor %}
                 {% endfor %}
             </ul>
+        {% endif %}
+
+        {% if tokens_loaded %}
+            <div>
+                <form action = '/' method = "get">
+                    <input type="submit" value="back">
+                </form>
+            </div>
         {% endif %}
 
 	</div>

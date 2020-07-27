@@ -5,6 +5,28 @@
         {% for message in get_flashed_messages() %}
           <div class="flash">{{ message }}</div>
         {% endfor %}
-		Hello world
+
+        <div>
+            {% if tokens_loaded %}
+            Tokens: Loaded <br>
+            {% endif %}
+        </div>
+
+        <div>
+            {% if not started %}
+            <form action="/start_minigame" method="get">
+                <input type="submit" value="Start Minigame">
+            </form>
+            {% else %}
+                Minigame Started
+            {% endif %}
+        </div>
+
+        <div>
+            <form action="/setup" method="get">
+                <input type="submit" value="Settings">
+            </form>
+        </div>
+
 	</div>
 {% endblock %}

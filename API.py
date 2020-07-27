@@ -29,7 +29,8 @@ class API:
         self._cache = {}
         self.streamlabs_key = ''
         self.twitch_key = ''
-        self.tokens_ready = False
+        # self._tokens_ready = False
+        self.twitch_key_requires_refreshing = False
         self.load_keys()
         self._name = None
         self.users = []
@@ -37,15 +38,20 @@ class API:
         self.prefix = prefix
         self.commands: Dict[str, Union[commands.Command, commands.Group]] = {}
         self.loop = loop
+        self.started = False
+        self.console_buffer = ["example1", "example2"]
+        self.not_sent_buffer = []
 
     def load_keys(self):
         session = database.Session()
-        self.load_key(key_name='streamlabs_key', generate_function=self.generate_streamlabs_key, session=session)
-        self.load_key(key_name='twitch_key', generate_function=self.generate_twitch_key, session=session)
-        if self.twitch_key and self.streamlabs_key and self.currency_system:
-            self.tokens_ready = True
+        self.load_key(key_name='streamlabs_key', session=session)
+        self.load_key(key_name='twitch_key', session=session)
+        self.validate_twitch_token()
+        # if self.twitch_key and self.streamlabs_key and self.currency_system and self.validate_twitch_token():
+        #     self.tokens_ready = True
+        # if self.tokens_ready:
 
-    def load_key(self, key_name, generate_function=None, session=None):
+    def load_key(self, key_name, session=None):
         if session is None:
             session = database.Session()
         key_db = session.query(database.Settings).get(key_name)
@@ -108,22 +114,24 @@ class API:
         return self.streamlabs_key
 
     def get_points(self, user: str):
-        url = "https://streamlabs.com/api/v1.0/points"
-        querystring = {"access_token": self.streamlabs_key,
-                       "username": user,
-                       "channel": self.name}
-        res = requests.request("GET", url, params=querystring)
-        return json.loads(res.text)
+        if self.currency_system == 'streamlabs' and self.tokens_ready:
+            url = "https://streamlabs.com/api/v1.0/points"
+            querystring = {"access_token": self.streamlabs_key,
+                           "username": user,
+                           "channel": self.name}
+            res = requests.request("GET", url, params=querystring)
+            return json.loads(res.text)
 
     def get_user(self, *args):
-        url = "https://streamlabs.com/api/v1.0/user"
-        querystring = {"access_token": self.streamlabs_key}
-        response = requests.request("GET", url, params=querystring)
-        response_loaded = json.loads(response.text)
-        if 'twitch' not in response_loaded.keys():
-            print("Didn't find 'twitch' in the api.get_user()")
-            print(response_loaded)
-        return response_loaded
+        if self.currency_system == 'streamlabs' and self.tokens_ready:
+            url = "https://streamlabs.com/api/v1.0/user"
+            querystring = {"access_token": self.streamlabs_key}
+            response = requests.request("GET", url, params=querystring)
+            response_loaded = json.loads(response.text)
+            if 'twitch' not in response_loaded.keys():
+                print("Didn't find 'twitch' in the api.get_user(). Something's really wrong, Tell Razbi")
+                print(response_loaded)
+            return response_loaded
 
     @staticmethod
     async def fetch(session, url):
@@ -175,32 +183,51 @@ class API:
         return user
 
     async def start_read_chat(self):
-        server = [Server("irc.chat.twitch.tv", 6667, password=self.twitch_key)]
+        while not self.started:
+            await asyncio.sleep(.5)
+        server = [Server("irc.chat.twitch.tv", 6667, password=f'oauth:{self.twitch_key}')]
         self.conn = IrcProtocol(server, nick=self.name, loop=self.loop)
         self.conn.register('PRIVMSG', self.handler)
         await self.conn.connect()
         self.conn.send(f"JOIN #{self.name}")
         print(f"{colored('Ready to read chat commands', 'green')}. "
               f"To see all basic commands type {colored('!stocks', 'magenta')} in the twitch chat")
+        self.clear_unsent_buffer()
+        # print(self.conn.connected)
+        # await asyncio.sleep(2)
+        # print(self.conn.connected)
+        # self.conn.send(f"PRIVMSG #{self.name} :REEEEEEEEEEEEE")
         # self.conn.send(f"PRIVMSG #{self.name} hello")
+        # print(self.twitch_key)
         await asyncio.sleep(24 * 60 * 60 * 365 * 100)
 
     def send_chat_message(self, message: str):
-        if self.conn:
+        if self.conn.connected:
+            # self.clear_unsent_buffer()
             self.conn.send(f"PRIVMSG #{self.name} :{message}")
             if message != '':
                 print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
+                self.console_buffer.append(message)
         else:
             print(f'{colored("No connection yet", "red")}')
+            self.not_sent_buffer.append(message)
+
+    def clear_unsent_buffer(self):
+        if self.not_sent_buffer:
+            temp_buffer = self.not_sent_buffer
+            self.not_sent_buffer = []
+            for element in temp_buffer:
+                self.send_chat_message(element)
 
     def subtract_points(self, user: str, amount: int):
-        url = "https://streamlabs.com/api/v1.0/points/subtract"
-        querystring = {"access_token": self.streamlabs_key,
-                       "username": user,
-                       "channel": self.name,
-                       "points": amount}
+        if self.currency_system == 'streamlabs' and self.tokens_ready:
+            url = "https://streamlabs.com/api/v1.0/points/subtract"
+            querystring = {"access_token": self.streamlabs_key,
+                           "username": user,
+                           "channel": self.name,
+                           "points": amount}
 
-        return json.loads(requests.request("POST", url, data=querystring).text)["points"]
+            return json.loads(requests.request("POST", url, data=querystring).text)["points"]
 
     def upgraded_subtract_points(self, user: User, amount: int, session):
         if amount < 0:
@@ -220,8 +247,9 @@ class API:
     def name(self):
         if self._name:
             return self._name
-        self._name = self.get_user()['twitch']['name'].strip()
-        return self._name
+        if self.tokens_ready:
+            self._name = self.get_user()['twitch']['name'].strip()
+            return self._name
 
     @property
     def currency_system(self):
@@ -240,6 +268,44 @@ class API:
     def mark_dirty(self, setting):
         if f'{setting}' in self._cache.keys():
             del self._cache[setting]
+
+    def validate_twitch_token(self):
+        if not self.twitch_key:
+            return False
+        url = 'https://id.twitch.tv/oauth2/validate'
+        querystring = {'Authorization': f'OAuth {self.twitch_key}'}
+        res = requests.get(url=url, headers=querystring)
+        if res.status_code == 200:
+            self.twitch_key_requires_refreshing = False
+            return True
+        elif res.status_code == 401:
+            print("Twitch Token expired. Refreshing Token whenever possible...")
+            # requests.get(url='https://razbi.funcity.org/stocks-chat-minigame/twitch/refresh_token',
+            #              params={'access_token': self.twitch_key})
+            # webbrowser.open(f'https://razbi.funcity.org/stocks-chat-minigame/twitch/refresh_token?access_token={self.twitch_key}')
+            # requests.get(url=f'https://razbi.funcity.org/stocks-chat-minigame/twitch_login')
+            self.twitch_key_requires_refreshing = True
+            # print(self.twitch_key_requires_refreshing)
+            return False
+        elif res.status_code >= 500:
+            print("server errored or... something. better tell Razbi")
+            return False
+        raise ValueError("A response code appeared that Razbi didn't handle")
+        # print(res.status_code)
+        # print(res.text)
+
+    @property
+    def tokens_ready(self):
+        if 'tokens_ready' in self._cache:
+            return self._cache['tokens_ready']
+        if self.twitch_key and self.streamlabs_key and self.currency_system and self.validate_twitch_token():
+            self._cache['tokens_ready'] = True
+            return True
+        return False
+
+    # @tokens_ready.setter
+    # def tokens_ready(self, other):
+    #     pass
 
 
 if __name__ == '__main__':

@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+        {% for message in get_flashed_messages() %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+
+        Hello World<br>
+        <div id="console">
+            <script>
+                let ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/ws');
+                ws.onmessage = function (event)
+                {
+                console.log(event.data);
+                document.getElementById('console').innerText += 'Message Sent: ' + event.data + '\n';
+                };
+                ws.onopen = function (event) {
+                    ws.send('bob');
+                }
+            </script>
+        </div>
+	</div>
+{% endblock %}

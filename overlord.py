@@ -16,6 +16,7 @@ import math
 import os
 import config_server
 import config_server.forms
+import webbrowser
 
 
 class Overlord:
@@ -23,7 +24,9 @@ class Overlord:
         database.Base.metadata.create_all()
         session = database.Session()
         self.last_check = 0
-        self.loop = asyncio.get_event_loop()
+        self.loop = loop
+        if loop is None:
+            self.loop = asyncio.get_event_loop()
         self.api = API(overlord=self, loop=loop)
         register_commands(self.api)
         self.iterate_cooldown = 30*60
@@ -51,11 +54,16 @@ class Overlord:
 
         self.months = 0
         self.load_age(session=session)
+        self.started = False
+        self.first_run = True
         session.close()
 
     async def run(self):
         time_since_last_run = time.time() - self.last_check
-        if time_since_last_run > self.iterate_cooldown:
+        if time_since_last_run > self.iterate_cooldown and self.started:
+            if self.first_run:
+                self.first_run = False
+                await asyncio.sleep(.5)
             self.last_check = time.time()
             session = database.Session()
 
@@ -322,7 +330,7 @@ def start(func, overlord):
 
 async def iterate_forever(overlord: Overlord):
     await asyncio.sleep(5)
-    now = time.time()
+    # now = time.time()
     # while overlord.months <= months:
     while True:
         await overlord.run()
@@ -335,13 +343,42 @@ async def iterate_forever_and_start_reading_chat(overlord: Overlord):
     o.api.send_chat_message("")
     await asyncio.sleep(60 * 60 * 365 * 100)
 
+
+async def iterate_forever_read_chat_and_run_interface(overlord: Overlord):
+    # webbrowser.open('http://localhost:5000')
+    config_server.app.overlord = overlord
+    # overlord.started = True
+    # overlord.api.started = True
+    # print(dir(config_server.app))
+    # asyncio.create_task(overlord.api.start_read_chat())
+    # asyncio.create_task()
+
+    await asyncio.gather(
+        config_server.app.run_task(use_reloader=False),
+        iterate_forever(overlord),
+        overlord.api.start_read_chat(),
+        asyncio.sleep(60 * 60 * 365 * 100)
+    )
+
+    # await asyncio.create_task(config_server.app.run_task())
+    # await asyncio.create_task(overlord.api.start_read_chat())
+    # await asyncio.create_task(iterate_forever(overlord))
+
+    # asyncio.create_task(await iterate_forever(overlord))
+    # await config_server.app.run()
+    # o.api.send_chat_message("")
+    await asyncio.sleep(60 * 60 * 365 * 100)
+
+
 if __name__ == '__main__':
-
     o = Overlord()
-
-    config_server.app.overlord = o
-    config_server.app.run()
+    start(iterate_forever_read_chat_and_run_interface(o), o)
+    # webbrowser.open('http://localhost:5000')
+    # config_server.app.overlord = o
+    # config_server.app.run()
     # print(", ".join(o.api.commands))
+    # o.started = True
+    # o.api.started = True
     # start(iterate_forever_and_start_reading_chat(o), o)
     # session = database.Session()
     # user = session.query(User).get(1)

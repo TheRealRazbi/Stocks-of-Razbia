@@ -1,10 +1,11 @@
 import webbrowser
 
-from quart import Quart, render_template, request, flash, redirect, url_for
+from quart import Quart, render_template, request, flash, redirect, url_for, websocket
 import database
 from wtforms import validators
 from config_server.forms import SettingForm, SetupForm
 import pickle
+import asyncio
 
 app = Quart(__name__, static_folder="static/static")
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
@@ -12,10 +13,14 @@ app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
 @app.route('/')
 async def home():
-    # print(app.overlord.api.tokens_ready)
+    if app.overlord.api.twitch_key_requires_refreshing:
+        app.overlord.api.twitch_key_requires_refreshing = False
+        return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
+
     if not app.overlord.api.tokens_ready:
         return redirect(url_for('setup'))
-    return await render_template("home.html")
+
+    return await render_template("home.html", tokens_loaded=app.overlord.api.tokens_ready, started=app.overlord.started)
 
 
 @app.route('/setup', methods=['GET', 'POST'])
@@ -33,18 +38,35 @@ async def setup():
                 app.overlord.api.mark_dirty('currency_system')
                 currency_system_db.value = setup_form.currency_system.data
                 session.commit()
+                if setup_form.currency_system.data != 'streamlabs':
+                    await flash("I see you tried saving a system that isn't available yet. "
+                                "I must warn you that the program will literally just crash if you start with the unavailable currency system.")
+                await flash('Currency System saved successful')
         if setup_form.validate() and setup_form.currency_name.data != app.overlord.currency_name:
             if currency_name_db := session.query(database.Settings).get('currency_name'):
                 app.overlord.mark_dirty('currency_name')
                 currency_name_db.value = setup_form.currency_name.data
                 session.commit()
+
+        # if app.overlord.api.streamlabs_key and app.overlord.api.twitch_key and app.overlord.api.currency_system and\
+        #         app.overlord.api.validate_twitch_token():
+        #     app.overlord.api.tokens_ready = True
+
         # if setup_form.errors:
         #     await flash(f"Settings unsaved. {[(error.capitalize(), setup_form.errors[error]) for error in setup_form.errors]}")
 
     # print(dir(setup_form.currency_system))
     # print(setup_form.currency_system.data)
     # print(app.overlord.api.tokens_ready)
-    return await render_template('setup.html', setup_form=setup_form, tokens_loaded=app.overlord.api.tokens_ready)
+    return await render_template('setup.html', setup_form=setup_form, tokens_loaded=app.overlord.api.tokens_ready,
+                                 twitch_key=app.overlord.api.twitch_key, streamlabs_key=app.overlord.api.streamlabs_key)
+
+
+@app.route('/start_minigame')
+async def start_minigame():
+    app.overlord.api.started = True
+    app.overlord.started = True
+    return redirect(url_for('home'))
 
 
 @app.route('/list_company')
@@ -117,8 +139,9 @@ async def save_token(token, token_name, length, session=None):
             token_db = database.Settings(key=token_name, value=token)
             session.add(token_db)
         session.commit()
-        if app.overlord.api.streamlabs_key and app.overlord.api.twitch_key and app.overlord.api.currency_system:
-            app.overlord.api.tokens_ready = True
+        # if app.overlord.api.streamlabs_key and app.overlord.api.twitch_key and app.overlord.api.currency_system and\
+        #         app.overlord.api.validate_twitch_token():
+        #     app.overlord.api.tokens_ready = True
 
         return f"{token_name} saved successfully"
 
@@ -142,26 +165,33 @@ async def load_streamlabs_token():
 
 @app.route('/settings/api/streamlabs_token/generate_token/')
 async def generate_streamlabs_token():
-    # return redirect("https://streamlabs.com/api/v1.0/authorize?response_type=code&client_id=vLylBKwHLDIPfhUkOKexM2f6xhLe7rqmKJaeU0kB&redirect_uri=https://razbi.funcity.org/stocks-chat-minigame/streamlabs_login&scope=points.read+points.write")
     return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamlabs_login")
 
 
 @app.route('/settings/api/twitch_token/generate_token/')
 async def generate_twitch_token():
-    # return redirect("https://id.twitch.tv/oauth2/authorize?client_id=q4nn0g7b07xfo6g1lwhp911spgutps&redirect_uri=https://razbi.funcity.org/stocks-chat-minigame/twitch_login&response_type=code&scope=chat:read+chat:edit")
     return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
 
-    # @app.route('/settings/api/twitch_token')
-# async def this_does_nothing():
-#     webbrowser.open("https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=q4nn0g7b07xfo6g1lwhp911spgutps&redirect_uri=http://localhost:5000/settings/api&scope=openid")
-#
-#     return "literally nothing"
+
+@app.route('/web_sockets_stuff')
+async def web_sockets_stuff():
+    return await render_template('web_sockets_stuff.html')
 
 
-# @app.route('/settings/api/streamlabs_token')
-# async def this_does_nothing_as_well():
-    # webbrowser.open(
-    #     "https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=tq8sa9mxrrnt95mbk332lyjht3nzsh&redirect_uri=https://razbi.funcity.org/notification-centre/tokengen/&scope=openid")
+# @app.websocket('/ws')
+# async def ws():
+#     while True:
+#         data = await websocket.receive()
+#         await websocket.send(data)
+#         print(data)
 
-    # return "literally nothing"
+@app.websocket('/ws')
+async def ws():
+    while True:
+        # data = await websocket.receive()
+        # await websocket.send(f"echo {data}")
+        try:
+            await websocket.send(app.overlord.api.console_buffer.pop(0))
+        except IndexError:
+            await asyncio.sleep(1.5)
 

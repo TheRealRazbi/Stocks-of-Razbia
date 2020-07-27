@@ -13,6 +13,7 @@ def register_commands(api: API):
     company = api.group(name="company")
     my = api.group(name="my")
     all = api.group(name='all')
+    next = api.group(name='next')
 
     @all.command()
     def commands(ctx):
@@ -161,6 +162,12 @@ def register_commands(api: API):
         profit_str = ctx.user.profit_str
         profit = f"@{ctx.user.name} Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1]}"
         ctx.api.send_chat_message(profit)
+
+    @next.command()
+    def month(ctx):
+        time_since_last_run = time.time() - ctx.api.overlord.last_check
+        time_till_next_run = ctx.api.overlord.iterate_cooldown - time_since_last_run
+        ctx.api.send_chat_message(f"@{ctx.user.name} The next month starts in {time_till_next_run/60:.0f} minutes")
 
     # @api.command()
     # def test_turtle(ctx, thing: IntOrStrAll):

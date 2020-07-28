@@ -28,19 +28,21 @@ class User(Base):
         )
 
     def points(self, api):
-        url = "https://streamlabs.com/api/v1.0/points"
-        querystring = {"access_token": api.streamlabs_token,
-                       "username": self.name,
-                       "channel": api.name,
-                       }
-        res = json.loads(requests.request("GET", url, params=querystring).text)
-        try:
-            return res["points"]
-        except KeyError:
-            if res["message"].lower() == "user not found":
+        if api.currency_system == 'streamlabs' and api.tokens_ready:
+            url = "https://streamlabs.com/api/v1.0/points"
+            querystring = {"access_token": api.streamlabs_token,
+                           "username": self.name,
+                           "channel": api.name,
+                           }
+            res = requests.request("GET", url, params=querystring)
+            res_json = json.loads(res.text)
+            if res.status_code == 200:
+                return res_json["points"]
+            if res_json["message"].lower() == "user not found":
                 print("Looks like you don't have loyalty points enabled, therefore users don't have points, so it errors when tries to fetch the points.")
                 input("Please enable streamlabs loyalty points here https://streamlabs.com/dashboard#/loyalty , even if you don't use them, it needs those. Press any key to continue... [it's gonna close itself. open it when you solve it]")
                 raise SystemExit
+        raise ValueError("Unavailable currency system or tokens not ready")
 
     @property
     def profit_str(self):

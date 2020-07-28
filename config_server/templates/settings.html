@@ -2,7 +2,6 @@
 
 {% block body %}
 	<div class="container">
-{#    {% load wtforms %}#}
         <form method="POST">
             {% for message in get_flashed_messages() %}
               <div class="flash">{{ message }}</div>

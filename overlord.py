@@ -5,9 +5,7 @@ import sqlalchemy as sql
 
 from API import API
 import asyncio
-# import commands
 from bot_commands import register_commands
-# from contexts import UserContext
 from database import User, Company
 import database
 import custom_tools
@@ -322,7 +320,7 @@ async def iterate_forever_and_start_reading_chat(overlord: Overlord):
 
 
 async def iterate_forever_read_chat_and_run_interface(overlord: Overlord):
-    webbrowser.open('http://localhost:5000')
+    # webbrowser.open('http://localhost:5000')
     config_server.app.overlord = overlord
 
     await asyncio.gather(

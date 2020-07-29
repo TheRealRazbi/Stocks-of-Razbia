@@ -5,17 +5,9 @@
         {% for message in get_flashed_messages() %}
           <div class="flash">{{ message }}</div>
         {% endfor %}
-		<div>
-            <form action = '/settings/api/streamlabs_token/generate_token' method = "get">
-                Streamlabs token:
-                <input type = "submit" value = "generate" />
-                {% if streamlabs_token %}
-                [Loaded]
-                {% else %}
-                [Not Found]
-                {% endif %}
-            </form>
-        </div>
+
+
+
         <div>
             <form action = '/settings/api/twitch_token/generate_token' method = "get">
                 Twitch token:
@@ -27,11 +19,41 @@
                 {% endif %}
             </form>
         </div>
+        {% if currency_system == 'streamlabs' %}
+		<div>
+            <form action = '/settings/api/streamlabs_token/generate_token' method = "get">
+                Streamlabs token:
+                <input type = "submit" value = "generate" />
+                {% if streamlabs_token %}
+                [Loaded]
+                {% else %}
+                [Not Found]
+                {% endif %}
+            </form>
+        </div>
+        {% elif currency_system == 'stream_elements' %}
+        <div>
+            <form action = '/settings/api/stream_elements_token/generate_token' method = "get">
+                StreamElements token:
+                <input type = "submit" value = "generate" />
+                {% if stream_elements_token %}
+                [Loaded]
+                {% else %}
+                [Not Found]
+                {% endif %}
+            </form>
+        </div>
+        {% endif %}
+
         <div>
             <form action = '/' method = "get">
                 <input type="submit" value="back">
             </form>
         </div>
+
+        Tokens are required for the minigame to function.<br>
+        For example the Twitch token is required for reading chat and the other options are for currency manipulation.<br>
+
 
 	</div>
 {% endblock %}

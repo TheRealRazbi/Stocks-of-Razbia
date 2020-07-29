@@ -15,7 +15,7 @@ from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import sessionmaker, exc, relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 import sqlalchemy.ext.baked
-from quart import Quart, render_template, request, flash, redirect, url_for
+from quart import Quart, render_template, request, flash, redirect, url_for, websocket
 
 os.system("cls")
 
@@ -74,10 +74,10 @@ def check_for_updates():
         start_screen(first='Install')
 
     print(f"If there's any error that prevents program from starting, please tell {colored('Razbi', 'magenta')} about it. "
-          f"Those are usually solved by deleting {colored('lib/db.sqlite', 'green')}")
-    input("Press enter to continue...")
+          f"Those are usually solved by deleting {colored('lib/db.sqlite', 'green')} or by asking {colored('Razbi', 'magenta')} for an updated .exe")
+    input("Press enter to continue... [this is just a warning]: ")
     porcelain.pull("lib/code/")
-    print(f"{colored('Program Updated [if there was any update available, the following text should let you figure that out]', 'green')}")
+    print(f"{colored('Program Updated [if there was any update available, the following text should let you figure that out, no, really, I have no easy way of figuring it out]', 'green')}")
     start_screen()
 
 

@@ -28,21 +28,38 @@ class User(Base):
         )
 
     def points(self, api):
-        if api.currency_system == 'streamlabs' and api.tokens_ready:
-            url = "https://streamlabs.com/api/v1.0/points"
-            querystring = {"access_token": api.streamlabs_token,
-                           "username": self.name,
-                           "channel": api.name,
-                           }
-            res = requests.request("GET", url, params=querystring)
-            res_json = json.loads(res.text)
-            if res.status_code == 200:
-                return res_json["points"]
-            if res_json["message"].lower() == "user not found":
-                print("Looks like you don't have loyalty points enabled, therefore users don't have points, so it errors when tries to fetch the points.")
-                input("Please enable streamlabs loyalty points here https://streamlabs.com/dashboard#/loyalty , even if you don't use them, it needs those. Press any key to continue... [it's gonna close itself. open it when you solve it]")
-                raise SystemExit
-        raise ValueError("Unavailable currency system or tokens not ready")
+        if api.tokens_ready:
+            if api.currency_system == 'streamlabs':
+                url = "https://streamlabs.com/api/v1.0/points"
+                querystring = {"access_token": api.streamlabs_token,
+                               "username": self.name,
+                               "channel": api.name,
+                               }
+                res = requests.get(url, params=querystring)
+                if res.status_code == 200:
+                    return res.json()["points"]
+                # if res.json()["message"].lower() == "user not found":
+                #     print("Looks like you don't have loyalty points enabled, therefore users don't have points, so it errors when tries to fetch the points.")
+                #     input("Please enable streamlabs loyalty points here https://streamlabs.com/dashboard#/loyalty , even if you don't use them, it needs those. Press any key to continue... [it's gonna close itself. open it when you solve it]")
+                #     raise SystemExit
+                elif res.status_code >= 500:
+                    print("streamlabs server errored or... something. better tell Razbi, although its probably a Streamlabs thing. "
+                          "to prevent screwing people's points, the program will shutdown as you press Enter")
+                    input("Press 'enter' to quit")
+
+            if api.currency_system == 'stream_elements':
+                url = f'https://api.streamelements.com/kappa/v2/points/{api.stream_elements_id}/{self.name}'
+                headers = {'Authorization': f'Bearer {api.stream_elements_key}'}
+                res = requests.get(url, headers=headers)
+                if res.status_code == 200:
+                    return res.json()['points']
+                elif res.status_code >= 500:
+                    print("stream_elements server errored or... something. better tell Razbi, although its probably a stream_elements thing. "
+                          "to prevent screwing people's points, the program will shutdown as you press Enter")
+                    input("Press 'enter' to quit")
+
+            raise ValueError(f"Unavailable Currency System: {api.currency_system}")
+        raise ValueError("Tokens not ready for use. Tell Razbi about this.")
 
     @property
     def profit_str(self):

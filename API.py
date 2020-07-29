@@ -39,6 +39,7 @@ class API:
         session = database.Session()
         self.load_key(key_name='streamlabs_key', session=session)
         self.load_key(key_name='twitch_key', session=session)
+        self.load_key(key_name='stream_elements_key', session=session)
         self.validate_twitch_token()
 
     def load_key(self, key_name, session=None):
@@ -56,6 +57,7 @@ class API:
                 os.remove(f'lib/{key_name}')
 
     def get_user(self):
+        """:returns: Information regarding the Streamer through Twitch API. Currently used just for fetching the name."""
         if self.tokens_ready:
             url = "https://api.twitch.tv/helix/users"
             headers = {"Authorization": f'Bearer {self.twitch_key}', 'Client-ID': f'{self.twitch_client_id}'}
@@ -140,24 +142,31 @@ class API:
                 self.send_chat_message(element)
         # print(f"{colored('All unsent messages have been sent now', 'green')}")
 
-    def subtract_points(self, user: str, amount: int):
-        if self.currency_system == 'streamlabs' and self.tokens_ready:
-            url = "https://streamlabs.com/api/v1.0/points/subtract"
-            querystring = {"access_token": self.streamlabs_key,
-                           "username": user,
-                           "channel": self.name,
-                           "points": amount}
+    def add_points(self, user: str, amount: int):
+        if self.tokens_ready:
+            if self.currency_system == 'streamlabs':
+                url = "https://streamlabs.com/api/v1.0/points/subtract"
+                querystring = {"access_token": self.streamlabs_key,
+                               "username": user,
+                               "channel": self.name,
+                               "points": -amount}
 
-            return json.loads(requests.request("POST", url, data=querystring).text)["points"]
-        raise ValueError("Unavailable currency system or tokens not ready")
+                return requests.post(url, data=querystring).json()["points"]
+            elif self.currency_system == 'stream_elements':
+                url = f'https://api.streamelements.com/kappa/v2/points/{self.stream_elements_id}/{user}/{amount}'
+                headers = {'Authorization': f'Bearer {self.stream_elements_key}'}
+                return requests.put(url, headers=headers).json()["newAmount"]
 
-    def upgraded_subtract_points(self, user: User, amount: int, session):
+            raise ValueError(f"Unavailable Currency System: {self.currency_system}")
+        raise ValueError("Tokens not ready for use. Tell Razbi about this.")
+
+    def upgraded_add_points(self, user: User, amount: int, session):
         if amount < 0:
-            user.gain += -amount
+            user.gain += amount
         elif amount > 0:
-            user.lost += amount
+            user.lost += -amount
         session.commit()
-        self.subtract_points(user.name, amount)
+        self.add_points(user.name, amount)
 
     def command(self, **kwargs):
         return commands.command(registry=self.commands, **kwargs)
@@ -213,10 +222,31 @@ class API:
     def tokens_ready(self):
         if 'tokens_ready' in self._cache:
             return self._cache['tokens_ready']
-        if self.twitch_key and self.streamlabs_key and self.currency_system and self.validate_twitch_token():
-            self._cache['tokens_ready'] = True
-            return True
+        if self.currency_system and self.twitch_key and self.validate_twitch_token():
+            if self.currency_system == 'streamlabs' and self.streamlabs_key or\
+                    self.currency_system == 'stream_elements' and self.stream_elements_key:
+                self._cache['tokens_ready'] = True
+                return True
         return False
+
+    @property
+    def stream_elements_id(self):
+        if 'stream_elements_id' in self._cache:
+            return self._cache['stream_elements_id']
+        if self.tokens_ready:
+            session = database.Session()
+            stream_elements_id_db = session.query(database.Settings).get('stream_elements_id')
+            if stream_elements_id_db:
+                self._cache['stream_elements_id'] = stream_elements_id_db.value
+                return stream_elements_id_db.value
+            url = f'https://api.streamelements.com/kappa/v2/channels/{self.name}'
+            headers = {'accept': 'application/json'}
+            res = requests.get(url, headers=headers)
+            if res.status_code == 200:
+                stream_elements_id = res.json()['_id']
+                self._cache['stream_elements_id'] = stream_elements_id
+                session.add(database.Settings(key='stream_elements_id', value=stream_elements_id))
+                return stream_elements_id
 
 
 if __name__ == '__main__':

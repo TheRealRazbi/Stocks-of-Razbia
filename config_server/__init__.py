@@ -3,7 +3,7 @@ import webbrowser
 from quart import Quart, render_template, request, flash, redirect, url_for, websocket
 import database
 from wtforms import validators
-from config_server.forms import SettingForm, SetupForm
+from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm
 import pickle
 import asyncio
 
@@ -38,7 +38,7 @@ async def setup():
                 app.overlord.api.mark_dirty('currency_system')
                 currency_system_db.value = setup_form.currency_system.data
                 session.commit()
-                if setup_form.currency_system.data != 'streamlabs':
+                if setup_form.currency_system.data != 'streamlabs' and setup_form.currency_system.data != 'stream_elements':
                     await flash("I see you tried saving a system that isn't available yet. "
                                 "I must warn you that the program will literally just crash if you start with the unavailable currency system.")
                 await flash('Currency System saved successful')
@@ -58,8 +58,14 @@ async def setup():
     # print(dir(setup_form.currency_system))
     # print(setup_form.currency_system.data)
     # print(app.overlord.api.tokens_ready)
+    chosen_key = ''
+    if app.overlord.api.currency_system == 'streamlabs':
+        chosen_key = app.overlord.api.streamlabs_key
+    elif app.overlord.api.currency_system == 'stream_elements':
+        chosen_key = app.overlord.api.stream_elements_key
     return await render_template('setup.html', setup_form=setup_form, tokens_loaded=app.overlord.api.tokens_ready,
-                                 twitch_key=app.overlord.api.twitch_key, streamlabs_key=app.overlord.api.streamlabs_key)
+                                 twitch_key=app.overlord.api.twitch_key, chosen_key=chosen_key,
+                                 currency_system=app.overlord.api.currency_system)
 
 
 @app.route('/start_minigame')
@@ -123,7 +129,9 @@ async def company_names():
 async def token_settings():
     return await render_template('api_settings.html',
                                  streamlabs_token=app.overlord.api.streamlabs_key,
-                                 twitch_token=app.overlord.api.twitch_key)
+                                 twitch_token=app.overlord.api.twitch_key,
+                                 stream_elements_token=app.overlord.api.stream_elements_key,
+                                 currency_system=app.overlord.api.currency_system)
 
 
 async def save_token(token, token_name, length, session=None):
@@ -173,6 +181,29 @@ async def generate_twitch_token():
     return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
 
 
+@app.route('/settings/api/stream_elements_token/generate_token/', methods=['GET', 'POST'])
+async def generate_stream_elements_token():
+    # return redirect("https://razbi.funcity.org/stocks-chat-minigame/stream_elements_login")
+    form_data = None
+    if request.method == 'POST':
+        form_data = await request.form
+    stream_elements_token_form = StreamElementsTokenForm(form_data)
+    if request.method == 'POST':
+        if stream_elements_token_form.validate():
+            # stream_elements_token = StreamElementsTokenForm.token.data
+            session = database.Session()
+            stream_elements_token_db = session.query(database.Settings).get('stream_elements_key')
+            if stream_elements_token_db:
+                stream_elements_token_db.value = stream_elements_token_form.token.data
+            else:
+                session.add(database.Settings(key='stream_elements_key', value=stream_elements_token_form.token.data))
+            session.commit()
+            app.overlord.api.stream_elements_key = stream_elements_token_form.token.data
+            await flash("StreamElements token saved successfully.")
+
+    return await render_template('generate_stream_elements_token.html', stream_elements_form=stream_elements_token_form)
+
+
 @app.route('/web_sockets_stuff')
 async def web_sockets_stuff():
     return await render_template('web_sockets_stuff.html')
@@ -194,4 +225,18 @@ async def ws():
             await websocket.send(app.overlord.api.console_buffer.pop(0))
         except IndexError:
             await asyncio.sleep(1.5)
+
+
+@app.websocket('/streamlabs')
+async def streamlabs_ws():
+    while True:
+        await websocket.send('REEEEE')
+        data = await websocket.receive()
+        # await websocket.send(f"echo {data}")
+        print(f'received: {data}')
+        print(f'sent: REEEE')
+        await asyncio.sleep(5)
+
+
+
 

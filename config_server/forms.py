@@ -15,8 +15,15 @@ class CurrencyNameForm(Form):
 
 
 class SetupForm(Form):
-    currency_system = SelectField('Currency System', choices=[('', 'Please pick a currency system'),
+    currency_system = SelectField('Currency System', choices=[
+                                                              ('', 'Please pick a currency system'),
                                                               ('streamlabs', 'Streamlabs Extension'),
+                                                              ('stream_elements', 'Stream Elements'),
                                                               ('streamlabs_local', 'Streamlabs Local[not available yet]'),
-                                                              ('stream_elements', 'Stream Elements[not available yet]')])
+                                                              ]
+                                  )
     currency_name = StringField('Currency Name', [validators.Length(min=4)])
+
+
+class StreamElementsTokenForm(Form):
+    token = StringField('token', [validators.Length(min=40)])

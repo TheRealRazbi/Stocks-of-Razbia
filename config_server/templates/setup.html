@@ -16,7 +16,7 @@
             </div>
         </form>
 
-        {% if not twitch_key or not streamlabs_key %}
+        {% if currency_system and (not twitch_key or not chosen_key) %}
             <form action = '/settings/api/' method = "get">
                 API Tokens not found. Please generate them.
                 <input type = "submit" value = "generate tokens" />

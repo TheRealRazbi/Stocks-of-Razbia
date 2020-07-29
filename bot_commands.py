@@ -60,7 +60,7 @@ def register_commands(api: API):
                 ctx.session.add(database.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount))
             company.increase_chance += .15 * amount
             ctx.session.commit()
-            ctx.api.upgraded_subtract_points(ctx.user, cost, ctx.session)
+            ctx.api.upgraded_add_points(ctx.user, -cost, ctx.session)
         else:
             ctx.api.send_chat_message(f"@{ctx.user.name} has {points} {ctx.api.overlord.currency_name} and requires {cost} aka {cost-points} more")
 
@@ -87,7 +87,7 @@ def register_commands(api: API):
                 amount = share.amount
             cost = math.ceil(amount * company.stock_price)
 
-            ctx.api.upgraded_subtract_points(ctx.user, -cost, ctx.session)
+            ctx.api.upgraded_add_points(ctx.user, cost, ctx.session)
             share.amount -= amount
             if share.amount == 0:
                 ctx.session.delete(share)

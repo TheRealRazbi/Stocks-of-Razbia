@@ -8,9 +8,9 @@
             {% endfor %}
 
             <div>
-                {% for form in forms_ %}
-                        {{ form.value.label}}:
-                        {{ form.value(class="css_class") }}
+                {% for form in forms %}
+                    {{ form.value.label}}:
+                    {{ form.value(class="css_class") }}
                 {% endfor %}
             </div>
         </form>

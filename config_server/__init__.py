@@ -1,14 +1,29 @@
-import webbrowser
+import json
+from contextlib import suppress
+from typing import Type, List, Optional
 
 from quart import Quart, render_template, request, flash, redirect, url_for, websocket
 import database
-from wtforms import validators
-from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm
+from wtforms import validators, Form, FieldList
+from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm, CompaniesNames
 import pickle
 import asyncio
 
 app = Quart(__name__, static_folder="static/static")
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+
+
+def getattr_chain(obj, attr: List[str]):
+    with suppress(AttributeError):
+        for name in attr:
+            obj = getattr(obj, name)
+        return obj
+
+
+async def get_formdata():
+    if request.method == 'POST':
+        return await request.form
+    return None
 
 
 @app.route('/')
@@ -84,13 +99,10 @@ async def list_companies():
 
 @app.route('/settings', methods=['GET', 'POST'])
 async def settings():
-    form_data = None
-    if request.method == 'POST':
-        form_data = await request.form
+    form_data = await get_formdata()
 
     forms_ = []
     for setting_name, setting in app.overlord.settings.items():
-
         setting = setting(form_data, data={'value': getattr(app.overlord, setting_name)}, prefix=setting_name)
         setting.value.label = setting_name
         forms_.append(setting)
@@ -113,16 +125,36 @@ async def settings():
 
 @app.route('/settings/company_names', methods=['GET', 'POST'])
 async def company_names():
-    names = []
-    with open("lib/code/company_names.txt", "r") as f:
-        for line in f:
-            line = line.strip().split('|')
-            temp = []
-            for element in line:
-                temp.append(element)
-            names.append(temp)
-
-    return await render_template("company_names.html", names=names)
+    setting_name = "company_names"
+    formdata = await get_formdata()
+    session = database.Session()
+    obj: database.Settings = session.query(database.Settings).get(setting_name)
+    if obj:
+        names = json.loads(obj.value)
+    else:
+        # TODO: get defaults
+        names = [{"company_name": "French keyboards", "abbv": "azerty"}]
+    form = CompaniesNames(formdata, data={"items": names})
+    if request.method == "POST":
+        field: Optional[FieldList]
+        if "add_field" in formdata:
+            field_path = formdata.get("add_field").split("-")
+            field = getattr_chain(form, field_path)
+            if field is not None:
+                field.append_entry()
+        elif "delete_field" in formdata:
+            *field_path, field_num = formdata.get("delete_field").split("-")
+            field = getattr_chain(form, field_path)
+            if field is not None:
+                field.entries = [
+                    entry
+                    for entry in field.entries
+                    if not entry.id.endswith(f"-{field_num}")
+                ]
+        elif form.validate():
+            # TODO: Bruh handle saving of the data
+            pass
+    return await render_template("company_names.html", form=form)
 
 
 @app.route('/settings/api/', methods=['GET'])
@@ -236,7 +268,3 @@ async def streamlabs_ws():
         print(f'received: {data}')
         print(f'sent: REEEE')
         await asyncio.sleep(5)
-
-
-
-

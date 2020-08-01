@@ -1,3 +1,4 @@
+__all__ = ["Settings"]
 from sqlalchemy import Column, select, func
 from sqlalchemy.sql import sqltypes as t
 

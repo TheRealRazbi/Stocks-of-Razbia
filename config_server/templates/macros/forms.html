@@ -1,0 +1,57 @@
+{% macro render_field(field, label_text=None) %}
+	{% if field.type == "FormField" %}
+		{% for subfield in field %}
+			{{ render_field(subfield) }}
+		{% endfor %}
+	{% elif field.type == "BooleanField" %}
+		<div class="input-group-prepend">
+			<span class="input-group-text">
+				{{ field.label(label_text, class="m-0") }}
+				{{ field(class="ml-1") }}
+			</span>
+    </div>
+	{% elif field.type == "FieldList" %}
+		{{ render_field_list(field) }}
+	{% else %}
+		{{ render_label_field(field, label_text) }}
+	{% endif %}
+{% endmacro %}
+
+{% macro render_label_field(field, label_text=None) %}
+    <div class="input-group-prepend">
+        {{ field.label(label_text, class="input-group-text") }}
+    </div>
+    {{ field(class="form-control") }}
+{% endmacro %}
+
+{% macro render_field_list_item(field, del_label, index, deletable) %}
+	<div class="input-group mb-1">
+					{{ render_field(field, "N° %d" % index) }}
+					{% if deletable %}
+						<div class="input-group-append">
+							<button
+									class="btn btn-danger" aria-label="{{ del_label }}"
+									name="delete_field" value="{{ field.id }}" formnovalidate
+							><span aria-hidden="true">X</span></button>
+						</div>
+					{% endif %}
+				</div>
+{% endmacro %}
+
+{% macro render_field_list(field_list, add_label, del_label) %}
+	<div class="mb-2" id="{{ field_list.id }}">
+		<div class="entries">
+			{% set deletable = field_list.entries | length > field_list.min_entries  %}
+			{% for field in field_list.entries %}
+				<div class="input-group mb-1">
+					{{ render_field_list_item(field, del_label, loop.index, deletable) }}
+				</div>
+			{% endfor %}
+			<button
+					class="btn btn-block btn-primary" name="add_field"
+					value="{{ field_list.id }}" formnovalidate
+			>{{ add_label }}</button>
+
+		</div>
+	</div>
+{% endmacro %}

@@ -1,3 +1,4 @@
+__all__ = ["Shares"]
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.sql import sqltypes as t
 

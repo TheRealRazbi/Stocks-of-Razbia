@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'macros/forms.html' import render_field_list %}
 
 {% block body %}
 	<div class="container">
@@ -7,15 +8,7 @@
             {% for message in get_flashed_messages() %}
               <div class="flash">{{ message }}</div>
             {% endfor %}
-
-            <div>
-                <ol>
-                {% for name in names %}
-                    <li> Company Name: {{ name[0] }} | Company Abbreviation: {{ name[1] }}</li>
-{#                        {{ form.value(class="css_class") }}#}
-                {% endfor %}
-                </ol>
-            </div>
+						{{ render_field_list(form.items, "Add a company", "Remove this company") }}
         </form>
     </div>
 {#        {% for company in companies %}#}

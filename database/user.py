@@ -1,3 +1,4 @@
+__all__ = ["User"]
 from sqlalchemy import Column
 from sqlalchemy.sql import sqltypes as t
 from sqlalchemy.orm import relationship

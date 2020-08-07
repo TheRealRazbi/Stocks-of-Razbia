@@ -28,7 +28,7 @@ class Overlord:
             self.loop = asyncio.get_event_loop()
         self.api = API(overlord=self, loop=loop)
         register_commands(self.api)
-        self.iterate_cooldown = 30*60
+        self.iterate_cooldown = 10*60
         # self.iterate_cooldown = 3
 
         self.max_companies = 7
@@ -116,7 +116,7 @@ class Overlord:
                 for share in shares:
                     cost = math.ceil(math.ceil(share.amount*company.stock_price)*.1)
                     user = session.query(User).get(share.user_id)
-                    await self.api.upgraded_add_points(user, -cost, session)
+                    await self.api.upgraded_add_points(user, cost, session)
 
                 session.commit()
             else:
@@ -135,7 +135,7 @@ class Overlord:
             shares = session.query(database.Shares).filter_by(company_id=company.id).all()
             for share in shares:
                 user = session.query(database.User).get(share.user_id)
-                await self.api.upgraded_add_points(user, -share.amount, session)
+                await self.api.upgraded_add_points(user, share.amount, session)
                 self.owners_of_bankrupt_companies.add(f'@{user.name}')
                 # print(f"Refunded {share.amount} points to @{user.name}")
             session.delete(company)
@@ -202,9 +202,13 @@ class Overlord:
         if self.stock_increase:
             companies_to_announce, owners = self.get_companies_for_updates(session)
             # self.api.send_chat_message(f'Month: {self.months} | {", ".join(self.stock_increase)}')
-            self.api.send_chat_message(f'Year: {int(self.months/12)} | Month: {self.months%12} | '
-                                       f'{", ".join(companies_to_announce)} {" ".join(owners)} | '
-                                       f'Use "!stocks" to display all available commands.')
+
+            # self.api.send_chat_message(f'Year: {int(self.months/12)} | Month: {self.months%12} | '
+            #                            f'{", ".join(companies_to_announce)} {" ".join(owners)} | '
+            #                            f'Use "!stocks" to display all available commands.')
+
+            # self.api.send_chat_message(f"Minigame basic commands: !introduction, !companies, !my shares, !buy, !all commands, !stocks")
+
             self.stock_increase = []
         # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
         #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
@@ -212,6 +216,15 @@ class Overlord:
             self.api.send_chat_message(f'The following companies bankrupt: {", ".join(self.bankrupt_info)} '
                                        f'{" ".join(self.owners_of_bankrupt_companies)}')
             self.bankrupt_info = []
+
+    async def start_periodic_announcement(self):
+        while True:
+            if self.started:
+                self.api.send_chat_message(
+                    f"Minigame basic commands: !introduction, !companies, !my shares, !buy, !all commands, !stocks")
+                await asyncio.sleep(60 * 30)
+            else:
+                await asyncio.sleep(.5)
 
     @staticmethod
     def get_companies_for_updates(session):
@@ -337,6 +350,7 @@ async def iterate_forever_read_chat_and_run_interface(overlord: Overlord):
         iterate_forever(overlord),
         overlord.api.start_read_chat(),
         overlord.api.twitch_key_auto_refresher(),
+        overlord.start_periodic_announcement(),
         asyncio.sleep(60 * 60 * 365 * 100),
     )
 

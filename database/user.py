@@ -17,6 +17,7 @@ class User(Base):
 
     gain = Column(t.Integer, default=1)
     lost = Column(t.Integer, default=1)
+    new = Column(t.Boolean, default=True)
 
     shares = relationship("Shares", backref="user", passive_deletes=True)
 

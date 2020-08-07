@@ -82,8 +82,10 @@ class API:
 
     async def handler(self, conn, message: Message):
         # print("This is a user message", message)
-        text: str = message.parameters[1].lower()
+        original_text: str = message.parameters[1]
         # print(f"Parameters: {text}")
+
+        text = original_text.lower()
 
         username = message.prefix.user
         # print(f"User: {username}")
@@ -94,8 +96,11 @@ class API:
         if command_name in self.commands:
             with contextlib.closing(database.Session()) as session:
                 ctx = await self.create_context(username, session)
+                if not original_text.islower():
+                    self.send_chat_message(f"@{ctx.user.name} tip: all commands and arguments are case-insensitive.")
                 try:
                     await self.commands[command_name](ctx, *args)
+
                 except commands.BadArgumentCount as e:
                     self.send_chat_message(f'Usage: {self.prefix}{e.usage}')
                 except commands.CommandError as e:
@@ -136,7 +141,7 @@ class API:
             self.conn.send(f"PRIVMSG #{self.name} :{message}")
             if message != '':
                 print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
-                self.console_buffer.append(message)
+                self.console_buffer.append(str(message))
         else:
             # print(f'{colored("No connection to the chat yet. Will send message as soon as possible", "red")}')
             self.not_sent_buffer.append(message)

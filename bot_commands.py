@@ -16,7 +16,7 @@ def register_commands(api: API):
     next = api.group(name='next')
 
     @all.command()
-    def commands(ctx):
+    async def commands(ctx):
         thing_to_display = []
         for command_name, command in ctx.api.commands.items():
             if isinstance(command, commands_.Command):
@@ -27,7 +27,7 @@ def register_commands(api: API):
         ctx.api.send_chat_message(f"All minigame-related chat commands: {', '.join(thing_to_display)}")
 
     @api.command(usage="<company> <amount>")
-    def buy(ctx, company: CompanyOrIntOrAll, amount: CompanyOrIntOrAll):
+    async def buy(ctx, company: CompanyOrIntOrAll, amount: CompanyOrIntOrAll):
         if isinstance(company, Company) and not isinstance(amount, Company):
             if amount == 'all':
                 amount = company.remaining_shares
@@ -42,7 +42,7 @@ def register_commands(api: API):
             ctx.api.send_chat_message(f"@{ctx.user.name} didn't input any company. You need to input a value and a company")
             return
 
-        points = ctx.user.points(ctx.api)
+        points = await ctx.user.points(ctx.api)
         cost = math.ceil(amount*company.stock_price)
 
         if company.remaining_shares == 0:
@@ -60,12 +60,12 @@ def register_commands(api: API):
                 ctx.session.add(database.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount))
             company.increase_chance += .15 * amount
             ctx.session.commit()
-            ctx.api.upgraded_add_points(ctx.user, -cost, ctx.session)
+            await ctx.api.upgraded_add_points(ctx.user, -cost, ctx.session)
         else:
             ctx.api.send_chat_message(f"@{ctx.user.name} has {points} {ctx.api.overlord.currency_name} and requires {cost} aka {cost-points} more")
 
     @api.command(usage="<company> <amount>")
-    def sell(ctx, company: CompanyOrIntOrAll, amount: CompanyOrIntOrAll):
+    async def sell(ctx, company: CompanyOrIntOrAll, amount: CompanyOrIntOrAll):
         if isinstance(company, Company) and not isinstance(amount, Company):
             pass
             # if amount == 'all':
@@ -87,7 +87,7 @@ def register_commands(api: API):
                 amount = share.amount
             cost = math.ceil(amount * company.stock_price)
 
-            ctx.api.upgraded_add_points(ctx.user, cost, ctx.session)
+            await ctx.api.upgraded_add_points(ctx.user, cost, ctx.session)
             share.amount -= amount
             if share.amount == 0:
                 ctx.session.delete(share)
@@ -103,11 +103,11 @@ def register_commands(api: API):
             ctx.api.send_chat_message(message)
 
     @company.command(usage="<company>")
-    def info(ctx, company: Company):
+    async def info(ctx, company: Company):
         ctx.api.send_chat_message(company)
 
     @api.command()
-    def companies(ctx):
+    async def companies(ctx):
         res = []
         companies = ctx.session.query(database.Company).order_by(Company.stock_price.desc()).all()
         for company in companies:
@@ -118,15 +118,15 @@ def register_commands(api: API):
         ctx.api.send_chat_message(", ".join(res))
 
     @company.command(usage="<company>")
-    def shares(ctx, company: Company):
+    async def shares(ctx, company: Company):
         ctx.api.send_chat_message(f"@{ctx.user.name} '{company.abbv}' has {company.remaining_shares} remaining shares")
 
     @api.command()
-    def stocks(ctx):
+    async def stocks(ctx):
         ctx.api.send_chat_message(f"@{ctx.user.name} Minigame basic commands: !buy, !companies, !my shares, !help_minigame, !all commands")
 
     @api.command()
-    def help_minigame(ctx):
+    async def help_minigame(ctx):
         ctx.api.send_chat_message("This is a stock simulation minigame made by Razbi and Nesami | "
                                   "Company[current_price, price_change] | "
                                   "Price changes each 30 min | "
@@ -135,13 +135,13 @@ def register_commands(api: API):
                                   "https://github.com/TheRealRazbi/Stocks-of-Razbia/blob/master/explanation.txt")
 
     @api.command()
-    def next_month(ctx):
+    async def next_month(ctx):
         time_since_last_run = time.time() - ctx.api.overlord.last_check
         time_till_next_run = ctx.api.overlord.iterate_cooldown - time_since_last_run
         ctx.api.send_chat_message(f"@{ctx.user.name} The next month starts in {time_till_next_run/60:.0f} minutes")
 
     @my.command()
-    def shares(ctx):
+    async def shares(ctx):
         res = []
         shares = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id).all()
         if shares:
@@ -154,17 +154,17 @@ def register_commands(api: API):
             ctx.api.send_chat_message(f"@{ctx.user.name} doesn't own any shares.")
 
     @my.command()
-    def points(ctx):
-        ctx.api.send_chat_message(f"@{ctx.user.name} currently has {ctx.user.points(ctx.api)} {ctx.api.overlord.currency_name}")
+    async def points(ctx):
+        ctx.api.send_chat_message(f"@{ctx.user.name} currently has {await ctx.user.points(ctx.api)} {ctx.api.overlord.currency_name}")
 
     @my.command()
-    def profit(ctx):
+    async def profit(ctx):
         profit_str = ctx.user.profit_str
         profit = f"@{ctx.user.name} Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1]}"
         ctx.api.send_chat_message(profit)
 
     @next.command()
-    def month(ctx):
+    async def month(ctx):
         time_since_last_run = time.time() - ctx.api.overlord.last_check
         time_till_next_run = ctx.api.overlord.iterate_cooldown - time_since_last_run
         ctx.api.send_chat_message(f"@{ctx.user.name} The next month starts in {time_till_next_run/60:.0f} minutes")

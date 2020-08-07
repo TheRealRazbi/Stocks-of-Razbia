@@ -1,4 +1,5 @@
 import json
+import time
 from contextlib import suppress
 from typing import Type, List, Optional
 
@@ -6,7 +7,6 @@ from quart import Quart, render_template, request, flash, redirect, url_for, web
 import database
 from wtforms import validators, Form, FieldList
 from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm, CompaniesNames
-import pickle
 import asyncio
 
 app = Quart(__name__, static_folder="static/static")
@@ -20,7 +20,7 @@ def getattr_chain(obj, attr: List[str]):
         return obj
 
 
-async def get_formdata():
+async def get_form_data():
     if request.method == 'POST':
         return await request.form
     return None
@@ -30,12 +30,15 @@ async def get_formdata():
 async def home():
     if app.overlord.api.twitch_key_requires_refreshing:
         app.overlord.api.twitch_key_requires_refreshing = False
+        app.overlord.api.twitch_key_just_refreshed = True
         return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
 
     if not app.overlord.api.tokens_ready:
         return redirect(url_for('setup'))
 
-    return await render_template("home.html", tokens_loaded=app.overlord.api.tokens_ready, started=app.overlord.started)
+    app.overlord.api.console_buffer_done = []
+    return await render_template("home.html", tokens_loaded=app.overlord.api.tokens_ready, started=app.overlord.started,
+                                 currency_system=app.overlord.api.currency_system.capitalize())
 
 
 @app.route('/setup', methods=['GET', 'POST'])
@@ -52,32 +55,30 @@ async def setup():
             if currency_system_db := session.query(database.Settings).get('currency_system'):
                 app.overlord.api.mark_dirty('currency_system')
                 currency_system_db.value = setup_form.currency_system.data
+                # if app.overlord.currency_name == 'streamlabs_local':
+                #     app.overlord.api.send_chat_message("!connect_minigame")
                 session.commit()
-                if setup_form.currency_system.data != 'streamlabs' and setup_form.currency_system.data != 'stream_elements':
-                    await flash("I see you tried saving a system that isn't available yet. "
-                                "I must warn you that the program will literally just crash if you start with the unavailable currency system.")
-                await flash('Currency System saved successful')
+                if app.overlord.api.currency_system == 'streamlabs_local' and app.overlord.api.started:
+                    app.overlord.api.send_chat_message('!connect_minigame')
+                # if setup_form.currency_system.data != 'streamlabs' and setup_form.currency_system.data != 'stream_elements':
+                #     await flash("I see you tried saving a system that isn't available yet. "
+                #                 "I must warn you that the program will literally just crash if you start with the unavailable currency system.")
+                await flash('Currency System saved successfully')
         if setup_form.validate() and setup_form.currency_name.data != app.overlord.currency_name:
             if currency_name_db := session.query(database.Settings).get('currency_name'):
                 app.overlord.mark_dirty('currency_name')
                 currency_name_db.value = setup_form.currency_name.data
+
                 session.commit()
 
-        # if app.overlord.api.streamlabs_key and app.overlord.api.twitch_key and app.overlord.api.currency_system and\
-        #         app.overlord.api.validate_twitch_token():
-        #     app.overlord.api.tokens_ready = True
-
-        # if setup_form.errors:
-        #     await flash(f"Settings unsaved. {[(error.capitalize(), setup_form.errors[error]) for error in setup_form.errors]}")
-
-    # print(dir(setup_form.currency_system))
-    # print(setup_form.currency_system.data)
-    # print(app.overlord.api.tokens_ready)
     chosen_key = ''
     if app.overlord.api.currency_system == 'streamlabs':
         chosen_key = app.overlord.api.streamlabs_key
     elif app.overlord.api.currency_system == 'stream_elements':
         chosen_key = app.overlord.api.stream_elements_key
+    elif app.overlord.api.currency_system == 'streamlabs_local':
+        chosen_key = 'I have to write something here I guess'
+
     return await render_template('setup.html', setup_form=setup_form, tokens_loaded=app.overlord.api.tokens_ready,
                                  twitch_key=app.overlord.api.twitch_key, chosen_key=chosen_key,
                                  currency_system=app.overlord.api.currency_system)
@@ -99,7 +100,7 @@ async def list_companies():
 
 @app.route('/settings', methods=['GET', 'POST'])
 async def settings():
-    form_data = await get_formdata()
+    form_data = await get_form_data()
 
     forms_ = []
     for setting_name, setting in app.overlord.settings.items():
@@ -117,6 +118,8 @@ async def settings():
                     setting = session.query(database.Settings).get(setting_form.value.label)
                     setting.value = setting_form.value.data
                     session.commit()
+                    if app.overlord.started and setting_form.value.label == 'streamlabs_local':
+                        app.overlord.api.send_chat_message("!connect_minigame")
             else:
                 await flash(f"Settings unsaved. {setting_form.errors['value']}")
 
@@ -126,24 +129,24 @@ async def settings():
 @app.route('/settings/company_names', methods=['GET', 'POST'])
 async def company_names():
     setting_name = "company_names"
-    formdata = await get_formdata()
+    form_data = await get_form_data()
     session = database.Session()
-    obj: database.Settings = session.query(database.Settings).get(setting_name)
-    if obj:
-        names = json.loads(obj.value)
+    company_names_db: database.Settings = session.query(database.Settings).get(setting_name)
+    if company_names_db:
+        names = json.loads(company_names_db.value)
     else:
-        # TODO: get defaults
-        names = [{"company_name": "French keyboards", "abbv": "azerty"}]
-    form = CompaniesNames(formdata, data={"items": names})
+        names = [{"company_name": "Razbia", "abbv": "umm I dunno"}]
+
+    form = CompaniesNames(form_data, data={"items": names})
     if request.method == "POST":
         field: Optional[FieldList]
-        if "add_field" in formdata:
-            field_path = formdata.get("add_field").split("-")
+        if "add_field" in form_data:
+            field_path = form_data.get("add_field").split("-")
             field = getattr_chain(form, field_path)
             if field is not None:
                 field.append_entry()
-        elif "delete_field" in formdata:
-            *field_path, field_num = formdata.get("delete_field").split("-")
+        elif "delete_field" in form_data:
+            *field_path, field_num = form_data.get("delete_field").split("-")
             field = getattr_chain(form, field_path)
             if field is not None:
                 field.entries = [
@@ -152,8 +155,14 @@ async def company_names():
                     if not entry.id.endswith(f"-{field_num}")
                 ]
         elif form.validate():
-            # TODO: Bruh handle saving of the data
-            pass
+            if company_names_db and company_names_db.value != form.data['items']:
+                company_names_db.value = json.dumps(form.data['items'])
+                session.commit()
+                app.overlord.load_names()
+            await flash("Company names saved successfully.")
+        else:
+            await flash(form.errors)
+
     return await render_template("company_names.html", form=form)
 
 
@@ -189,8 +198,22 @@ async def save_token(token, token_name, length, session=None):
 @app.route('/settings/api/twitch_token/')
 async def load_twitch_token():
     twitch_token = request.args.getlist('access_token')
-    # print(twitch_token)
-    await save_token(token=twitch_token, token_name='twitch_key', length=30)
+    session = database.Session()
+    await save_token(token=twitch_token, token_name='twitch_key', length=30, session=session)
+    expires_in = request.args.getlist('expires_in')
+    if expires_in:
+        expires_at = str(int(time.time()) + int(expires_in[0]))
+        expires_at_db = session.query(database.Settings).get('twitch_key_expires_at')
+        if expires_at_db:
+            expires_at_db.value = expires_at
+        else:
+            session.add(database.Settings(key='twitch_key_expires_at', value=expires_at))
+        session.commit()
+
+    if app.overlord.api.twitch_key_just_refreshed:
+        app.overlord.api.twitch_key_just_refreshed = False
+        print("Twitch Token refreshed.")
+        return redirect(url_for('home'))
 
     return redirect(url_for('token_settings'))
 
@@ -233,7 +256,8 @@ async def generate_stream_elements_token():
             app.overlord.api.stream_elements_key = stream_elements_token_form.token.data
             await flash("StreamElements token saved successfully.")
 
-    return await render_template('generate_stream_elements_token.html', stream_elements_form=stream_elements_token_form)
+    return await render_template('generate_stream_elements_token.html', stream_elements_form=stream_elements_token_form,
+                                 stream_elements_token=app.overlord.api.stream_elements_key)
 
 
 @app.route('/web_sockets_stuff')
@@ -241,30 +265,34 @@ async def web_sockets_stuff():
     return await render_template('web_sockets_stuff.html')
 
 
-# @app.websocket('/ws')
-# async def ws():
-#     while True:
-#         data = await websocket.receive()
-#         await websocket.send(data)
-#         print(data)
+@app.route('/about')
+async def about():
+    return await render_template('about.html')
+
 
 @app.websocket('/ws')
 async def ws():
     while True:
-        # data = await websocket.receive()
-        # await websocket.send(f"echo {data}")
-        try:
-            await websocket.send(app.overlord.api.console_buffer.pop(0))
-        except IndexError:
-            await asyncio.sleep(1.5)
+        if app.overlord.api.console_buffer != app.overlord.api.console_buffer_done:
+            res = "\n".join(app.overlord.api.console_buffer)
+            # app.overlord.api.console_buffer_done = [element for element in app.overlord.api.console_buffer]
+            app.overlord.api.console_buffer_done = app.overlord.api.console_buffer.copy()
+            await websocket.send(res)
+        else:
+            await asyncio.sleep(.5)
 
 
 @app.websocket('/streamlabs')
 async def streamlabs_ws():
     while True:
-        await websocket.send('REEEEE')
-        data = await websocket.receive()
-        # await websocket.send(f"echo {data}")
-        print(f'received: {data}')
-        print(f'sent: REEEE')
-        await asyncio.sleep(5)
+        if app.overlord.api.streamlabs_local_send_buffer:
+            message_to_send = app.overlord.api.streamlabs_local_send_buffer
+            await websocket.send(message_to_send)
+            data = await websocket.receive()
+            app.overlord.api.streamlabs_local_receive_buffer = data
+            app.overlord.api.streamlabs_local_send_buffer = ''
+
+            # print(f'received: {data}')
+            # print(f'sent: {message_to_send}')
+        await asyncio.sleep(.5)
+

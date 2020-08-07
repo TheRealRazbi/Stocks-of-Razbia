@@ -1,3 +1,4 @@
+import time
 from typing import Union, Dict
 import requests
 import pickle
@@ -23,6 +24,7 @@ class API:
         self.streamlabs_key = ''
         self.twitch_key = ''
         self.twitch_key_requires_refreshing = False
+        self.twitch_key_just_refreshed = False
         self.stream_elements_key = ''
         self.load_keys()
         self._name = None
@@ -32,8 +34,13 @@ class API:
         self.commands: Dict[str, Union[commands.Command, commands.Group]] = {}
         self.loop = loop
         self.started = False
-        self.console_buffer = []
+        self.console_buffer = ['placeholder']
+        # self.console_buffer = [f'message{i}' for i in range(1)]
+        self.console_buffer_done = []
         self.not_sent_buffer = []
+        # self.streamlabs_local_send_buffer = '!add_points razbith3player 10'
+        self.streamlabs_local_send_buffer = ''
+        self.streamlabs_local_receive_buffer = ''
 
     def load_keys(self):
         session = database.Session()
@@ -88,7 +95,7 @@ class API:
             with contextlib.closing(database.Session()) as session:
                 ctx = await self.create_context(username, session)
                 try:
-                    self.commands[command_name](ctx, *args)
+                    await self.commands[command_name](ctx, *args)
                 except commands.BadArgumentCount as e:
                     self.send_chat_message(f'Usage: {self.prefix}{e.usage}')
                 except commands.CommandError as e:
@@ -125,7 +132,7 @@ class API:
         await asyncio.sleep(24 * 60 * 60 * 365 * 100)
 
     def send_chat_message(self, message: str):
-        if self.conn.connected:
+        if self.conn and self.conn.connected:
             self.conn.send(f"PRIVMSG #{self.name} :{message}")
             if message != '':
                 print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
@@ -142,7 +149,7 @@ class API:
                 self.send_chat_message(element)
         # print(f"{colored('All unsent messages have been sent now', 'green')}")
 
-    def add_points(self, user: str, amount: int):
+    async def add_points(self, user: str, amount: int):
         if self.tokens_ready:
             if self.currency_system == 'streamlabs':
                 url = "https://streamlabs.com/api/v1.0/points/subtract"
@@ -156,17 +163,23 @@ class API:
                 url = f'https://api.streamelements.com/kappa/v2/points/{self.stream_elements_id}/{user}/{amount}'
                 headers = {'Authorization': f'Bearer {self.stream_elements_key}'}
                 return requests.put(url, headers=headers).json()["newAmount"]
+            elif self.currency_system == 'streamlabs_local':
+                self.streamlabs_local_send_buffer = f'!add_points {user} {amount}'
+                while self.streamlabs_local_receive_buffer == '':
+                    await asyncio.sleep(.5)
+                self.streamlabs_local_receive_buffer = ''
+                return 'it worked, I guess'
 
             raise ValueError(f"Unavailable Currency System: {self.currency_system}")
         raise ValueError("Tokens not ready for use. Tell Razbi about this.")
 
-    def upgraded_add_points(self, user: User, amount: int, session):
+    async def upgraded_add_points(self, user: User, amount: int, session):
         if amount < 0:
             user.gain += amount
         elif amount > 0:
             user.lost += -amount
         session.commit()
-        self.add_points(user.name, amount)
+        await self.add_points(user.name, amount)
 
     def command(self, **kwargs):
         return commands.command(registry=self.commands, **kwargs)
@@ -227,6 +240,10 @@ class API:
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
                 self._cache['tokens_ready'] = True
                 return True
+            if self.currency_system == 'streamlabs_local':
+                self._cache['tokens_ready'] = True
+                self.send_chat_message('!connect_minigame')
+                return True
         return False
 
     @property
@@ -247,6 +264,40 @@ class API:
                 self._cache['stream_elements_id'] = stream_elements_id
                 session.add(database.Settings(key='stream_elements_id', value=stream_elements_id))
                 return stream_elements_id
+
+    @property
+    def twitch_key_expires_at(self):
+        if 'twitch_key_expires_at' in self._cache:
+            return self._cache['twitch_key_expires_at']
+        session = database.Session()
+        expires_at_db = session.query(database.Settings).get('twitch_key_expires_at')
+        if expires_at_db:
+            expires_at = int(expires_at_db.value)
+            self._cache['twitch_key_expires_at'] = expires_at
+            return expires_at
+
+    async def twitch_key_auto_refresher(self):
+        while True:
+            if self.tokens_ready and time.time() + 60 > self.twitch_key_expires_at:
+                url = 'https://razbi.funcity.org/stocks-chat-minigame/twitch/refresh_token'
+                querystring = {'access_token': self.twitch_key}
+                res = requests.get(url, params=querystring)
+                if res.status_code == 200:
+                    session = database.Session()
+                    twitch_key_db = session.query(database.Settings).get('twitch_key')
+                    if twitch_key_db:
+                        twitch_key_db.value = res.json()['access_token']
+                    expires_at_db = session.query(database.Settings).get('twitch_key_expires_at')
+                    if expires_at_db:
+                        expires_at_db.value = str(int(time.time()) + res.json()['expires_in'])
+                    self.mark_dirty('twitch_key_expires_at')
+                    session.commit()
+                    print("Twitch key refreshed successfully.")
+                elif res.status_code == 500:
+                    print("Tried refreshing the twitch token, but the server is down or smth, please tell Razbi about this. ")
+                else:
+                    raise ValueError('Unhandled status code when refreshing the twitch key. TELL RAZBI', res.status_code)
+            await asyncio.sleep(60)
 
 
 if __name__ == '__main__':

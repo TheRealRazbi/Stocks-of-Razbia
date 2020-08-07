@@ -3,19 +3,17 @@
 {% block body %}
 	<div class="container">
         {% for message in get_flashed_messages() %}
-          <div class="flash">{{ message }}</div>
+          <div class="flash"><span style="color: yellowgreen">{{ message }}</span></div>
         {% endfor %}
-
-
 
         <div>
             <form action = '/settings/api/twitch_token/generate_token' method = "get">
                 Twitch token:
-                <input type = "submit" value = "generate" />
+                <input type = "submit" value = "generate" class="btn btn-outline-success"/>
                 {% if twitch_token %}
-                [Loaded]
+                    <span style="color: lightseagreen">[Loaded]</span>
                 {% else %}
-                [Not Found]
+                    <span style="color: lightseagreen">[Not Found]</span>
                 {% endif %}
             </form>
         </div>
@@ -23,11 +21,11 @@
 		<div>
             <form action = '/settings/api/streamlabs_token/generate_token' method = "get">
                 Streamlabs token:
-                <input type = "submit" value = "generate" />
+                <input type = "submit" value = "generate" class="btn btn-outline-success"/>
                 {% if streamlabs_token %}
-                [Loaded]
+                    <span style="color: lightseagreen">[Loaded]</span>
                 {% else %}
-                [Not Found]
+                    <span style="color: lightseagreen">[Not Found]</span>
                 {% endif %}
             </form>
         </div>
@@ -35,11 +33,11 @@
         <div>
             <form action = '/settings/api/stream_elements_token/generate_token' method = "get">
                 StreamElements token:
-                <input type = "submit" value = "generate" />
+                <input type = "submit" value = "generate" class="btn btn-outline-success"/>
                 {% if stream_elements_token %}
-                [Loaded]
+                    <span style="color: lightseagreen">[Loaded]</span>
                 {% else %}
-                [Not Found]
+                    <span style="color: lightseagreen">[Not Found]</span>
                 {% endif %}
             </form>
         </div>
@@ -47,7 +45,7 @@
 
         <div>
             <form action = '/' method = "get">
-                <input type="submit" value="back">
+                <input type="submit" value="back" class="btn btn-outline-secondary">
             </form>
         </div>
 

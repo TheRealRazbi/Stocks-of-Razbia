@@ -6,10 +6,13 @@
           <div class="flash">{{ message }}</div>
         {% endfor %}
 
-        Hello World<br>
-        <div id="console">
+            Console:<br>
+
+
+
+
 {#            <script>#}
-{#                let ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/ws');#}
+{#                let ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/streamlabs');#}
 {#                ws.onmessage = function (event)#}
 {#                {#}
 {#                console.log(event.data);#}
@@ -20,18 +23,5 @@
 {#                }#}
 {#            </script>#}
 
-            <script>
-                let ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/streamlabs');
-                ws.onmessage = function (event)
-                {
-                console.log(event.data);
-                document.getElementById('console').innerText += 'Message Sent: ' + event.data + '\n';
-                };
-                ws.onopen = function (event) {
-                    ws.send('bob');
-                }
-            </script>
-
-        </div>
 	</div>
 {% endblock %}

@@ -4,7 +4,7 @@ from sqlalchemy.sql import sqltypes as t
 from sqlalchemy.orm import relationship
 
 import requests
-import json
+import asyncio
 
 from .db import Base
 
@@ -28,11 +28,11 @@ class User(Base):
             **self._getattrs("id", "name", "shares"),
         )
 
-    def points(self, api):
+    async def points(self, api):
         if api.tokens_ready:
             if api.currency_system == 'streamlabs':
                 url = "https://streamlabs.com/api/v1.0/points"
-                querystring = {"access_token": api.streamlabs_token,
+                querystring = {"access_token": api.streamlabs_key,
                                "username": self.name,
                                "channel": api.name,
                                }
@@ -48,7 +48,7 @@ class User(Base):
                           "to prevent screwing people's points, the program will shutdown as you press Enter")
                     input("Press 'enter' to quit")
 
-            if api.currency_system == 'stream_elements':
+            elif api.currency_system == 'stream_elements':
                 url = f'https://api.streamelements.com/kappa/v2/points/{api.stream_elements_id}/{self.name}'
                 headers = {'Authorization': f'Bearer {api.stream_elements_key}'}
                 res = requests.get(url, headers=headers)
@@ -58,6 +58,14 @@ class User(Base):
                     print("stream_elements server errored or... something. better tell Razbi, although its probably a stream_elements thing. "
                           "to prevent screwing people's points, the program will shutdown as you press Enter")
                     input("Press 'enter' to quit")
+
+            elif api.currency_system == 'streamlabs_local':
+                api.streamlabs_local_send_buffer = f'!get_user_points {self.name}'
+                while api.streamlabs_local_receive_buffer == '':
+                    await asyncio.sleep(.5)
+                points = int(api.streamlabs_local_receive_buffer)
+                api.streamlabs_local_receive_buffer = ''
+                return points
 
             raise ValueError(f"Unavailable Currency System: {api.currency_system}")
         raise ValueError("Tokens not ready for use. Tell Razbi about this.")

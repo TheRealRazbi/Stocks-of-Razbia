@@ -1,25 +1,31 @@
 {% extends 'base.html' %}
 
 {% block body %}
-	<div class="container">
+	<div class="container my-dark">
         {% for message in get_flashed_messages() %}
-          <div class="flash">{{ message }}</div>
+          <div class="flash"><span style="color: yellowgreen">{{ message }}</span></div>
         {% endfor %}
 
         <form method="POST">
-            <div>
+            <div class="form-group">
 
-                Currency System: {{ setup_form.currency_system}}<br>
+                Currency System: {{ setup_form.currency_system(class_="custom-select")}}<br>
                 Currency Name:   {{ setup_form.currency_name }}<br>
 {#                {{ form.value(class="css_class") }}#}
-                <p><input type="submit" value="Save"></p>
+                <input type="submit" value="Save" class="btn btn-outline-success">
             </div>
         </form>
+
+        <div class="form-group">
+            <form action="/settings/company_names">
+                <input type="submit" value="Edit Company Names" class="btn btn-outline-info">
+            </form>
+        </div>
 
         {% if currency_system and (not twitch_key or not chosen_key) %}
             <form action = '/settings/api/' method = "get">
                 API Tokens not found. Please generate them.
-                <input type = "submit" value = "generate tokens" />
+                <input type="submit" value="generate tokens" class="btn btn-outline-success"/>
             </form>
         {% endif %}
 
@@ -36,7 +42,7 @@
         {% if tokens_loaded %}
             <div>
                 <form action = '/' method = "get">
-                    <input type="submit" value="back">
+                    <input type="submit" value="back" class="btn btn-outline-secondary">
                 </form>
             </div>
         {% endif %}

@@ -21,21 +21,19 @@ class CompanyName(Form):
     )
     abbv = f.StringField(
         "Abbreviation",
-        [v.Length(min=3, max=6)],
+        [v.Length(min=2, max=6)],
     )
 
 
 class SetupForm(Form):
-    currency_system = f.SelectField(
-        'Currency System',
-        choices=[
-            ('', 'Please pick a currency system'),
-            ('streamlabs', 'Streamlabs Extension'),
-            ('stream_elements', 'Stream Elements'),
-            ('streamlabs_local', 'Streamlabs Local[not available yet]'),
-        ]
-    )
-    currency_name = f.StringField('Currency Name', validators=[v.Length(min=4)])
+    currency_system = f.SelectField('Currency System', choices=[
+                                                              ('', 'Please pick a currency system'),
+                                                              ('streamlabs', 'Streamlabs Extension'),
+                                                              ('stream_elements', 'Stream Elements'),
+                                                              ('streamlabs_local', 'Streamlabs Local'),
+                                                              ]
+                                  )
+    currency_name = f.StringField('Currency Name', [v.Length(min=4)])
 
 
 class StreamElementsTokenForm(Form):

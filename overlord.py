@@ -1,3 +1,4 @@
+import json
 import time
 import random
 
@@ -14,7 +15,7 @@ import math
 import os
 import config_server
 import config_server.forms
-import webbrowser
+from company_names import load_default_names
 
 
 class Overlord:
@@ -60,9 +61,9 @@ class Overlord:
             self.last_check = time.time()
             session = database.Session()
 
-            self.iterate_companies(session)
+            await self.iterate_companies(session)
             self.spawn_companies(session)
-            self.clear_bankrupt(session)
+            await self.clear_bankrupt(session)
 
             self.display_update(session)
             self.months += 1
@@ -104,7 +105,7 @@ class Overlord:
             self.api.send_chat_message(f"Newly spawned companies: {' | '.join(spawned_companies)}")
         session.commit()
 
-    def iterate_companies(self, session):
+    async def iterate_companies(self, session):
         for index_company, company in enumerate(session.query(Company).all()):
             res = company.iterate()
             if res:
@@ -115,7 +116,7 @@ class Overlord:
                 for share in shares:
                     cost = math.ceil(math.ceil(share.amount*company.stock_price)*.1)
                     user = session.query(User).get(share.user_id)
-                    self.api.upgraded_subtract_points(user, -cost, session)
+                    await self.api.upgraded_add_points(user, -cost, session)
 
                 session.commit()
             else:
@@ -128,30 +129,38 @@ class Overlord:
                     self.names[company.abbv] = company.full_name
                     session.commit()
 
-    def clear_bankrupt(self, session):
+    async def clear_bankrupt(self, session):
         for index_company, company in enumerate(session.query(Company).filter_by(bankrupt=True)):
             self.bankrupt_info.append(f'{company.abbv.upper()}')
             shares = session.query(database.Shares).filter_by(company_id=company.id).all()
             for share in shares:
                 user = session.query(database.User).get(share.user_id)
-                self.api.subtract_points(user.name, -share.amount)
+                await self.api.upgraded_add_points(user, -share.amount, session)
                 self.owners_of_bankrupt_companies.add(f'@{user.name}')
                 # print(f"Refunded {share.amount} points to @{user.name}")
             session.delete(company)
             session.commit()
 
-    def load_names(self):
-        session = database.Session()
+    def load_names(self, session=None):
+        if session is None:
+            session = database.Session()
         companies = session.query(Company).all()
-        with open("lib/code/company_names.txt", "r") as f:
-            for line in f:
-                temp = line.strip().split('|')
-                if temp[0].strip():
-                    self.names[temp[1].upper()] = temp[0].capitalize()
+        company_names_db = session.query(database.Settings).get('company_names')
+        if company_names_db:
+            self.names = {item["abbv"]: item["company_name"] for item in json.loads(company_names_db.value)}
+        else:
+            self.names = {item["abbv"]: item["company_name"] for item in load_default_names()}
+            session.add(database.Settings(key='company_names', value=json.dumps(load_default_names())))
+            session.commit()
+        # with open("lib/code/company_names.txt", "r") as f:
+        #     for line in f:
+        #         temp = line.strip().split('|')
+        #         if temp[0].strip():
+        #             self.names[temp[1].upper()] = temp[0].capitalize()
         for company in companies:
             self.names.pop(company.abbv, None)
 
-        session.close()
+        session.commit()
 
     def load_rich_poor(self):
         session = database.Session()
@@ -327,7 +336,8 @@ async def iterate_forever_read_chat_and_run_interface(overlord: Overlord):
         config_server.app.run_task(use_reloader=False),
         iterate_forever(overlord),
         overlord.api.start_read_chat(),
-        asyncio.sleep(60 * 60 * 365 * 100)
+        overlord.api.twitch_key_auto_refresher(),
+        asyncio.sleep(60 * 60 * 365 * 100),
     )
 
     await asyncio.sleep(60 * 60 * 365 * 100)

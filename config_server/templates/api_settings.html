@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+        {% for message in get_flashed_messages() %}
+          <div class="flash"><span style="color: yellowgreen">{{ message }}</span></div>
+        {% endfor %}
+
+        <div>
+            <form action = '/settings/api/twitch_token/generate_token' method = "get">
+                Twitch token:
+                <input type = "submit" value = "generate" class="btn btn-outline-success"/>
+                {% if twitch_token %}
+                    <span style="color: lightseagreen">[Loaded]</span>
+                {% else %}
+                    <span style="color: lightseagreen">[Not Found]</span>
+                {% endif %}
+            </form>
+        </div>
+        {% if currency_system == 'streamlabs' %}
+		<div>
+            <form action = '/settings/api/streamlabs_token/generate_token' method = "get">
+                Streamlabs token:
+                <input type = "submit" value = "generate" class="btn btn-outline-success"/>
+                {% if streamlabs_token %}
+                    <span style="color: lightseagreen">[Loaded]</span>
+                {% else %}
+                    <span style="color: lightseagreen">[Not Found]</span>
+                {% endif %}
+            </form>
+        </div>
+        {% elif currency_system == 'stream_elements' %}
+        <div>
+            <form action = '/settings/api/stream_elements_token/generate_token' method = "get">
+                StreamElements token:
+                <input type = "submit" value = "generate" class="btn btn-outline-success"/>
+                {% if stream_elements_token %}
+                    <span style="color: lightseagreen">[Loaded]</span>
+                {% else %}
+                    <span style="color: lightseagreen">[Not Found]</span>
+                {% endif %}
+            </form>
+        </div>
+        {% endif %}
+
+        <div>
+            <form action = '/' method = "get">
+                <input type="submit" value="back" class="btn btn-outline-secondary">
+            </form>
+        </div>
+
+        Tokens are required for the minigame to function.<br>
+        For example the Twitch token is required for reading chat and the other options are for currency manipulation.<br>
+
+
+	</div>
+{% endblock %}

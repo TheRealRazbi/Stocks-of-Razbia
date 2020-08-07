@@ -38,12 +38,13 @@ class Group:
         self.long_name = _long_name(name, parent)
         self.sub_commands = {}
 
-    def __call__(self, ctx, *args):
+    async def __call__(self, ctx, *args):
         if not args:
-            raise CommandError("Valid subcommands : " + ", ".join(self.sub_commands.keys()))
+            raise CommandError(f"Valid subcommands: {', '.join(self.sub_commands)}")
         sub_command_name, *rest = args
-        if sub_command_name in self.sub_commands:
-            return self.sub_commands[sub_command_name](ctx, *rest)
+        if sub_command_name not in self.sub_commands:
+            raise CommandError(f"Valid subcommands: {', '.join(self.sub_commands)}")
+        return await self.sub_commands[sub_command_name](ctx, *rest)
 
     def command(self, name=None, cls=Command, **kwargs):
         return command(name=name, cls=cls, registry=self.sub_commands, parent=self, **kwargs)

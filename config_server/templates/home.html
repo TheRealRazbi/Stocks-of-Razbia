@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+        {% for message in get_flashed_messages() %}
+          <div class="flash"><span style="color: yellowgreen">{{ message }}</span></div>
+        {% endfor %}
+
+        <div>
+            {% if tokens_loaded %}
+            Tokens: <span style="color: lightgreen"> Loaded </span><br>
+            {% endif %}
+        </div>
+
+        <div>
+            {% if currency_system %}
+                Currency System: <span style="color: lightseagreen">{% if currency_system == 'Streamlabs'%}{{ currency_system+'_extension' }}{% else %}{{ currency_system }}{% endif %}</span>
+            {% endif %}
+
+        </div>
+
+        <div>
+            {% if not started %}
+            <form action="/start_minigame" method="get">
+                <input type="submit" value="Start Minigame" class="btn btn-outline-success my-1">
+            </form>
+            {% else %}
+                <span style="color: limegreen">Minigame Started</span>
+            {% endif %}
+        </div>
+
+        <div>
+            <form action="/setup" method="get">
+                <input type="submit" value="Settings" class="btn btn-outline-primary my-1">
+            </form>
+        </div>
+
+        <div>
+            <form action="/about">
+                <input type="submit" value="About" class="btn btn-outline-light my-1">
+            </form>
+        </div>
+
+        <div id="console">
+            <script>
+                {#console.log("didn't crash yet")#}
+                let ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/ws');
+                ws.onmessage = function (event)
+                    {
+                        {#console.log(event.data);#}
+                        {#document.getElementById('console').innerText += 'Message Sent: ' + event.data + '\n';#}
+                        let message_list = event.data.split('\n');
+                        message_list = message_list.slice(1)
+                        let res = []
+                        message_list.forEach(function (item, index){
+                            res.push('<span style="color: deepskyblue">Message Sent: </span><span style="color: #9da138">'+item+'<span>')
+                        });
+                        {#res.pop()#}
+                        {#console.log(res)#}
+                        {#document.getElementById('console').innerText = res.toString();#}
+                        document.getElementById('console').innerHTML = res.join('<br>');
+                        {#document.getElementById('console').scrollBy(0, 50);#}
+                    }
+                ws.onopen = function (event) {
+                    {#ws.send('alive');#}
+                    console.log('alive')
+                }
+            </script>
+        </div>
+
+	</div>
+{% endblock %}

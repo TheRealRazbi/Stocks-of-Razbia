@@ -25,7 +25,7 @@ class Company(Base):
 
     increase_chance = Column(t.Integer, default=50)  # percentage
     max_increase = Column(t.Float, default=0.3)
-    max_decrease = Column(t.Float, default=0.25)
+    max_decrease = Column(t.Float, default=0.3)
     decay_rate = Column(t.Float, default=0.02)
 
     bankrupt = Column(t.Boolean, default=False)
@@ -49,9 +49,9 @@ class Company(Base):
         self.stock_price = round(self.stock_price * amount, 2)
         self.price_diff = round(initial_price - self.stock_price, 1)
 
-        self.max_decrease += self.decay_rate
-        if self.max_decrease > 1:
-            self.max_decrease = 1
+        # self.max_decrease += self.decay_rate
+        # if self.max_decrease > 1:
+        #     self.max_decrease = 1
         self.months += 1
 
         if self.stock_price <= 0.5:
@@ -77,11 +77,11 @@ class Company(Base):
 
     @hybrid_property
     def remaining_shares(self):
-        return 100 - sum(share.amount for share in self.shares)
+        return 1000 - sum(share.amount for share in self.shares)
 
     @remaining_shares.expression
     def remaining_shares(cls):
-        return 100 - select([func.sum(Shares.amount)]).where(
+        return 1000 - select([func.sum(Shares.amount)]).where(
             Shares.company_id == cls.id
         ).label("remaining_shares")
 

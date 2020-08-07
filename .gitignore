@@ -11,3 +11,5 @@ __pycache__
 /dummy.py
 /build/
 /dist/
+venv
+/config_server/static/static/scss/

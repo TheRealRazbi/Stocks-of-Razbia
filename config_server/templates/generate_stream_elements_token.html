@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container my-dark">
+        {% for message in get_flashed_messages() %}
+          <div class="flash"><span style="color: yellowgreen">{{ message }}</span></div>
+        {% endfor %}
+
+
+        <form method="post">
+            JWT Token: {{ stream_elements_form.token }}
+            {% if stream_elements_token %}
+                <span style="color: lightseagreen">[Loaded]</span>
+            {% else %}
+                <span style="color: lightseagreen">[Not Found]</span>
+            {% endif %}
+        </form>
+
+        <div>
+            <form action = '/settings/api/' method = "get">
+                <input type="submit" value="back" class="btn btn-outline-secondary">
+            </form>
+        </div>
+
+        <div>
+        {% if stream_elements_form.errors %}
+            <ul class="errors">
+                {% for field_name, field_errors in stream_elements_form.errors|dictsort if field_errors %}
+                    {% for error in field_errors %}
+                        <li>{{ stream_elements_form[field_name].label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        {% endif %}
+        </div>
+
+        <div>
+        Since StreamElements hasn't accepted Stocks of Razbia yet. We have to use a workaround until they accept it.<br>
+        Assuming you are logged in your StreamElements account, go on this page: <a href="https://streamelements.com/dashboard/account/channels">https://streamelements.com/dashboard/account/channels </a><br>
+        Click the "Show Secrets" in the top right, then copy the "JWT Token" and paste it in the following text field.<br>
+            <b><span class="text-warning">Warning: Do NOT show the JWT Token on stream</span></b>
+
+        </div>
+
+
+	</div>
+{% endblock %}

@@ -15,13 +15,15 @@ from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import sessionmaker, exc, relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 import sqlalchemy.ext.baked
+from quart import Quart, render_template, request, flash, redirect, url_for, websocket
+import wtforms
 
 os.system("cls")
 
 
 def start_screen(first='Start'):
     print(f"1 - {colored(first, color='cyan')}\n"
-          f"2 - {colored('Print Explanations', color='yellow')}\n"
+          f"2 - {colored('Introduction', color='yellow')}\n"
           f"3 - {colored('Check for Updates', color='green')}\n"
           f"4 - {colored('Quit', color='red')}\n")
     if first == 'Start':
@@ -34,7 +36,7 @@ def start_screen(first='Start'):
     elif choice == 1:
         start_program()
     elif choice == 2:
-        print_explanations()
+        print_intro()
 
 
 def color_this(text: str, word_and_color: tuple):
@@ -47,7 +49,7 @@ def color_with_list(text: str, words_and_colors: list):
     return text
 
 
-def print_explanations():
+def print_intro():
     if os.path.exists('lib/code/'):
         try:
             with open("lib/code/explanation.txt", "r") as f:
@@ -73,10 +75,10 @@ def check_for_updates():
         start_screen(first='Install')
 
     print(f"If there's any error that prevents program from starting, please tell {colored('Razbi', 'magenta')} about it. "
-          f"Those are usually solved by deleting {colored('lib/db.sqlite', 'green')}")
-    input("Press enter to continue...")
+          f"Those are usually solved by deleting {colored('lib/db.sqlite', 'green')} or by asking {colored('Razbi', 'magenta')} for an updated .exe")
+    input("Press enter to continue... [this is just a warning]: ")
     porcelain.pull("lib/code/")
-    print(f"{colored('Program Updated [if there was any update available, the following text should let you figure that out]', 'green')}")
+    print(f"{colored('Program Updated [if there was any update available, the following text should let you figure that out, no, really, I have no easy way of figuring it out]', 'green')}")
     start_screen()
 
 

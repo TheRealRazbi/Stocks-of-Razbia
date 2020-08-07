@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+        {% for message in get_flashed_messages() %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+
+        <div>
+            This program was made by Razbi and Nesami.<br>
+            All of this is open-source and you can find it right here: <a href="https://github.com/TheRealRazbi/Stocks-of-Razbia">Source Code</a><br>
+            <br>
+            Special Thanks to everyone who tested this: <a href="https://twitch.tv/bogdahoh">bogdahoh</a>,
+            <a href="https://twitch.tv/morhenwolf">MorhenWolf</a>, <a href="https://twitch.tv/dragomircm">DragomirCM</a>,
+            <a href="https://twitch.tv/kirkovkalasnikov">KirkovKalasnikov</a>, <a href="https://twitch.tv/nerzul007">Nerzul007</a>,
+            <a href="https://twitch.tv/barbosgaming">BarbosGaming</a>, <a href="https://twitch.tv/genassassin200">genassassin200</a>,
+            <a href="https://twitch.tv/evilstarromania">Zarnot</a>, <a href="https://twitch.tv/arrekkusu">arrekkusu</a>,
+            <a href="https://twitch.tv/deadlight10">deadlight10</a>, <a href="https://twitch.tv/senarisK">SenarisK</a>
+        </div>
+
+        <div>
+            <form action = '/' method = "get">
+                <input type="submit" value="back" class="btn btn-outline-secondary">
+            </form>
+        </div>
+
+	</div>
+{% endblock %}

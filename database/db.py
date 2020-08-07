@@ -4,7 +4,6 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import sessionmaker, exc
 import os
-import shutil
 
 
 def _fk_pragma_on_connect(dbapi_con, con_record):
@@ -12,8 +11,9 @@ def _fk_pragma_on_connect(dbapi_con, con_record):
     dbapi_con.execute('PRAGMA foreign_keys=ON')
 
 
-if os.path.isfile('db.sqlite'):
-    shutil.move("db.sqlite", "lib/db.sqlite")
+if os.path.exists('db.sqlite'):
+    os.replace('db.sqlite', 'lib/db.sqlite')
+
 
 engine = create_engine('sqlite:///lib/db.sqlite', echo=False)
 event.listen(engine, 'connect', _fk_pragma_on_connect)

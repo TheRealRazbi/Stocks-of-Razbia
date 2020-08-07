@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+		{% for company in companies %}
+			{{ company.full_name }} <br/>
+		{% endfor %}
+
+	</div>
+{% endblock %}

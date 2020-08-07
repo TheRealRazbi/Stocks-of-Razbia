@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Stocks of Razbia</title>
+    <link rel="icon" type='image/x-icon' href={{ url_for('static', filename='Stocks of Razbia.ico')}} >
+	<link rel="stylesheet" href="/static/css/bootstrap.min.css">
+</head>
+<style>
+.dark-mode-bg{
+    background-color: #1d2023;
+}
+.my-dark input:not([type="submit"]), .my-dark select{
+    background-color: #1d2124;
+    color: white;
+}
+.my-dark label{
+    background-color: #173245;
+    color: white;
+}
+
+#console
+{
+    padding-top: 20px;
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+</style>
+<body class="dark-mode-bg text-white">
+	{% block body %}
+
+	{% endblock %}
+</body>
+</html>

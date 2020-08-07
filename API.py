@@ -132,6 +132,7 @@ class API:
         print(f"{colored('Ready to read chat commands', 'green')}. "
               f"To see all basic commands type {colored('!stocks', 'magenta')} in the twitch chat")
         self.clear_unsent_buffer()
+        await self.ping_streamlabs_local()
         # self.conn.send(f"PRIVMSG #{self.name} :I'm testing if this damn thing works")
         # self.conn.send(f"PRIVMSG #{self.name} :hello")
         await asyncio.sleep(24 * 60 * 60 * 365 * 100)
@@ -303,6 +304,12 @@ class API:
                 else:
                     raise ValueError('Unhandled status code when refreshing the twitch key. TELL RAZBI', res.status_code)
             await asyncio.sleep(60)
+
+    async def ping_streamlabs_local(self):
+        self.overlord.api.streamlabs_local_send_buffer = '!get_user_points'
+        while self.started and self.overlord.api.streamlabs_local_receive_buffer == '':
+            await asyncio.sleep(.25)
+        self.overlord.api.streamlabs_local_receive_buffer = ''
 
 
 if __name__ == '__main__':

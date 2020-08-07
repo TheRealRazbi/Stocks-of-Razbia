@@ -60,6 +60,7 @@ async def setup():
                 session.commit()
                 if app.overlord.api.currency_system == 'streamlabs_local' and app.overlord.api.started:
                     app.overlord.api.send_chat_message('!connect_minigame')
+                    app.overlord.api.ping_streamlabs_local()
                 # if setup_form.currency_system.data != 'streamlabs' and setup_form.currency_system.data != 'stream_elements':
                 #     await flash("I see you tried saving a system that isn't available yet. "
                 #                 "I must warn you that the program will literally just crash if you start with the unavailable currency system.")
@@ -120,6 +121,7 @@ async def settings():
                     session.commit()
                     if app.overlord.started and setting_form.value.label == 'streamlabs_local':
                         app.overlord.api.send_chat_message("!connect_minigame")
+                        await app.overlord.api.ping_streamlabs_local()
             else:
                 await flash(f"Settings unsaved. {setting_form.errors['value']}")
 
@@ -275,7 +277,6 @@ async def ws():
     while True:
         if app.overlord.api.console_buffer != app.overlord.api.console_buffer_done:
             res = "\n".join(app.overlord.api.console_buffer)
-            # app.overlord.api.console_buffer_done = [element for element in app.overlord.api.console_buffer]
             app.overlord.api.console_buffer_done = app.overlord.api.console_buffer.copy()
             await websocket.send(res)
         else:

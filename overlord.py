@@ -16,6 +16,7 @@ import os
 import config_server
 import config_server.forms
 from company_names import load_default_names
+import webbrowser
 
 
 class CachedProperty:
@@ -353,7 +354,7 @@ async def iterate_forever_and_start_reading_chat(overlord: Overlord):
 
 
 async def iterate_forever_read_chat_and_run_interface(overlord: Overlord):
-    # webbrowser.open('http://localhost:5000')
+    webbrowser.open('http://localhost:5000')
     config_server.app.overlord = overlord
 
     await asyncio.gather(

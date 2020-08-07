@@ -16,6 +16,7 @@ from sqlalchemy.orm import sessionmaker, exc, relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 import sqlalchemy.ext.baked
 from quart import Quart, render_template, request, flash, redirect, url_for, websocket
+import wtforms
 
 os.system("cls")
 

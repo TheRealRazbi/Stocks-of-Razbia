@@ -18,6 +18,20 @@ import config_server.forms
 from company_names import load_default_names
 
 
+class CachedProperty:
+    def __init__(self, func, name=None):
+        self.name = name or func.__name__
+        self.func = func
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+        if self.name in instance._cache:
+            return instance._cache[self.name]
+        instance._cache[self.name] = ret = self.func(instance)
+        return ret
+
+
 class Overlord:
     def __init__(self, loop=None):
         database.Base.metadata.create_all()
@@ -280,7 +294,7 @@ class Overlord:
         currency_name = session.query(database.Settings).get('currency_name')
         if currency_name is None:
             if os.path.exists('lib/currency_name'):
-                with open("lib/currency_name", "r") as f:
+                with open("lib/currency_name") as f:
                     currency_name = f.read().strip()
                 os.remove('lib/currency_name')
             else:
@@ -291,23 +305,20 @@ class Overlord:
             session.add(database.Settings(key='currency_name', value=currency_name))
             session.commit()
 
-    @property
+    @CachedProperty
     def currency_name(self):
-        if 'currency_name' in self._cache.keys():
-            return self._cache['currency_name']
         session = database.Session()
         if currency_name := session.query(database.Settings).get('currency_name'):
             currency_name = currency_name.value
             self._cache['currency_name'] = currency_name
         else:
             currency_name = 'points'
-            self._cache['currency_name'] = currency_name
             session.add(database.Settings(key='currency_name', value=currency_name))
             session.commit()
         return currency_name
 
     def mark_dirty(self, setting):
-        if f'{setting}' in self._cache.keys():
+        if setting in self._cache:
             del self._cache[setting]
 
     @staticmethod

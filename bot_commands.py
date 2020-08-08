@@ -136,7 +136,7 @@ def register_commands(api: API):
                                   "Price changes each 10 min | "
                                   "!next month to see when's the price changes | "
                                   "For a more in-depth explanation, please go to "
-                                  "https://github.com/TheRealRazbi/Stocks-of-Razbia/blob/master/explanation.txt")
+                                  "https://github.com/TheRealRazbi/Stocks-of-Razbia/blob/master/introduction.md")
 
     @api.command()
     async def next_month(ctx):

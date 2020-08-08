@@ -8,6 +8,7 @@ import database
 from wtforms import validators, Form, FieldList
 from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm, CompaniesNames
 import asyncio
+import markdown2
 
 app = Quart(__name__, static_folder="static/static")
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
@@ -270,6 +271,46 @@ async def web_sockets_stuff():
 @app.route('/about')
 async def about():
     return await render_template('about.html')
+
+
+def escape_word(text: str, word: str):
+    return text.replace(f'<{word}>', f'&lt;{word}&gt;')
+
+
+def color_word_in_html(text: str, word: str, color: str):
+    return text.replace(f'{word}', f'<span style="color: {color}">{word}</span>')
+
+
+def color_multiple_words_in_html(text: str, words_and_colors: dict):
+    for word, color in words_and_colors.items():
+        text = color_word_in_html(text, word, color)
+    return text
+
+
+@app.route('/introduction')
+async def introduction():
+    with open('introduction.md', 'r') as f:
+        intro = f.read()
+    intro = escape_word(intro, 'company')
+    intro = escape_word(intro, 'amount')
+    mark_downer = markdown2.Markdown(extras=["break-on-newline"])
+    intro = mark_downer.convert(intro)
+    intro = color_multiple_words_in_html(intro,
+                                         {
+                                            'companies': '#dbce37',
+                                            'company': '#dbce37',
+                                            'users': '#923eed',
+                                            'user': '#923eed',
+                                            'my': '#5587f2',
+                                            'stocks': '#3e9ef7',
+                                            'buy': '#31e05a',
+                                            'sell': '#e09a31',
+                                            'points': '#31e06b',
+                                            'currency': '#31e06b',
+                                          }
+                                         )
+
+    return await render_template('introduction.html', intro=intro)
 
 
 @app.websocket('/ws')

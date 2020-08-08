@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+        {% for message in get_flashed_messages() %}
+          <div class="flash"><span style="color: yellowgreen">{{ message }}</span></div>
+        {% endfor %}
+
+    <div>
+        {{ intro | safe}}
+    </div>
+
+    <div>
+        <form action = '/' method = "get">
+            <input type="submit" value="back" class="btn btn-outline-secondary">
+        </form>
+    </div>
+
+	</div>
+{% endblock %}

@@ -1,4 +1,6 @@
 import sys
+import time
+
 from custom_tools import validate_input
 import os
 from termcolor import colored
@@ -17,6 +19,8 @@ from sqlalchemy.ext.hybrid import hybrid_property
 import sqlalchemy.ext.baked
 from quart import Quart, render_template, request, flash, redirect, url_for, websocket
 import wtforms
+import markdown2
+import traceback
 
 os.system("cls")
 
@@ -27,7 +31,7 @@ def start_screen(first='Start'):
           f"3 - {colored('Check for Updates', color='green')}\n"
           f"4 - {colored('Quit', color='red')}\n")
     if first == 'Start':
-        print(colored("Please consider using the Print Explanations option in case it's unclear what the minigame does.", 'red'))
+        print(colored("Please consider using the 'Introduction' option in case it's unclear what the minigame does.", 'red'))
     choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 4))
     if choice == 4:
         raise SystemExit(0)
@@ -52,13 +56,14 @@ def color_with_list(text: str, words_and_colors: list):
 def print_intro():
     if os.path.exists('lib/code/'):
         try:
-            with open("lib/code/explanation.txt", "r") as f:
+            with open("lib/code/introduction.md", "r") as f:
                 explanation = f.read().strip()
         except FileNotFoundError:
-            with open("explanation.txt", "r") as f:
+            with open("introduction.md", "r") as f:
                 explanation = f.read().strip()
         words_and_colors = ['companies', 'yellow', 'company', 'yellow', 'stocks', 'cyan', 'announcement', 'blue',
                             'month', 'green', 'months', 'green', 'announced', 'blue', 'bankrupt', 'red', 'users', 'magenta',
+                            'my', 'cyan',
                             ]
 
         explanation = color_with_list(explanation, words_and_colors)
@@ -99,7 +104,18 @@ def start_program():
     else:
         sys.path.append('lib/code')
         main = __import__("main").main
-        main()
+        try:
+            main()
+        except:
+            if not os.path.exists('lib/crash-logs'):
+                os.mkdir('lib/crash-logs')
+            when = time.strftime('%H-%M-%S _ %d-%m-%Y')
+            traceback.print_exc()
+            with open(f'lib/crash-logs/{when}.txt', 'w') as f:
+                traceback.print_exc(file=f)
+
+            input(f"{colored('An unknown error has been encountered.', 'red')} Please send {colored('Razbi', 'magenta')} the crash-log found in the '{colored('lib/crash-logs/*moment_of_crash*', 'green')}' | "
+                  f"{colored('lib/', 'green')} is in the same folder as the executable. Press any key to close the program...")
 
 
 if __name__ == '__main__':

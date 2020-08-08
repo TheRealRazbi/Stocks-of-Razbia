@@ -289,8 +289,12 @@ def color_multiple_words_in_html(text: str, words_and_colors: dict):
 
 @app.route('/introduction')
 async def introduction():
-    with open('introduction.md', 'r') as f:
-        intro = f.read()
+    try:
+        with open('introduction.md', 'r') as f:
+            intro = f.read()
+    except FileNotFoundError:
+        with open('lib/code/introduction.md', 'r') as f:
+            intro = f.read()
     intro = escape_word(intro, 'company')
     intro = escape_word(intro, 'amount')
     mark_downer = markdown2.Markdown(extras=["break-on-newline"])

@@ -306,7 +306,7 @@ class API:
             await asyncio.sleep(60)
 
     async def ping_streamlabs_local(self):
-        self.overlord.api.streamlabs_local_send_buffer = '!get_user_points'
+        self.overlord.api.streamlabs_local_send_buffer = f'!get_user_points {self.name}'
         while self.started and self.overlord.api.streamlabs_local_receive_buffer == '':
             await asyncio.sleep(.25)
         self.overlord.api.streamlabs_local_receive_buffer = ''

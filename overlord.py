@@ -236,7 +236,7 @@ class Overlord:
         while True:
             if self.started:
                 self.api.send_chat_message(
-                    f"Minigame basic commands: !introduction, !companies, !my shares, !buy, !all commands, !stocks")
+                    f"Stocks of Razbia basic commands: !introduction, !companies, !my shares, !buy, !all commands, !stocks")
                 await asyncio.sleep(60 * 30)
             else:
                 await asyncio.sleep(.5)
@@ -354,7 +354,7 @@ async def iterate_forever_and_start_reading_chat(overlord: Overlord):
 
 
 async def iterate_forever_read_chat_and_run_interface(overlord: Overlord):
-    # webbrowser.open('http://localhost:5000')
+    webbrowser.open('http://localhost:5000')
     config_server.app.overlord = overlord
     await asyncio.gather(
         config_server.app.run_task(use_reloader=False),

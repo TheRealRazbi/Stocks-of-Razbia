@@ -48,7 +48,7 @@ class Overlord:
 
         self.max_companies = 7
         self.spawn_ranges = {
-            "poor_range": (6, 15),
+            "poor_range": (7, 15),
             "expensive_range": (15, 35),
         }
         self.settings = {'currency_name': config_server.forms.CurrencyNameForm}
@@ -115,9 +115,12 @@ class Overlord:
                 self.rich += 1
             company = Company.create(starting_price, name=random_abbv, rich=rich)
             session.add(company)
-            spawned_companies.append(f"({company.abbv}) {company.full_name}, stock_price: {company.stock_price:.1f}")
+            spawned_companies.append(f"[{company.abbv}] {company.full_name}, stock_price: {company.stock_price:.1f} {self.currency_name}")
         if spawned_companies:
-            self.api.send_chat_message(f"Newly spawned companies: {' | '.join(spawned_companies)}")
+            tip = random.choice(['ughhh... buy from them or smth?', "stonks", "nice, I guess...", "oh yeah, I like that one",
+                                 "wait, what are these?", "I like turtles", "who's Razbi?"])
+            self.api.send_chat_message(f"Newly spawned companies: {' | '.join(spawned_companies)}, {tip}")
+
         session.commit()
 
     async def iterate_companies(self, session):
@@ -215,7 +218,7 @@ class Overlord:
 
     def display_update(self, session):
         if self.stock_increase:
-            companies_to_announce, owners = self.get_companies_for_updates(session)
+            # companies_to_announce, owners = self.get_companies_for_updates(session)
             # self.api.send_chat_message(f'Month: {self.months} | {", ".join(self.stock_increase)}')
 
             # self.api.send_chat_message(f'Year: {int(self.months/12)} | Month: {self.months%12} | '
@@ -228,15 +231,18 @@ class Overlord:
         # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
         #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
         if self.bankrupt_info:
+            random_comment = random.choice(['Feelsbadman', 'just invest better Kappa', f'imagine losing {self.currency_name} to those Kappa', 'this is fine'])
             self.api.send_chat_message(f'The following companies bankrupt: {", ".join(self.bankrupt_info)} '
-                                       f'{" ".join(self.owners_of_bankrupt_companies)}')
+                                       f'{" ".join(self.owners_of_bankrupt_companies)} {random_comment if self.owners_of_bankrupt_companies else ""}')
             self.bankrupt_info = []
 
     async def start_periodic_announcement(self):
         while True:
             if self.started:
+                stonks_or_stocks = random.choice(['stocks', 'stonks'])
+                help_tip = random.choice(['Here are some commands to help you do that', "Ughh maybe through these?", "I wonder what these are for"])
                 self.api.send_chat_message(
-                    f"Stocks of Razbia basic commands: !introduction, !companies, !my shares, !buy, !all commands, !stocks")
+                    f"Want to make some {self.currency_name} through {stonks_or_stocks}? {help_tip}: !introduction, !companies, !my shares, !buy, !all commands, !stocks")
                 await asyncio.sleep(60 * 30)
             else:
                 await asyncio.sleep(.5)

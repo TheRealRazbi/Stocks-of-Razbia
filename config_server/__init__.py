@@ -334,11 +334,10 @@ async def streamlabs_ws():
         if app.overlord.api.streamlabs_local_send_buffer:
             message_to_send = app.overlord.api.streamlabs_local_send_buffer
             await websocket.send(message_to_send)
+            # print(f'sent: {message_to_send}')
             data = await websocket.receive()
+            # print(f'received: {data}')
             app.overlord.api.streamlabs_local_receive_buffer = data
             app.overlord.api.streamlabs_local_send_buffer = ''
-
-            # print(f'received: {data}')
-            # print(f'sent: {message_to_send}')
-        await asyncio.sleep(.5)
+        await asyncio.sleep(.1)
 

@@ -60,7 +60,7 @@ def register_commands(api: API):
             company.increase_chance += .01 * amount
             ctx.session.commit()
             await ctx.api.upgraded_add_points(ctx.user, -cost, ctx.session)
-            ctx.api.send_chat_message(f"@{ctx.user.name} just bought {amount} {company.abbv} for {cost} {ctx.api.overlord.currency_name}. "
+            ctx.api.send_chat_message(f"@{ctx.user.name} just bought {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}. "
                                       f"Now they gain {math.ceil(share.amount*company.stock_price*.1)} {ctx.api.overlord.currency_name} from {company.abbv} each 10 mins. "
                                       # f'{"tip: Use !my income to check your income." if ctx.user.new else ""}')
                                       f"""{"Tip: Use '!my income' to check your income." if ctx.user.new else ""}""")
@@ -95,7 +95,7 @@ def register_commands(api: API):
                 ctx.session.delete(share)
             company.increase_chance -= .01 * amount
             ctx.session.commit()
-            ctx.api.send_chat_message(f"@{ctx.user.name} has sold {amount} stock{'s' if share.amount != 1 else ''} for {cost} {ctx.api.overlord.currency_name}.")
+            ctx.api.send_chat_message(f"@{ctx.user.name} has sold {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}.")
         else:
             if not share:
                 message = f"@{ctx.user.name} doesn't have any stocks at company {company.abbv}."
@@ -126,17 +126,20 @@ def register_commands(api: API):
 
     @api.command()
     async def stocks(ctx):
-        ctx.api.send_chat_message(f"@{ctx.user.name} Minigame basic commands: !introduction, !buy, !companies, !my shares, !my profit, !my income, !all commands")
+        ctx.api.send_chat_message(f"@{ctx.user.name} Minigame basic commands: !introduction, !buy, !companies, !all commands, !my shares, !my profit")
+
+    @api.command()
+    async def stonks(ctx):
+        await stocks(ctx)
 
     @api.command()
     async def introduction(ctx):
-        ctx.api.send_chat_message("This is a stock simulation minigame made by Razbi and Nesami | "
+        ctx.api.send_chat_message("This is a stock simulation minigame made by Razbi and Nesami | '!stocks' for basic commands | "
                                   "Buy stocks for passive income or buy when price is low then sell when it's high | "
-                                  "Company[current_price, price_change] | "
-                                  "Price changes each 10 min | "
-                                  "!next month to see when's the price changes | "
-                                  "For a more in-depth explanation, please go to "
-                                  "https://github.com/TheRealRazbi/Stocks-of-Razbia/blob/master/introduction.md")
+                                  "Naming Convention: Company[current_price, price_change] "
+                                  # "For a more in-depth explanation, please go to "
+                                  # "https://github.com/TheRealRazbi/Stocks-of-Razbia/blob/master/introduction.md"
+                                  )
 
     @api.command()
     async def next_month(ctx):

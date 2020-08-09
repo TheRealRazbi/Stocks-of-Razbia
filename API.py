@@ -41,6 +41,7 @@ class API:
         # self.streamlabs_local_send_buffer = '!add_points razbith3player 10'
         self.streamlabs_local_send_buffer = ''
         self.streamlabs_local_receive_buffer = ''
+        self.streamlabs_local_buffer_lock = False
 
     def load_keys(self):
         session = database.Session()
@@ -170,10 +171,11 @@ class API:
                 headers = {'Authorization': f'Bearer {self.stream_elements_key}'}
                 return requests.put(url, headers=headers).json()["newAmount"]
             elif self.currency_system == 'streamlabs_local':
-                self.streamlabs_local_send_buffer = f'!add_points {user} {amount}'
-                while self.streamlabs_local_receive_buffer == '':
-                    await asyncio.sleep(.5)
-                self.streamlabs_local_receive_buffer = ''
+                # self.streamlabs_local_send_buffer = f'!add_points {user} {amount}'
+                # while self.streamlabs_local_receive_buffer == '':
+                #     await asyncio.sleep(.5)
+                # self.streamlabs_local_receive_buffer = ''
+                await self.request_streamlabs_local_message(f'!add_points {user} {amount}')
                 return 'it worked, I guess'
 
             raise ValueError(f"Unavailable Currency System: {self.currency_system}")
@@ -235,14 +237,15 @@ class API:
         elif res.status_code >= 500:
             print("server errored or... something. better tell Razbi")
             return False
-        raise ValueError(f"A response code appeared that Razbi didn't handle, maybe tell him? Response Code: {res.status_code}")
+        raise ValueError(
+            f"A response code appeared that Razbi didn't handle, maybe tell him? Response Code: {res.status_code}")
 
     @property
     def tokens_ready(self):
         if 'tokens_ready' in self._cache:
             return self._cache['tokens_ready']
         if self.currency_system and self.twitch_key and self.validate_twitch_token():
-            if self.currency_system == 'streamlabs' and self.streamlabs_key or\
+            if self.currency_system == 'streamlabs' and self.streamlabs_key or \
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
                 self._cache['tokens_ready'] = True
                 return True
@@ -300,16 +303,35 @@ class API:
                     session.commit()
                     print("Twitch key refreshed successfully.")
                 elif res.status_code == 500:
-                    print("Tried refreshing the twitch token, but the server is down or smth, please tell Razbi about this. ")
+                    print(
+                        "Tried refreshing the twitch token, but the server is down or smth, please tell Razbi about this. ")
                 else:
-                    raise ValueError('Unhandled status code when refreshing the twitch key. TELL RAZBI', res.status_code)
+                    raise ValueError('Unhandled status code when refreshing the twitch key. TELL RAZBI',
+                                     res.status_code)
             await asyncio.sleep(60)
 
     async def ping_streamlabs_local(self):
-        self.overlord.api.streamlabs_local_send_buffer = f'!get_user_points {self.name}'
-        while self.started and self.overlord.api.streamlabs_local_receive_buffer == '':
+        await self.request_streamlabs_local_message(f'!get_user_points {self.name}')
+
+        # self.overlord.api.streamlabs_local_send_buffer = f'!get_user_points {self.name}'
+        # while self.started and self.overlord.api.streamlabs_local_receive_buffer == '':
+        #     await asyncio.sleep(.25)
+        # self.overlord.api.streamlabs_local_receive_buffer = ''
+
+    async def request_streamlabs_local_message(self, message: str):
+        while self.streamlabs_local_buffer_lock:
             await asyncio.sleep(.25)
-        self.overlord.api.streamlabs_local_receive_buffer = ''
+        self.streamlabs_local_buffer_lock = True
+        self.streamlabs_local_send_buffer = message
+        # print(f"Put the message '{message}' in local_send_buffer")
+        while not self.streamlabs_local_receive_buffer:
+            # print(f"Waiting for streamlabs_local_receive_buffer [{self.streamlabs_local_receive_buffer}] | message: {message}")
+            await asyncio.sleep(.1)
+        # print("Finally got a result")
+        response = self.streamlabs_local_receive_buffer
+        self.streamlabs_local_receive_buffer = ''
+        self.streamlabs_local_buffer_lock = False
+        return response
 
 
 if __name__ == '__main__':

@@ -61,12 +61,12 @@ class User(Base):
                     input("Press 'enter' to quit")
 
             elif api.currency_system == 'streamlabs_local':
-                api.streamlabs_local_send_buffer = f'!get_user_points {self.name}'
-                while api.streamlabs_local_receive_buffer == '':
-                    await asyncio.sleep(.5)
-                points = int(api.streamlabs_local_receive_buffer)
-                api.streamlabs_local_receive_buffer = ''
-                return points
+                # api.streamlabs_local_send_buffer = f'!get_user_points {self.name}'
+                # while api.streamlabs_local_receive_buffer == '':
+                #     await asyncio.sleep(.5)
+                # points = int(api.streamlabs_local_receive_buffer)
+                # api.streamlabs_local_receive_buffer = ''
+                return int(await api.request_streamlabs_local_message(f'!get_user_points {self.name}'))
 
             raise ValueError(f"Unavailable Currency System: {api.currency_system}")
         raise ValueError("Tokens not ready for use. Tell Razbi about this.")

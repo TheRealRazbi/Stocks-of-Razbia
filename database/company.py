@@ -25,7 +25,7 @@ class Company(Base):
 
     increase_chance = Column(t.Integer, default=50)  # percentage
     max_increase = Column(t.Float, default=0.3)
-    max_decrease = Column(t.Float, default=0.3)
+    max_decrease = Column(t.Float, default=0.35)
     decay_rate = Column(t.Float, default=0.02)
 
     bankrupt = Column(t.Boolean, default=False)

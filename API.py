@@ -41,7 +41,9 @@ class API:
         # self.streamlabs_local_send_buffer = '!add_points razbith3player 10'
         self.streamlabs_local_send_buffer = ''
         self.streamlabs_local_receive_buffer = ''
-        self.streamlabs_local_buffer_lock = False
+        self.streamlabs_local_buffer_lock = asyncio.Lock()
+        self.streamlabs_local_send_buffer_event = asyncio.Event()
+        self.streamlabs_local_receive_buffer_event = asyncio.Event()
 
     def load_keys(self):
         session = database.Session()
@@ -97,13 +99,13 @@ class API:
         if command_name in self.commands:
             with contextlib.closing(database.Session()) as session:
                 ctx = await self.create_context(username, session)
-                if not original_text.islower():
-                    self.send_chat_message(f"@{ctx.user.name} tip: all commands and arguments are case-insensitive.")
+                # if not original_text.islower():
+                #     self.send_chat_message(f"@{ctx.user.name} tip: all commands and arguments are case-insensitive.")
                 try:
                     await self.commands[command_name](ctx, *args)
 
                 except commands.BadArgumentCount as e:
-                    self.send_chat_message(f'Usage: {self.prefix}{e.usage}')
+                    self.send_chat_message(f'@{ctx.user.name} Usage: {self.prefix}{e.usage}')
                 except commands.CommandError as e:
                     self.send_chat_message(e.msg)
 
@@ -319,19 +321,14 @@ class API:
         # self.overlord.api.streamlabs_local_receive_buffer = ''
 
     async def request_streamlabs_local_message(self, message: str):
-        while self.streamlabs_local_buffer_lock:
-            await asyncio.sleep(.25)
-        self.streamlabs_local_buffer_lock = True
-        self.streamlabs_local_send_buffer = message
-        # print(f"Put the message '{message}' in local_send_buffer")
-        while not self.streamlabs_local_receive_buffer:
-            # print(f"Waiting for streamlabs_local_receive_buffer [{self.streamlabs_local_receive_buffer}] | message: {message}")
-            await asyncio.sleep(.1)
-        # print("Finally got a result")
-        response = self.streamlabs_local_receive_buffer
-        self.streamlabs_local_receive_buffer = ''
-        self.streamlabs_local_buffer_lock = False
+        async with self.streamlabs_local_buffer_lock:
+            self.streamlabs_local_send_buffer = message
+            self.streamlabs_local_send_buffer_event.set()
+            await self.streamlabs_local_receive_buffer_event.wait()
+            self.streamlabs_local_receive_buffer_event.clear()
+            response = self.streamlabs_local_receive_buffer
         return response
+
 
 
 if __name__ == '__main__':

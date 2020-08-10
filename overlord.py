@@ -45,7 +45,9 @@ class Overlord:
         register_commands(self.api)
         self.iterate_cooldown = 10*60
         # self.iterate_cooldown = 3
-
+        self.new_companies_messages = ['ughhh... buy from them or smth?', "stonks", "nice, I guess...", "oh yeah, I like that one",
+                                       "wait, what are these?", "I like turtles", "who's Razbi?", "Glory to Arstotzka, wait..., wrong game"]
+        self.bankrupt_companies_messages = ['Feelsbadman', 'just invest better Kappa', 'imagine losing {currency_name} to those Kappa', 'this is fine']
         self.max_companies = 7
         self.spawn_ranges = {
             "poor_range": (7, 15),
@@ -93,9 +95,9 @@ class Overlord:
         spawned_companies = []
         if session.query(Company).count() < self.max_companies:
             companies_to_spawn = self.max_companies - session.query(Company).count()
-            if companies_to_spawn > 4:
-                companies_to_spawn = 4
-        if session.query(Company).count() == 0 and companies_to_spawn == 4:
+            if companies_to_spawn > 2:
+                companies_to_spawn = 2
+        if session.query(Company).count() == 0 and companies_to_spawn == 2:
             print(colored("hint: you can type the commands only in your twitch chat", "green"))
             self.api.send_chat_message(f"Welcome to Stocks of Razbia. "
                                        "Use '!stocks' to see basic available commands. Remember: company_abbreviation[current_price, price_change] "
@@ -117,8 +119,7 @@ class Overlord:
             session.add(company)
             spawned_companies.append(f"[{company.abbv}] {company.full_name}, stock_price: {company.stock_price:.1f} {self.currency_name}")
         if spawned_companies:
-            tip = random.choice(['ughhh... buy from them or smth?', "stonks", "nice, I guess...", "oh yeah, I like that one",
-                                 "wait, what are these?", "I like turtles", "who's Razbi?"])
+            tip = random.choice(self.new_companies_messages)
             self.api.send_chat_message(f"Newly spawned companies: {' | '.join(spawned_companies)}, {tip}")
 
         session.commit()
@@ -127,9 +128,10 @@ class Overlord:
         for index_company, company in enumerate(session.query(Company).all()):
             res = company.iterate()
             if res:
-                stock_increase = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}"\
-                                 f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}]"
-                self.stock_increase.append(stock_increase)
+                # stock_increase = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}"\
+                #                  f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}]"
+                # self.stock_increase.append(stock_increase)
+                self.stock_increase.append(True)
                 shares = session.query(database.Shares).filter_by(company_id=company.id)
                 for share in shares:
                     cost = math.ceil(math.ceil(share.amount*company.stock_price)*.1)
@@ -170,11 +172,6 @@ class Overlord:
             self.names = {item["abbv"]: item["company_name"] for item in load_default_names()}
             session.add(database.Settings(key='company_names', value=json.dumps(load_default_names())))
             session.commit()
-        # with open("lib/code/company_names.txt", "r") as f:
-        #     for line in f:
-        #         temp = line.strip().split('|')
-        #         if temp[0].strip():
-        #             self.names[temp[1].upper()] = temp[0].capitalize()
         for company in companies:
             self.names.pop(company.abbv, None)
 
@@ -231,7 +228,7 @@ class Overlord:
         # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
         #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
         if self.bankrupt_info:
-            random_comment = random.choice(['Feelsbadman', 'just invest better Kappa', f'imagine losing {self.currency_name} to those Kappa', 'this is fine'])
+            random_comment = random.choice(self.bankrupt_info).format(currency_name=self.currency_name)
             self.api.send_chat_message(f'The following companies bankrupt: {", ".join(self.bankrupt_info)} '
                                        f'{" ".join(self.owners_of_bankrupt_companies)} {random_comment if self.owners_of_bankrupt_companies else ""}')
             self.bankrupt_info = []
@@ -240,7 +237,7 @@ class Overlord:
         while True:
             if self.started:
                 stonks_or_stocks = random.choice(['stocks', 'stonks'])
-                help_tip = random.choice(['Here are some commands to help you do that', "Ughh maybe through these?", "I wonder what these are for"])
+                help_tip = random.choice(['Here are some commands to help you do that', "Ughh maybe through these?", "I wonder what are these for", "Commands"])
                 self.api.send_chat_message(
                     f"Want to make some {self.currency_name} through {stonks_or_stocks}? {help_tip}: !introduction, !companies, !my shares, !buy, !all commands, !stocks")
                 await asyncio.sleep(60 * 30)

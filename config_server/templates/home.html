@@ -6,45 +6,52 @@
           <div class="flash"><span style="color: yellowgreen">{{ message }}</span></div>
         {% endfor %}
 
-        <div>
-            {% if tokens_loaded %}
-            Tokens: <span style="color: lightgreen"> Loaded </span><br>
-            {% endif %}
-        </div>
+        <div class="row">
+            <div class="col-6">
+                <div>
+                    {% if tokens_loaded %}
+                    Tokens: <span style="color: lightgreen"> Loaded </span><br>
+                    {% endif %}
+                </div>
 
-        <div>
-            {% if currency_system %}
-                Currency System: <span style="color: lightseagreen">{% if currency_system == 'Streamlabs'%}{{ currency_system+'_extension' }}{% else %}{{ currency_system }}{% endif %}</span>
-            {% endif %}
+                <div>
+                    {% if currency_system %}
+                        Currency System: <span style="color: lightseagreen">{% if currency_system == 'Streamlabs'%}{{ currency_system+'_extension' }}{% else %}{{ currency_system }}{% endif %}</span>
+                    {% endif %}
 
-        </div>
+                </div>
 
-        <div>
-            {% if not started %}
-            <form action="/start_minigame" method="get">
-                <input type="submit" value="Start Minigame" class="btn btn-outline-success my-1">
-            </form>
-            {% else %}
-                <span style="color: limegreen">Minigame Started</span>
-            {% endif %}
-        </div>
+                <div>
+                    {% if not started %}
+                    <form action="/start_minigame" method="get">
+                        <input type="submit" value="Start Minigame" class="btn btn-outline-success my-1">
+                    </form>
+                    {% else %}
+                        <span style="color: limegreen">Minigame Started</span>
+                    {% endif %}
+                </div>
 
-        <div>
-            <form action="/introduction">
-                <input type="submit" value="Introduction" class="btn btn-outline-info my-1">
-            </form>
-        </div>
+                <div>
+                    <form action="/introduction">
+                        <input type="submit" value="Introduction" class="btn btn-outline-info my-1">
+                    </form>
+                </div>
 
-        <div>
-            <form action="/setup" method="get">
-                <input type="submit" value="Settings" class="btn btn-outline-primary my-1">
-            </form>
-        </div>
+                <div>
+                    <form action="/setup" method="get">
+                        <input type="submit" value="Settings" class="btn btn-outline-primary my-1">
+                    </form>
+                </div>
 
-        <div>
-            <form action="/about">
-                <input type="submit" value="About" class="btn btn-outline-light my-1">
-            </form>
+                <div>
+                    <form action="/about">
+                        <input type="submit" value="About" class="btn btn-outline-light my-1">
+                    </form>
+                </div>
+            </div>
+            <div class="col-6">
+
+            </div>
         </div>
 
         <div id="console">

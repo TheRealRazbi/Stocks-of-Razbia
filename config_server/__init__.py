@@ -331,13 +331,13 @@ async def ws():
 @app.websocket('/streamlabs')
 async def streamlabs_ws():
     while True:
-        if app.overlord.api.streamlabs_local_send_buffer:
-            message_to_send = app.overlord.api.streamlabs_local_send_buffer
-            await websocket.send(message_to_send)
-            # print(f'sent: {message_to_send}')
-            data = await websocket.receive()
-            # print(f'received: {data}')
-            app.overlord.api.streamlabs_local_receive_buffer = data
-            app.overlord.api.streamlabs_local_send_buffer = ''
-        await asyncio.sleep(.1)
+        await app.overlord.api.streamlabs_local_send_buffer_event.wait()
+        app.overlord.api.streamlabs_local_send_buffer_event.clear()
+        message_to_send = app.overlord.api.streamlabs_local_send_buffer
+        await websocket.send(message_to_send)
+        # print(f'sent: {message_to_send}')
+        data = await websocket.receive()
+        # print(f'received: {data}')
+        app.overlord.api.streamlabs_local_receive_buffer = data
+        app.overlord.api.streamlabs_local_receive_buffer_event.set()
 

@@ -47,5 +47,13 @@
             </div>
         {% endif %}
 
+        {% if setup_form.currency_system.data == 'streamlabs_local' %}
+            <div class="my-1">
+                Note: To be able to use Streamlabs Local Currency. Put this <a href="https://github.com/TheRealRazbi/Stocks-of-Razbia/releases/download/1.0.0/StocksOfRazbia.streamlabs.local.hook.rar">script</a>
+                in the 'Scripts' tab in the ChatBot and make sure it's enabled. If you don't see the "scripts" tab, make sure to connect both your accounts and to the right channel.
+            </div>
+        {% endif %}
+
+
 	</div>
 {% endblock %}

@@ -228,7 +228,7 @@ class Overlord:
         # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
         #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
         if self.bankrupt_info:
-            random_comment = random.choice(self.bankrupt_info).format(currency_name=self.currency_name)
+            random_comment = random.choice(self.bankrupt_companies_messages).format(currency_name=self.currency_name)
             self.api.send_chat_message(f'The following companies bankrupt: {", ".join(self.bankrupt_info)} '
                                        f'{" ".join(self.owners_of_bankrupt_companies)} {random_comment if self.owners_of_bankrupt_companies else ""}')
             self.bankrupt_info = []
@@ -237,9 +237,15 @@ class Overlord:
         while True:
             if self.started:
                 stonks_or_stocks = random.choice(['stocks', 'stonks'])
+                command_order = ['!introduction', '!companies', '!buy', '!stocks', '!autoinvest', '!my income']
+                random.shuffle(command_order)
                 help_tip = random.choice(['Here are some commands to help you do that', "Ughh maybe through these?", "I wonder what are these for", "Commands"])
-                self.api.send_chat_message(
-                    f"Want to make some {self.currency_name} through {stonks_or_stocks}? {help_tip}: !introduction, !companies, !my shares, !buy, !all commands, !stocks")
+                final_message = f"Want to make some {self.currency_name} through {stonks_or_stocks}? "
+                if random.choice([True, False]):
+                    final_message += f"{help_tip}: {', '.join(command_order)}"
+                else:
+                    final_message += "For lazy people we got: '!autoinvest <budget>'"
+                self.api.send_chat_message(final_message)
                 await asyncio.sleep(60 * 30)
             else:
                 await asyncio.sleep(.5)

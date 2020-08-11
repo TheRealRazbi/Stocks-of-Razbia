@@ -16,7 +16,7 @@ Commands List:
 - !company <company> | show info about a company such as full-name or price
 - !my shares | it will show you all the shares you own
 - !my profit | it will show you all the profit from all points invested
-- !my points | to see your points [in case it uses a different points of system than the stream]
+- !my points | to see your points [in case the minigame uses a different currency system than streamer's]
 - !my income | to see your income from all companies
 - !introduction | display a link to this document
 

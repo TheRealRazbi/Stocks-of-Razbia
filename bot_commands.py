@@ -140,7 +140,7 @@ def register_commands(api: API):
     @api.command()
     async def introduction(ctx):
         ctx.api.send_chat_message("This is a stock simulation minigame | '!stocks' for basic commands | "
-                                  "Buy stocks for passive income or buy when price is low then sell when it's high | "
+                                  "Buy stocks for passive income | "
                                   "Naming Convention: Company[current_price, price_change] "
                                   # "For a more in-depth explanation, please go to "
                                   # "https://github.com/TheRealRazbi/Stocks-of-Razbia/blob/master/introduction.md"
@@ -169,11 +169,19 @@ def register_commands(api: API):
     async def points(ctx):
         ctx.api.send_chat_message(f"@{ctx.user.name} currently has {await ctx.user.points(ctx.api)} {ctx.api.overlord.currency_name}")
 
+    @api.command()
+    async def mypoints(ctx):
+        await points(ctx)
+
     @my.command()
     async def profit(ctx):
         profit_str = ctx.user.profit_str
         profit = f"@{ctx.user.name} Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1]}"
         ctx.api.send_chat_message(profit)
+
+    @api.command()
+    async def myprofit(ctx):
+        await profit(ctx)
 
     @my.command()
     async def income(ctx):
@@ -190,6 +198,10 @@ def register_commands(api: API):
             ctx.api.send_chat_message(f'@{ctx.user.name} {", ".join(res)} | Total: {total_income} {ctx.api.overlord.currency_name} per 10 mins.')
         else:
             ctx.api.send_chat_message(f"@{ctx.user.name} doesn't own any shares. Use '!buy' to buy some.")
+
+    @api.command()
+    async def myincome(ctx):
+        await income(ctx)
 
     @next.command()
     async def month(ctx):
@@ -229,6 +241,9 @@ def register_commands(api: API):
         else:
             ctx.api.send_chat_message(f"@{ctx.user.name} you need {budget} {ctx.api.overlord.currency_name}, aka you need {budget-user_points} more.")
 
+    @api.command()
+    async def about(ctx):
+        ctx.api.send_chat_message("This minigame is open-source and it was made by Razbi and Nesami. Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia")
     # @api.command()
     # def test_turtle(ctx, thing: IntOrStrAll):
     #     # message = ""

@@ -66,8 +66,18 @@
                         message_list = message_list.slice(1)
                         let res = []
                         message_list.forEach(function (item, index){
+                            item = item.replace('!buy', '<span style="color: #31e05a">!buy</span>')
+                            item = item.replace('!sell', '<span style="color: #e09a31">!sell</span>')
+                            item = item.replace('!company', '<span style="color: #edde2b">!company</span>')
+                            item = item.replace('!companies', '<span style="color: #edde2b">!companies</span>')
+                            item = item.replace('!my', '<span style="color: #5587f2">!my</span>')
+                            item = item.replace('Usage', '<span style="color: #772ff5">Usage</span>')
+                            item = item.replace('stocks', '<span style="color: #2ce8bc">stocks</span>')
+                            item = item.replace('stonks', '<span style="color: #2ce8bc">stonks</span>')
+                            item = item.replace(/{{ currency_name }}/g, '<span style="color: #8539f7">{{ currency_name}}</span>')
                             res.push('<span style="color: deepskyblue">Message Sent: </span><span style="color: #9da138">'+item+'<span>')
                         });
+
                         {#res.pop()#}
                         {#console.log(res)#}
                         {#document.getElementById('console').innerText = res.toString();#}

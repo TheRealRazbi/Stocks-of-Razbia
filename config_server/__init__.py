@@ -39,7 +39,7 @@ async def home():
 
     app.overlord.api.console_buffer_done = []
     return await render_template("home.html", tokens_loaded=app.overlord.api.tokens_ready, started=app.overlord.started,
-                                 currency_system=app.overlord.api.currency_system.capitalize())
+                                 currency_system=app.overlord.api.currency_system.capitalize(), currency_name=app.overlord.currency_name)
 
 
 @app.route('/setup', methods=['GET', 'POST'])
@@ -322,6 +322,9 @@ async def ws():
     while True:
         if app.overlord.api.console_buffer != app.overlord.api.console_buffer_done:
             res = "\n".join(app.overlord.api.console_buffer)
+            res = escape_word(res, 'company')
+            res = escape_word(res, 'amount')
+            res = escape_word(res, 'budget')
             app.overlord.api.console_buffer_done = app.overlord.api.console_buffer.copy()
             await websocket.send(res)
         else:

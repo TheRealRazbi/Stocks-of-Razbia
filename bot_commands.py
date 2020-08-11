@@ -215,26 +215,29 @@ def register_commands(api: API):
         if budget <= user_points:
             companies: list = ctx.session.query(database.Company).all()
             for index_company, company in enumerate(companies):
-                if company.stock_price < 3 or company.stock_price > user_points:
+                if company.stock_price < 3 or company.stock_price > budget or company.remaining_shares == 0:
                     companies.pop(index_company)
             chosen_company: Company = random.choice(companies)
             if chosen_company:
                 stocks_to_buy = math.floor(budget/chosen_company.stock_price)
+                if stocks_to_buy > chosen_company.remaining_shares:
+                    stocks_to_buy = chosen_company.remaining_shares
                 if stocks_to_buy <= 0:
                     ctx.api.send_chat_message(f"@{ctx.user.name} too small budget. No stocks bought.")
                     return
-                share = ctx.session.query(database.Shares).get((ctx.user.id, chosen_company.id))
-                if share:
-                    share.amount += stocks_to_buy
-                else:
-                    share = database.Shares(user_id=ctx.user.id, company_id=chosen_company.id, amount=stocks_to_buy)
-                    ctx.session.add(share)
-                ctx.session.commit()
-                total_cost = math.ceil(stocks_to_buy*chosen_company.stock_price)
-                await ctx.api.add_points(ctx.user.name, -total_cost)
-                ctx.api.send_chat_message(
-                    f"@{ctx.user.name} just bought {stocks_to_buy} stocks from [{chosen_company.abbv}] '{chosen_company.full_name}' for {total_cost} {ctx.api.overlord.currency_name}. "
-                    f"Now they gain {math.ceil(share.amount * chosen_company.stock_price * .1)} {ctx.api.overlord.currency_name} from {chosen_company.abbv} each 10 mins. ")
+                await buy.run(ctx, stocks_to_buy, chosen_company)
+                # share = ctx.session.query(database.Shares).get((ctx.user.id, chosen_company.id))
+                # if share:
+                #     share.amount += stocks_to_buy
+                # else:
+                #     share = database.Shares(user_id=ctx.user.id, company_id=chosen_company.id, amount=stocks_to_buy)
+                #     ctx.session.add(share)
+                # ctx.session.commit()
+                # total_cost = math.ceil(stocks_to_buy*chosen_company.stock_price)
+                # await ctx.api.add_points(ctx.user.name, -total_cost)
+                # ctx.api.send_chat_message(
+                #     f"@{ctx.user.name} just bought {stocks_to_buy} stocks from [{chosen_company.abbv}] '{chosen_company.full_name}' for {total_cost} {ctx.api.overlord.currency_name}. "
+                #     f"Now they gain {math.ceil(share.amount * chosen_company.stock_price * .1)} {ctx.api.overlord.currency_name} from {chosen_company.abbv} each 10 mins. ")
 
             else:
                 ctx.api.send_chat_message(f"@{ctx.user.name} too small budget. No stocks bought.")
@@ -244,14 +247,6 @@ def register_commands(api: API):
     @api.command()
     async def about(ctx):
         ctx.api.send_chat_message("This minigame is open-source and it was made by Razbi and Nesami. Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia")
-    # @api.command()
-    # def test_turtle(ctx, thing: IntOrStrAll):
-    #     # message = ""
-    #     # for i in range(100):
-    #     #     message += "thing"
-    #
-    #     ctx.api.send_chat_message(thing)
-    #     ctx.api.send_chat_message(type(thing))
 
 
 if __name__ == '__main__':

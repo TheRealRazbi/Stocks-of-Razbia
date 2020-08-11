@@ -244,7 +244,7 @@ class Overlord:
                 if random.choice([True, False]):
                     final_message += f"{help_tip}: {', '.join(command_order)}"
                 else:
-                    final_message += "For lazy people we got: '!autoinvest <budget>'"
+                    final_message += "For busy people we got: '!autoinvest <budget>'"
                 self.api.send_chat_message(final_message)
                 await asyncio.sleep(60 * 30)
             else:

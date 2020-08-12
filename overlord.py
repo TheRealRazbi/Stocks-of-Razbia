@@ -17,20 +17,7 @@ import config_server
 import config_server.forms
 from company_names import load_default_names
 import webbrowser
-
-
-class CachedProperty:
-    def __init__(self, func, name=None):
-        self.name = name or func.__name__
-        self.func = func
-
-    def __get__(self, instance, owner=None):
-        if instance is None:
-            return self
-        if self.name in instance._cache:
-            return instance._cache[self.name]
-        instance._cache[self.name] = ret = self.func(instance)
-        return ret
+from more_tools import CachedProperty
 
 
 class Overlord:
@@ -46,14 +33,13 @@ class Overlord:
         self.iterate_cooldown = 10*60
         # self.iterate_cooldown = 3
         self.new_companies_messages = ['ughhh... buy from them or smth?', "stonks", "nice, I guess...", "oh yeah, I like that one",
-                                       "wait, what are these?", "I like turtles", "who's Razbi?", "Glory to Arstotzka, wait..., wrong game"]
-        self.bankrupt_companies_messages = ['Feelsbadman', 'just invest better Kappa', 'imagine losing {currency_name} to those Kappa', 'this is fine']
+                                       "wait, what are these?", "I like turtles", "who's Razbi?", "Glory to Arstotzka, wait..., wrong game", "buy buy buy"]
+        self.bankrupt_companies_messages = ['Feelsbadman', 'just invest better Kappa', 'imagine losing {currency_name} to those Kappa', 'this is fine monkaS']
         self.max_companies = 7
         self.spawn_ranges = {
             "poor_range": (7, 15),
             "expensive_range": (15, 35),
         }
-        self.settings = {'currency_name': config_server.forms.CurrencyNameForm}
         self._cache = {}
 
         self.stock_increase = []
@@ -82,7 +68,7 @@ class Overlord:
             self.spawn_companies(session)
             await self.clear_bankrupt(session)
 
-            self.display_update(session)
+            self.display_update()
             self.months += 1
             self.update_age(session)
             session.close()
@@ -90,7 +76,7 @@ class Overlord:
             await asyncio.sleep(3)
             # time.sleep(self.iterate_cooldown-time_since_last_run)
 
-    def spawn_companies(self, session):
+    def spawn_companies(self, session: database.Session):
         companies_to_spawn = 0
         spawned_companies = []
         if session.query(Company).count() < self.max_companies:
@@ -124,7 +110,7 @@ class Overlord:
 
         session.commit()
 
-    async def iterate_companies(self, session):
+    async def iterate_companies(self, session: database.Session):
         for index_company, company in enumerate(session.query(Company).all()):
             res = company.iterate()
             if res:
@@ -149,7 +135,7 @@ class Overlord:
                     self.names[company.abbv] = company.full_name
                     session.commit()
 
-    async def clear_bankrupt(self, session):
+    async def clear_bankrupt(self, session: database.Session):
         for index_company, company in enumerate(session.query(Company).filter_by(bankrupt=True)):
             self.bankrupt_info.append(f'{company.abbv.upper()}')
             shares = session.query(database.Shares).filter_by(company_id=company.id).all()
@@ -161,7 +147,7 @@ class Overlord:
             session.delete(company)
             session.commit()
 
-    def load_names(self, session=None):
+    def load_names(self, session: database.Session = None):
         if session is None:
             session = database.Session()
         companies = session.query(Company).all()
@@ -190,7 +176,7 @@ class Overlord:
                 self.poor = count
         session.close()
 
-    def load_age(self, session):
+    def load_age(self, session: database.Session):
         age = session.query(database.Settings).get('age')
         if age is None:
             if os.path.exists('lib/age'):
@@ -208,12 +194,12 @@ class Overlord:
 
         self.months = int(age)
 
-    def update_age(self, session):
+    def update_age(self, session: database.Session):
         age = session.query(database.Settings).get('age')
         age.value = str(self.months)
         session.commit()
 
-    def display_update(self, session):
+    def display_update(self):
         if self.stock_increase:
             # companies_to_announce, owners = self.get_companies_for_updates(session)
             # self.api.send_chat_message(f'Month: {self.months} | {", ".join(self.stock_increase)}')
@@ -237,21 +223,26 @@ class Overlord:
         while True:
             if self.started:
                 stonks_or_stocks = random.choice(['stocks', 'stonks'])
-                command_order = ['!introduction', '!companies', '!buy', '!stocks', '!autoinvest', '!my income']
-                random.shuffle(command_order)
-                help_tip = random.choice(['Here are some commands to help you do that', "Ughh maybe through these?", "I wonder what are these for", "Commands"])
-                final_message = f"Want to make some {self.currency_name} through {stonks_or_stocks}? "
-                if random.choice([True, False]):
+                final_message = random.choice([f'Wanna to make some {self.currency_name} through stonks?', 'Be the master of stonks'])+' '
+
+                main_variation = random.randint(1, 2)
+                if main_variation == 1:
+                    command_order = ['!introduction', '!companies', '!buy', f'!{stonks_or_stocks}', '!autoinvest', '!my income']
+                    random.shuffle(command_order)
+                    help_tip = random.choice(['Here are some commands to help you do that', "Ughh maybe through these?",
+                                              "I wonder what are these for", "Commands", "Turtles"])
                     final_message += f"{help_tip}: {', '.join(command_order)}"
-                else:
-                    final_message += "For busy people we got: '!autoinvest <budget>'"
+                elif main_variation == 2:
+                    final_message += "For newcomers we got: '!autoinvest <budget>'"
+                elif main_variation == 3:
+                    pass
                 self.api.send_chat_message(final_message)
                 await asyncio.sleep(60 * 30)
             else:
                 await asyncio.sleep(.5)
 
     @staticmethod
-    def get_companies_for_updates(session):
+    def get_companies_for_updates(session: database.Session):
         res = []
         owners = session.query(database.User).filter(database.User.shares).all()
         owners = [f'@{user.name}' for user in owners]
@@ -299,28 +290,12 @@ class Overlord:
         self.delete_table_contents(database.Shares, session=session)
         session.close()
 
-    @staticmethod
-    def load_currency_name(session):
-        currency_name = session.query(database.Settings).get('currency_name')
-        if currency_name is None:
-            if os.path.exists('lib/currency_name'):
-                with open("lib/currency_name") as f:
-                    currency_name = f.read().strip()
-                os.remove('lib/currency_name')
-            else:
-                currency_name = custom_tools.validate_input(
-                    "How would you want to call your points? E.g.: 'points', 'souls', 'bullets': ", color='green',
-                    character_min=4)
-                print(f'{colored(f"Points alias called {currency_name} was saved successfully. [Tip: these are just a label and they do not affect what currency the minigame uses]", "yellow")}')
-            session.add(database.Settings(key='currency_name', value=currency_name))
-            session.commit()
-
     @CachedProperty
     def currency_name(self):
         session = database.Session()
         if currency_name := session.query(database.Settings).get('currency_name'):
             currency_name = currency_name.value
-            self._cache['currency_name'] = currency_name
+            # self._cache['currency_name'] = currency_name
         else:
             currency_name = 'points'
             session.add(database.Settings(key='currency_name', value=currency_name))
@@ -346,7 +321,7 @@ Program started at {colored(str(time.strftime('%H : %M')), 'cyan')}
         """)
 
 
-def start(func, overlord):
+def start(func, overlord: Overlord):
     return overlord.loop.run_until_complete(func)
 
 

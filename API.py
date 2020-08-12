@@ -2,7 +2,6 @@ import time
 from typing import Union, Dict
 import requests
 import pickle
-import json
 import os
 import asyncio
 from asyncirc.protocol import IrcProtocol
@@ -14,6 +13,7 @@ import contexts
 import commands
 from termcolor import colored
 import contextlib
+from more_tools import CachedProperty
 
 
 class API:
@@ -35,10 +35,10 @@ class API:
         self.loop = loop
         self.started = False
         self.console_buffer = ['placeholder']
-        # self.console_buffer = [f'message{i}' for i in range(1)]
+
         self.console_buffer_done = []
         self.not_sent_buffer = []
-        # self.streamlabs_local_send_buffer = '!add_points razbith3player 10'
+
         self.streamlabs_local_send_buffer = ''
         self.streamlabs_local_receive_buffer = ''
         self.streamlabs_local_buffer_lock = asyncio.Lock()
@@ -84,14 +84,9 @@ class API:
         return contexts.UserContext(user=user, api=self, session=session)
 
     async def handler(self, conn, message: Message):
-        # print("This is a user message", message)
-        original_text: str = message.parameters[1]
-        # print(f"Parameters: {text}")
-
-        text = original_text.lower()
+        text: str = message.parameters[1].lower()
 
         username = message.prefix.user
-        # print(f"User: {username}")
         if not text.startswith(self.prefix):
             return
         text = text[len(self.prefix):]
@@ -99,9 +94,8 @@ class API:
         if command_name in self.commands:
             with contextlib.closing(database.Session()) as session:
                 ctx = await self.create_context(username, session)
-                # if not original_text.islower():
-                #     self.send_chat_message(f"@{ctx.user.name} tip: all commands and arguments are case-insensitive.")
                 try:
+                    # noinspection PyTypeChecker
                     await self.commands[command_name](ctx, *args)
 
                 except commands.BadArgumentCount as e:
@@ -147,7 +141,6 @@ class API:
                 print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
                 self.console_buffer.append(str(message))
         else:
-            # print(f'{colored("No connection to the chat yet. Will send message as soon as possible", "red")}')
             self.not_sent_buffer.append(message)
 
     def clear_unsent_buffer(self):
@@ -156,7 +149,6 @@ class API:
             self.not_sent_buffer = []
             for element in temp_buffer:
                 self.send_chat_message(element)
-        # print(f"{colored('All unsent messages have been sent now', 'green')}")
 
     async def add_points(self, user: str, amount: int):
         if self.tokens_ready:
@@ -173,10 +165,6 @@ class API:
                 headers = {'Authorization': f'Bearer {self.stream_elements_key}'}
                 return requests.put(url, headers=headers).json()["newAmount"]
             elif self.currency_system == 'streamlabs_local':
-                # self.streamlabs_local_send_buffer = f'!add_points {user} {amount}'
-                # while self.streamlabs_local_receive_buffer == '':
-                #     await asyncio.sleep(.5)
-                # self.streamlabs_local_receive_buffer = ''
                 await self.request_streamlabs_local_message(f'!add_points {user} {amount}')
                 return 'it worked, I guess'
 
@@ -205,19 +193,17 @@ class API:
             self._name = self.get_user()['data'][0]['login']
             return self._name
 
-    @property
+    @CachedProperty
     def currency_system(self):
-        if 'currency_system' in self._cache.keys():
-            return self._cache['currency_system']
         session = database.Session()
         currency_system_db = session.query(database.Settings).get('currency_system')
         if currency_system_db is not None:
-            self._cache['currency_system'] = currency_system_db.value
+            res = currency_system_db.value
         else:
-            self._cache['currency_system'] = ''
+            res = ''
             session.add(database.Settings(key='currency_system', value=''))
             session.commit()
-        return self._cache['currency_system']
+        return res
 
     def mark_dirty(self, setting):
         if f'{setting}' in self._cache.keys():
@@ -242,49 +228,38 @@ class API:
         raise ValueError(
             f"A response code appeared that Razbi didn't handle, maybe tell him? Response Code: {res.status_code}")
 
-    @property
+    @CachedProperty
     def tokens_ready(self):
-        if 'tokens_ready' in self._cache:
-            return self._cache['tokens_ready']
         if self.currency_system and self.twitch_key and self.validate_twitch_token():
             if self.currency_system == 'streamlabs' and self.streamlabs_key or \
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
-                self._cache['tokens_ready'] = True
                 return True
             if self.currency_system == 'streamlabs_local':
-                self._cache['tokens_ready'] = True
                 self.send_chat_message('!connect_minigame')
                 return True
         return False
 
-    @property
+    @CachedProperty
     def stream_elements_id(self):
-        if 'stream_elements_id' in self._cache:
-            return self._cache['stream_elements_id']
         if self.tokens_ready:
             session = database.Session()
             stream_elements_id_db = session.query(database.Settings).get('stream_elements_id')
             if stream_elements_id_db:
-                self._cache['stream_elements_id'] = stream_elements_id_db.value
                 return stream_elements_id_db.value
             url = f'https://api.streamelements.com/kappa/v2/channels/{self.name}'
             headers = {'accept': 'application/json'}
             res = requests.get(url, headers=headers)
             if res.status_code == 200:
                 stream_elements_id = res.json()['_id']
-                self._cache['stream_elements_id'] = stream_elements_id
                 session.add(database.Settings(key='stream_elements_id', value=stream_elements_id))
                 return stream_elements_id
 
-    @property
+    @CachedProperty
     def twitch_key_expires_at(self):
-        if 'twitch_key_expires_at' in self._cache:
-            return self._cache['twitch_key_expires_at']
         session = database.Session()
         expires_at_db = session.query(database.Settings).get('twitch_key_expires_at')
         if expires_at_db:
             expires_at = int(expires_at_db.value)
-            self._cache['twitch_key_expires_at'] = expires_at
             return expires_at
 
     async def twitch_key_auto_refresher(self):
@@ -315,11 +290,6 @@ class API:
     async def ping_streamlabs_local(self):
         await self.request_streamlabs_local_message(f'!get_user_points {self.name}')
 
-        # self.overlord.api.streamlabs_local_send_buffer = f'!get_user_points {self.name}'
-        # while self.started and self.overlord.api.streamlabs_local_receive_buffer == '':
-        #     await asyncio.sleep(.25)
-        # self.overlord.api.streamlabs_local_receive_buffer = ''
-
     async def request_streamlabs_local_message(self, message: str):
         async with self.streamlabs_local_buffer_lock:
             self.streamlabs_local_send_buffer = message
@@ -328,7 +298,6 @@ class API:
             self.streamlabs_local_receive_buffer_event.clear()
             response = self.streamlabs_local_receive_buffer
         return response
-
 
 
 if __name__ == '__main__':

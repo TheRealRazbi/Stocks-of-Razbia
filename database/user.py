@@ -80,7 +80,7 @@ class User(Base):
             if self.lost > self.gain:
                 symbol = '-'
                 gain, lost = lost, gain
-            percentage_profit = f'{symbol}{(gain / lost * 100):.0f}% of points invested'
+            percentage_profit = f'{symbol}{(gain / lost * 100):.0f}% ''of {currency_name} invested'
         except ZeroDivisionError:
             percentage_profit = f'0%'
         return profit, percentage_profit

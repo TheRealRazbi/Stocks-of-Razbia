@@ -88,6 +88,10 @@
                     {#ws.send('alive');#}
                     console.log('alive')
                 }
+                ws.onclose = function (event) {
+                    document.getElementById('console').innerHTML += '<br><span style="color: #eb3853">Console disconnected</span>';
+                }
+
             </script>
         </div>
 

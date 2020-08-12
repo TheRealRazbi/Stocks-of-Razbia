@@ -19,6 +19,7 @@ Commands List:
 - !my points | to see your points [in case the minigame uses a different currency system than streamer's]
 - !my income | to see your income from all companies
 - !introduction | display a link to this document
+- !autoinvest <budget> | buy random stocks whose value approach the budget value
 
 TL;DR:
 

@@ -17,15 +17,16 @@ As long as you read the Notes on each release, before installing it, you should 
 ### Commands List:
 
 - !stocks | display all commands
-- !buy <company> <amount> | amount is a number or 'all'
-- !sell <company> <amount> | amount is a number or 'all'
+- !buy &lt;company&gt; &lt;amount&gt; | amount is a number or 'all'
+- !sell &lt;company&gt; &lt;amount&gt; | amount is a number or 'all'
 - !companies | to show all companies
-- !company <company> | show info about a company such as full-name or price
+- !company &lt;company&gt; | show info about a company such as full-name or price
 - !my shares | it will show you all the shares you own
 - !my profit | it will show you all the profit from all points invested
-- !my points | to see your points [in case the minigame uses a different currency system than streamer's]
-- !my income | to see your income from all companies
-- !introduction | display a link to the Introduction document, which is the same as this one
+- !my points | shows your points [in case the minigame uses a different currency system than streamer's]
+- !my income | shows your income from all companies
+- !introduction | displays a link to the Introduction document, which is the same as this one
+- !autoinvest &lt;budget&gt; | buy random stocks whose value approach the budget value
 
 ### Note:
 The minigame and all companies are hosted locally.

@@ -25,16 +25,27 @@ import traceback
 os.system("cls")
 
 
+def auto_update_check():
+    if os.path.exists('lib/auto_update_enabled') and os.path.exists('lib/code/'):
+        porcelain.pull("lib/code/")
+
+
 def start_screen(first='Start'):
+    auto_updates = False
+    if os.path.exists('lib/auto_update_enabled'):
+        auto_updates = True
     print(f"1 - {colored(first, color='cyan')}\n"
           f"2 - {colored('Introduction', color='yellow')}\n"
           f"3 - {colored('Check for Updates', color='green')}\n"
-          f"4 - {colored('Quit', color='red')}\n")
+          f"4 - {colored(f'Auto-updates: {auto_updates}', color='green')}\n"
+          f"5 - {colored('Quit', color='red')}\n")
     if first == 'Start':
         print(colored("Please consider using the 'Introduction' option in case it's unclear what the minigame does.", 'red'))
     choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 4))
-    if choice == 4:
+    if choice == 5:
         raise SystemExit(0)
+    elif choice == 4:
+        enable_auto_updates()
     elif choice == 3:
         check_for_updates()
     elif choice == 1:
@@ -87,6 +98,42 @@ def check_for_updates():
     start_screen()
 
 
+def enable_auto_updates():
+    if not os.path.exists('lib/code/'):
+        print(f"{colored('Please install the minigame first', 'red')}")
+        start_screen(first='Install')
+
+    if os.path.exists('lib/auto_update_enabled'):
+        print(f"Would you like to disable {colored('auto-updates', 'green')}?")
+        print(f"1 - {colored('Yes', color='cyan')}\n",
+              f"2 - {colored('No', color='red')}\n",
+              )
+        choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 2))
+        if choice == 1:
+            os.remove('lib/auto_update_enabled')
+            print(f"{colored('Auto-updates disabled', 'green')}")
+        start_screen()
+    else:
+        print(f"Would you like to enable {colored('auto-updates', 'green')}?")
+        print(f"1 - {colored('Yes', color='cyan')}\n",
+              f"2 - {colored('No', color='red')}\n",
+              )
+        choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 2))
+        if choice == 1:
+            with open('lib/auto_update_enabled', 'w'):
+                pass
+            print(f"{colored('Auto-updates enabled', 'green')}")
+            print(f"Would you like to {colored('check-for-updates', 'green')} right now?")
+            print(f"1 - {colored('Yes', color='cyan')}\n",
+                  f"2 - {colored('No', color='red')}\n",
+                  )
+            choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 2))
+            if choice == 1:
+                check_for_updates()
+            else:
+                start_screen()
+
+
 def install_program():
     os.mkdir('lib/code/')
     porcelain.clone("https://github.com/TheRealRazbi/Stocks-of-Razbia.git", "lib/code")
@@ -119,6 +166,7 @@ def start_program():
 
 
 if __name__ == '__main__':
+    auto_update_check()
     first = 'Start'
     if not os.path.exists('lib/code/'):
         first = 'Install'

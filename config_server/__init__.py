@@ -56,15 +56,10 @@ async def setup():
             if currency_system_db := session.query(database.Settings).get('currency_system'):
                 app.overlord.api.mark_dirty('currency_system')
                 currency_system_db.value = setup_form.currency_system.data
-                # if app.overlord.currency_name == 'streamlabs_local':
-                #     app.overlord.api.send_chat_message("!connect_minigame")
                 session.commit()
                 if app.overlord.api.currency_system == 'streamlabs_local' and app.overlord.api.started:
                     app.overlord.api.send_chat_message('!connect_minigame')
-                    app.overlord.api.ping_streamlabs_local()
-                # if setup_form.currency_system.data != 'streamlabs' and setup_form.currency_system.data != 'stream_elements':
-                #     await flash("I see you tried saving a system that isn't available yet. "
-                #                 "I must warn you that the program will literally just crash if you start with the unavailable currency system.")
+                    await app.overlord.api.ping_streamlabs_local()
                 await flash('Currency System saved successfully')
         if setup_form.validate() and setup_form.currency_name.data != app.overlord.currency_name:
             if currency_name_db := session.query(database.Settings).get('currency_name'):
@@ -91,42 +86,6 @@ async def start_minigame():
     app.overlord.api.started = True
     app.overlord.started = True
     return redirect(url_for('home'))
-
-
-@app.route('/list_company')
-async def list_companies():
-    session = database.Session()
-    companies = session.query(database.Company).order_by(database.Company.price_diff.desc()).all()
-    return await render_template("companies.html", companies=companies)
-
-
-@app.route('/settings', methods=['GET', 'POST'])
-async def settings():
-    form_data = await get_form_data()
-
-    forms_ = []
-    for setting_name, setting in app.overlord.settings.items():
-        setting = setting(form_data, data={'value': getattr(app.overlord, setting_name)}, prefix=setting_name)
-        setting.value.label = setting_name
-        forms_.append(setting)
-
-    if request.method == 'POST':
-        session = database.Session()
-        for setting_form in forms_:
-            if setting_form.validate():
-                if setting_form.value.data != getattr(app.overlord, setting_form.value.label):
-                    await flash(f"Setting '{setting_form.value.label}' saved successfully with the value '{setting_form.value.data}'")
-                    app.overlord.mark_dirty(setting_form.value.label)
-                    setting = session.query(database.Settings).get(setting_form.value.label)
-                    setting.value = setting_form.value.data
-                    session.commit()
-                    if app.overlord.started and setting_form.value.label == 'streamlabs_local':
-                        app.overlord.api.send_chat_message("!connect_minigame")
-                        await app.overlord.api.ping_streamlabs_local()
-            else:
-                await flash(f"Settings unsaved. {setting_form.errors['value']}")
-
-    return await render_template("settings.html", forms_=forms_)
 
 
 @app.route('/settings/company_names', methods=['GET', 'POST'])
@@ -191,9 +150,6 @@ async def save_token(token, token_name, length, session=None):
             token_db = database.Settings(key=token_name, value=token)
             session.add(token_db)
         session.commit()
-        # if app.overlord.api.streamlabs_key and app.overlord.api.twitch_key and app.overlord.api.currency_system and\
-        #         app.overlord.api.validate_twitch_token():
-        #     app.overlord.api.tokens_ready = True
 
         return f"{token_name} saved successfully"
 
@@ -297,6 +253,7 @@ async def introduction():
             intro = f.read()
     intro = escape_word(intro, 'company')
     intro = escape_word(intro, 'amount')
+    intro = escape_word(intro, 'budget')
     mark_downer = markdown2.Markdown(extras=["break-on-newline"])
     intro = mark_downer.convert(intro)
     intro = color_multiple_words_in_html(intro,
@@ -308,6 +265,7 @@ async def introduction():
                                             'my': '#5587f2',
                                             'stocks': '#3e9ef7',
                                             'buy': '#31e05a',
+                                            'autoinvest': '#31e05a',
                                             'sell': '#e09a31',
                                             'points': '#31e06b',
                                             'currency': '#31e06b',

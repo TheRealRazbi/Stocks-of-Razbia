@@ -176,7 +176,7 @@ def register_commands(api: API):
     @my.command()
     async def profit(ctx):
         profit_str = ctx.user.profit_str
-        profit = f"@{ctx.user.name} Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1]}"
+        profit = f"@{ctx.user.name} Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1].format(currency_name=ctx.api.overlord.currency_name)}"
         ctx.api.send_chat_message(profit)
 
     @api.command()

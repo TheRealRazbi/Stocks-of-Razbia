@@ -228,14 +228,17 @@ class API:
         raise ValueError(
             f"A response code appeared that Razbi didn't handle, maybe tell him? Response Code: {res.status_code}")
 
-    @CachedProperty
     def tokens_ready(self):
+        if 'tokens_ready' in self._cache:
+            return self._cache['tokens_ready']
         if self.currency_system and self.twitch_key and self.validate_twitch_token():
             if self.currency_system == 'streamlabs' and self.streamlabs_key or \
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
+                self._cache['tokens_ready'] = True
                 return True
             if self.currency_system == 'streamlabs_local':
                 self.send_chat_message('!connect_minigame')
+                self._cache['tokens_ready'] = True
                 return True
         return False
 

@@ -226,19 +226,6 @@ def register_commands(api: API):
                     ctx.api.send_chat_message(f"@{ctx.user.name} too small budget. No stocks bought.")
                     return
                 await buy.run(ctx, stocks_to_buy, chosen_company)
-                # share = ctx.session.query(database.Shares).get((ctx.user.id, chosen_company.id))
-                # if share:
-                #     share.amount += stocks_to_buy
-                # else:
-                #     share = database.Shares(user_id=ctx.user.id, company_id=chosen_company.id, amount=stocks_to_buy)
-                #     ctx.session.add(share)
-                # ctx.session.commit()
-                # total_cost = math.ceil(stocks_to_buy*chosen_company.stock_price)
-                # await ctx.api.add_points(ctx.user.name, -total_cost)
-                # ctx.api.send_chat_message(
-                #     f"@{ctx.user.name} just bought {stocks_to_buy} stocks from [{chosen_company.abbv}] '{chosen_company.full_name}' for {total_cost} {ctx.api.overlord.currency_name}. "
-                #     f"Now they gain {math.ceil(share.amount * chosen_company.stock_price * .1)} {ctx.api.overlord.currency_name} from {chosen_company.abbv} each 10 mins. ")
-
             else:
                 ctx.api.send_chat_message(f"@{ctx.user.name} too small budget. No stocks bought.")
         else:

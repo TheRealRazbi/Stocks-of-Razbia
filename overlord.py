@@ -241,6 +241,18 @@ class Overlord:
             else:
                 await asyncio.sleep(.5)
 
+    async def start_company_events(self):
+        while True:
+            if self.started:
+                session = database.Session()
+                company = random.choice(session.query(database.Company).all())
+
+                session.close()
+
+                await asyncio.sleep(60 * 45)
+            else:
+                await asyncio.sleep(60)
+
     @staticmethod
     def get_companies_for_updates(session: database.Session):
         res = []

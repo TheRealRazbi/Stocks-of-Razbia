@@ -23,7 +23,7 @@ class Company(Base):
     price_diff = Column(t.Float, default=0)
     months = Column(t.Integer, default=0)  # age
 
-    increase_chance = Column(t.Integer, default=50)  # percentage
+    increase_chance = Column(t.Integer, default=55)  # percentage
     max_increase = Column(t.Float, default=0.3)
     max_decrease = Column(t.Float, default=0.35)
     decay_rate = Column(t.Float, default=0.02)
@@ -34,7 +34,6 @@ class Company(Base):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self.price_diff = 0
 
     def iterate(self):
         if self.bankrupt:
@@ -45,13 +44,10 @@ class Company(Base):
         else:
             amount = random.uniform(1 - self.max_decrease, 1)
 
-        initial_price = round(self.stock_price, 2)
-        self.stock_price = round(self.stock_price * amount, 2)
-        self.price_diff = round(initial_price - self.stock_price, 1)
+        initial_price = self.stock_price
+        self.stock_price = self.stock_price * amount
+        self.price_diff = initial_price - self.stock_price
 
-        # self.max_decrease += self.decay_rate
-        # if self.max_decrease > 1:
-        #     self.max_decrease = 1
         self.months += 1
 
         if self.stock_price <= 0.5:

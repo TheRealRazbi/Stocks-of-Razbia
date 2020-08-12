@@ -223,7 +223,7 @@ class Overlord:
         while True:
             if self.started:
                 stonks_or_stocks = random.choice(['stocks', 'stonks'])
-                final_message = random.choice([f'Wanna to make some {self.currency_name} through stonks?', 'Be the master of stonks'])+' '
+                final_message = random.choice([f'Wanna make some {self.currency_name} through stonks?', 'Be the master of stonks'])+' '
 
                 main_variation = random.randint(1, 2)
                 if main_variation == 1:

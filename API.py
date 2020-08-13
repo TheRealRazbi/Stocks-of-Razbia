@@ -129,7 +129,8 @@ class API:
         print(f"{colored('Ready to read chat commands', 'green')}. "
               f"To see all basic commands type {colored('!stocks', 'magenta')} in the twitch chat")
         self.clear_unsent_buffer()
-        await self.ping_streamlabs_local()
+        if self.currency_system == 'streamlabs_local':
+            await self.ping_streamlabs_local()
         # self.conn.send(f"PRIVMSG #{self.name} :I'm testing if this damn thing works")
         # self.conn.send(f"PRIVMSG #{self.name} :hello")
         await asyncio.sleep(24 * 60 * 60 * 365 * 100)
@@ -236,9 +237,11 @@ class API:
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
                 self._cache['tokens_ready'] = True
                 return True
+
             if self.currency_system == 'streamlabs_local':
-                self.send_chat_message('!connect_minigame')
                 self._cache['tokens_ready'] = True
+                # self.send_chat_message('!connect_minigame')
+                # print("connected")
                 return True
         return False
 
@@ -291,6 +294,7 @@ class API:
             await asyncio.sleep(60)
 
     async def ping_streamlabs_local(self):
+        self.send_chat_message('!connect_minigame')
         await self.request_streamlabs_local_message(f'!get_user_points {self.name}')
 
     async def request_streamlabs_local_message(self, message: str):

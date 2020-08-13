@@ -58,7 +58,6 @@ async def setup():
                 currency_system_db.value = setup_form.currency_system.data
                 session.commit()
                 if app.overlord.api.currency_system == 'streamlabs_local' and app.overlord.api.started:
-                    app.overlord.api.send_chat_message('!connect_minigame')
                     await app.overlord.api.ping_streamlabs_local()
                 await flash('Currency System saved successfully')
         if setup_form.validate() and setup_form.currency_name.data != app.overlord.currency_name:

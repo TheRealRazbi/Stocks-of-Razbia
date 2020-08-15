@@ -125,13 +125,10 @@ def register_commands(api: API):
             ctx.api.send_chat_message(f"@{ctx.user.name} Tip: The number on the left is the 'current price'. The one on the right is the 'price change'")
             ctx.user.new = False
             ctx.session.commit()
-    # @company.command(usage="<company>")
-    # async def shares(ctx, company: Company):
-    #     ctx.api.send_chat_message(f"@{ctx.user.name} '{company.abbv}' has {company.remaining_shares} remaining shares")
 
     @api.command()
     async def stocks(ctx):
-        ctx.api.send_chat_message(f"@{ctx.user.name} Minigame basic commands: !autoinvest, !introduction, !buy, !companies, !all commands, !my profit, !my income")
+        ctx.api.send_chat_message(f"@{ctx.user.name} Minigame basic commands: !autoinvest, !introduction, !buy, !companies, !all commands, !my stats")
 
     @api.command()
     async def stonks(ctx):
@@ -202,6 +199,46 @@ def register_commands(api: API):
     @api.command()
     async def myincome(ctx):
         await income(ctx)
+
+    @my.command()
+    async def stats(ctx):
+        final_final_res = []
+
+        # !my shares
+        res = []
+        shares = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id).all()
+        if shares:
+            for share in shares:
+                company = ctx.session.query(Company).get(share.company_id).announcement_description
+                res.append(f"{company}: {share.amount}")
+
+            final_final_res.append(f'Shares: {", ".join(res)}')
+        else:
+            final_final_res.append(f"You don't own any shares. Use '!buy' to buy some.")
+
+        # !my income
+        res = []
+        shares = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id).all()
+        if shares:
+            total_income = 0
+            for share in shares:
+                company = ctx.session.query(Company).get(share.company_id)
+                stock_price = company.stock_price
+                total_income += math.ceil(stock_price * share.amount * .1)
+                res.append(f"{company.abbv}: {math.ceil(stock_price * share.amount * .1)}")
+
+            final_final_res.append(
+                f'Income: {", ".join(res)} | Total Income: {total_income} {ctx.api.overlord.currency_name} per 10 mins.')
+        # else:
+        #     final_final_res.append(f"You don't own any shares. Use '!buy' to buy some.")
+
+        # !my profit
+
+        profit_str = ctx.user.profit_str
+        profit = f"Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1].format(currency_name=ctx.api.overlord.currency_name)}"
+        final_final_res.append(profit)
+
+        ctx.api.send_chat_message(f'@{ctx.user.name} ' + " ||| ".join(final_final_res))
 
     @next.command()
     async def month(ctx):

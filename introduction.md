@@ -7,23 +7,27 @@ Each 10 mins:
 - users gain points equal to 10% of the value of the stocks they own
 - companies, the users have stocks at, are slightly more likely to gain more money
 
-Commands List:
+Basic Commands:
 
-- !stocks | display all commands
+- !stocks | displays all the basic commands
+- !autoinvest <budget> | buy random stocks whose value approach the budget value
 - !buy <company> <amount> | amount is a number or 'all'
 - !sell <company> <amount> | amount is a number or 'all'
 - !companies | to show all companies
 - !company <company> | show info about a company such as full-name or price
-- !my shares | it will show you all the shares you own
-- !my profit | it will show you all the profit from all points invested
-- !my points | to see your points [in case the minigame uses a different currency system than streamer's]
-- !my income | to see your income from all companies
-- !introduction | display a link to this document
-- !autoinvest <budget> | buy random stocks whose value approach the budget value
+
+Extra Commands:
+- !my shares | displays all the shares you own
+- !my profit | displays you all the profit from all points invested
+- !my points | displays your points [in case the minigame uses a different currency system than streamer's]
+- !my income | displays your income from all the companies
+- !my stats | displays your shares + income + profit
+- !all commands | displays literally ALL the commands
+- !introduction | displays a link to this document
 
 TL;DR:
 
-- buy stocks with '!buy' 
+- buy stocks with '!buy' or '!autoinvest <budget>'
 - see companies with '!companies'
 - see specific info with '!company <company>'
 - see your income with '!my income'

@@ -14,19 +14,25 @@ As long as you read the Notes on each release, before installing it, you should 
 - users gain points equal to 10% of the value of the stocks they own
 - companies, the users have stocks at, are slightly more likely to gain more money
 
-### Commands List:
+### Basic Commands:
 
-- !stocks | display all commands
+- !stocks | displays all the basic commands
+- !autoinvest &lt;budget&gt; | buy random stocks whose value approach the budget value
 - !buy &lt;company&gt; &lt;amount&gt; | amount is a number or 'all'
 - !sell &lt;company&gt; &lt;amount&gt; | amount is a number or 'all'
-- !companies | to show all companies
-- !company &lt;company&gt; | show info about a company such as full-name or price
-- !my shares | it will show you all the shares you own
-- !my profit | it will show you all the profit from all points invested
+- !companies | display all companies
+- !company &lt;company&gt; | show info about a company such as full-name and price
+
+### Extra commands:
+
+- !my stats | displays your shares + income + profit
+- !my shares | displays all the shares you own
+- !my profit | it will show you all the profit from all points invested [doesn't take into account the value of current shares]
 - !my points | shows your points [in case the minigame uses a different currency system than streamer's]
 - !my income | shows your income from all companies
-- !introduction | displays a link to the Introduction document, which is the same as this one
-- !autoinvest &lt;budget&gt; | buy random stocks whose value approach the budget value
+- !introduction | displays a link to the Introduction document, which is a close copy to this one
+- !about | displays the dev names and the github link
+- !all commands | displays literally ALL the commands
 
 ### Note:
 The minigame and all companies are hosted locally.

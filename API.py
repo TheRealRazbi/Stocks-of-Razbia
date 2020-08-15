@@ -270,7 +270,7 @@ class API:
 
     async def twitch_key_auto_refresher(self):
         while True:
-            if self.tokens_ready and time.time() + 60 > self.twitch_key_expires_at:
+            if self.tokens_ready and self.twitch_key_expires_at and time.time() + 60 > self.twitch_key_expires_at:
                 url = 'https://razbi.funcity.org/stocks-chat-minigame/twitch/refresh_token'
                 querystring = {'access_token': self.twitch_key}
                 res = requests.get(url, params=querystring)

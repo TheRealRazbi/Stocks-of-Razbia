@@ -35,23 +35,21 @@ def start_screen(first='Start'):
     if os.path.exists('lib/auto_update_enabled'):
         auto_updates = True
     print(f"1 - {colored(first, color='cyan')}\n"
-          f"2 - {colored('Introduction', color='yellow')}\n"
-          f"3 - {colored('Check for Updates', color='green')}\n"
-          f"4 - {colored(f'Auto-updates: {auto_updates}', color='green')}\n"
-          f"5 - {colored('Quit', color='red')}\n")
-    if first == 'Start':
-        print(colored("Please consider using the 'Introduction' option in case it's unclear what the minigame does.", 'red'))
+          # f"2 - {colored('Introduction', color='yellow')}\n"
+          f"2 - {colored('Check for Updates', color='green')}\n"
+          f"3 - {colored(f'Auto-updates: {auto_updates}', color='green')}\n"
+          f"4 - {colored('Quit', color='red')}\n")
+    # if first == 'Start':
+    #     print(colored("Please consider using the 'Introduction' option in case it's unclear what the minigame does.", 'red'))
     choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 4))
     if choice == 5:
         raise SystemExit(0)
-    elif choice == 4:
-        enable_auto_updates()
     elif choice == 3:
+        enable_auto_updates()
+    elif choice == 2:
         check_for_updates()
     elif choice == 1:
         start_program()
-    elif choice == 2:
-        print_intro()
 
 
 def color_this(text: str, word_and_color: tuple):

@@ -9,7 +9,6 @@ import asyncio
 from bot_commands import register_commands
 from database import User, Company
 import database
-import custom_tools
 from termcolor import colored
 import math
 import os
@@ -36,6 +35,7 @@ class Overlord:
                                        "wait, what are these?", "I like turtles", "who's Razbi?", "Glory to Arstotzka, wait..., wrong game", "buy buy buy"]
         self.bankrupt_companies_messages = ['Feelsbadman', 'just invest better Kappa', 'imagine losing {currency_name} to those Kappa', 'this is fine monkaS']
         self.max_companies = 7
+        self.max_companies_at_a_time = 2
         self.spawn_ranges = {
             "poor_range": (7, 15),
             "expensive_range": (15, 35),
@@ -81,12 +81,12 @@ class Overlord:
         spawned_companies = []
         if session.query(Company).count() < self.max_companies:
             companies_to_spawn = self.max_companies - session.query(Company).count()
-            if companies_to_spawn > 2:
-                companies_to_spawn = 2
-        if session.query(Company).count() == 0 and companies_to_spawn == 2:
+            if companies_to_spawn > self.max_companies_at_a_time:
+                companies_to_spawn = self.max_companies_at_a_time
+        if session.query(Company).count() == 0 and companies_to_spawn == self.max_companies_at_a_time:
             print(colored("hint: you can type the commands only in your twitch chat", "green"))
             self.api.send_chat_message(f"Welcome to Stocks of Razbia. "
-                                       "Use '!stocks' to see basic available commands. Remember: company_abbreviation[current_price, price_change] "
+                                       "Naming Convention: company[10.5+9.5%] Number on the left is current price. Number on the right is the price change from last month."
                                        "tip: you don't have to type company names in caps. ")
 
         for _ in range(companies_to_spawn):
@@ -223,7 +223,7 @@ class Overlord:
         while True:
             if self.started:
                 stonks_or_stocks = random.choice(['stocks', 'stonks'])
-                final_message = random.choice([f'Wanna make some {self.currency_name} through stonks?', 'Be the master of stonks'])+' '
+                final_message = random.choice([f'Wanna make some {self.currency_name} through stonks?', 'Be the master of stonks.'])+' '
 
                 main_variation = random.randint(1, 2)
                 if main_variation == 1:
@@ -234,8 +234,6 @@ class Overlord:
                     final_message += f"{help_tip}: {', '.join(command_order)}"
                 elif main_variation == 2:
                     final_message += "For newcomers we got: '!autoinvest <budget>'"
-                elif main_variation == 3:
-                    pass
                 self.api.send_chat_message(final_message)
                 await asyncio.sleep(60 * 30)
             else:
@@ -246,7 +244,7 @@ class Overlord:
             if self.started:
                 session = database.Session()
                 company = random.choice(session.query(database.Company).all())
-
+                # TODO: make an event system AFTER database migrations are working
                 session.close()
 
                 await asyncio.sleep(60 * 45)

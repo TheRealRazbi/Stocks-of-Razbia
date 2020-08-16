@@ -237,12 +237,10 @@ class API:
             if self.currency_system == 'streamlabs' and self.streamlabs_key or \
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
                 self._cache['tokens_ready'] = True
-                print(colored("RETURNS TRUE BECAUSE TWITCH KEY IS VALID AND ITS A RIGHT CURRENCY SYSTEM", 'red'))
                 return True
 
             if self.currency_system == 'streamlabs_local':
                 self._cache['tokens_ready'] = True
-                print(colored("RETURNS TRUE BECAUSE TWITCH KEY IS VALID AND ITS A RIGHT CURRENCY SYSTEM", 'red'))
 
                 # self.send_chat_message('!connect_minigame')
                 # print("connected")

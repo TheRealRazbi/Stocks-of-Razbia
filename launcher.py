@@ -21,6 +21,7 @@ from quart import Quart, render_template, request, flash, redirect, url_for, web
 import wtforms
 import markdown2
 import traceback
+import alembic
 
 os.system("cls")
 
@@ -42,7 +43,7 @@ def start_screen(first='Start'):
     # if first == 'Start':
     #     print(colored("Please consider using the 'Introduction' option in case it's unclear what the minigame does.", 'red'))
     choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 4))
-    if choice == 5:
+    if choice == 4:
         raise SystemExit(0)
     elif choice == 3:
         enable_auto_updates()

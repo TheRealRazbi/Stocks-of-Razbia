@@ -1,4 +1,7 @@
 __all__ = ["User"]
+
+import math
+
 from sqlalchemy import Column
 from sqlalchemy.sql import sqltypes as t
 from sqlalchemy.orm import relationship
@@ -6,7 +9,8 @@ from sqlalchemy.orm import relationship
 import requests
 import asyncio
 
-from .db import Base
+from .db import Base, Session
+from .company import Company
 
 
 class User(Base):
@@ -61,11 +65,6 @@ class User(Base):
                     input("Press 'enter' to quit")
 
             elif api.currency_system == 'streamlabs_local':
-                # api.streamlabs_local_send_buffer = f'!get_user_points {self.name}'
-                # while api.streamlabs_local_receive_buffer == '':
-                #     await asyncio.sleep(.5)
-                # points = int(api.streamlabs_local_receive_buffer)
-                # api.streamlabs_local_receive_buffer = ''
                 return int(await api.request_streamlabs_local_message(f'!get_user_points {self.name}'))
 
             raise ValueError(f"Unavailable Currency System: {api.currency_system}")
@@ -73,14 +72,20 @@ class User(Base):
 
     @property
     def profit_str(self):
-        profit = f'{self.gain - self.lost:+}'
-        symbol = '+'
         gain, lost = self.gain, self.lost
+        session = Session()
+        for share in self.shares:
+            company: Company = session.query(Company).get(share.company_id)
+            # print(f"Old gain: {gain}")
+            gain += math.ceil(company.stock_price*share.amount)
+            # print(f"New gain: {gain}")
+        profit = f'{gain - lost:+}'
+        symbol = '+'
         try:
             if self.lost > self.gain:
                 symbol = '-'
                 gain, lost = lost, gain
-            percentage_profit = f'{symbol}{(gain / lost * 100):.0f}% ''of {currency_name} invested'
+            percentage_profit = f'{symbol}{(gain / lost * 100):.0f}% ''of {currency_name} invested.'
         except ZeroDivisionError:
             percentage_profit = f'0%'
         return profit, percentage_profit

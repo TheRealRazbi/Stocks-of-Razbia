@@ -75,14 +75,15 @@ class User(Base):
         gain, lost = self.gain, self.lost
         session = Session()
         for share in self.shares:
-            company: Company = session.query(Company).get(share.company_id)
+            # company: Company = session.query(Company).get(share.company_id)
+            company: Company = share.company
             # print(f"Old gain: {gain}")
             gain += math.ceil(company.stock_price*share.amount)
             # print(f"New gain: {gain}")
         profit = f'{gain - lost:+}'
         symbol = '+'
         try:
-            if self.lost > self.gain:
+            if lost > gain:
                 symbol = '-'
                 gain, lost = lost, gain
             percentage_profit = f'{symbol}{(gain / lost * 100):.0f}% ''of {currency_name} invested.'

@@ -229,6 +229,7 @@ class API:
         raise ValueError(
             f"A response code appeared that Razbi didn't handle, maybe tell him? Response Code: {res.status_code}")
 
+    @property
     def tokens_ready(self):
         if 'tokens_ready' in self._cache:
             return self._cache['tokens_ready']
@@ -236,10 +237,13 @@ class API:
             if self.currency_system == 'streamlabs' and self.streamlabs_key or \
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
                 self._cache['tokens_ready'] = True
+                print(colored("RETURNS TRUE BECAUSE TWITCH KEY IS VALID AND ITS A RIGHT CURRENCY SYSTEM", 'red'))
                 return True
 
             if self.currency_system == 'streamlabs_local':
                 self._cache['tokens_ready'] = True
+                print(colored("RETURNS TRUE BECAUSE TWITCH KEY IS VALID AND ITS A RIGHT CURRENCY SYSTEM", 'red'))
+
                 # self.send_chat_message('!connect_minigame')
                 # print("connected")
                 return True

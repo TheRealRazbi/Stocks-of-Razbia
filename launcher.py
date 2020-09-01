@@ -22,6 +22,7 @@ import wtforms
 import markdown2
 import traceback
 import alembic
+import wtforms_components
 
 os.system("cls")
 
@@ -152,6 +153,8 @@ def start_program():
         main = __import__("main").main
         try:
             main()
+        except KeyboardInterrupt:
+            raise SystemExit(0)
         except:
             if not os.path.exists('lib/crash-logs'):
                 os.mkdir('lib/crash-logs')

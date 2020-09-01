@@ -1,3 +1,4 @@
+import ast
 import time
 from typing import Union, Dict
 import requests
@@ -13,7 +14,8 @@ import contexts
 import commands
 from termcolor import colored
 import contextlib
-from more_tools import CachedProperty
+from more_tools import CachedProperty, BidirectionalMap
+from customizable_stuff import load_command_names
 
 
 class API:
@@ -35,6 +37,14 @@ class API:
         self.loop = loop
         self.started = False
         self.console_buffer = ['placeholder']
+
+        # self.command_names = {('acquire', None): 'buy', ('my', None): 'my', ('income', 'my'): 'income'}
+        self.command_names = {}
+        self.load_command_names()
+        # self.command_names = {
+        #     ('stocks', None): 'stocks',
+        #     ('stonks', None): 'stocks',
+        # }
 
         self.console_buffer_done = []
         self.not_sent_buffer = []
@@ -90,16 +100,19 @@ class API:
         if not text.startswith(self.prefix):
             return
         text = text[len(self.prefix):]
-        command_name, *args = text.split()
+        old_command_name, *args = text.split()
+        command_name = self.command_names.get((old_command_name, None), old_command_name)
+        command_name, _, group_name = command_name.partition(" ")
+        if group_name:
+            args.insert(0, group_name)
         if command_name in self.commands:
             with contextlib.closing(database.Session()) as session:
                 ctx = await self.create_context(username, session)
                 try:
                     # noinspection PyTypeChecker
                     await self.commands[command_name](ctx, *args)
-
                 except commands.BadArgumentCount as e:
-                    self.send_chat_message(f'@{ctx.user.name} Usage: {self.prefix}{e.usage}')
+                    self.send_chat_message(f'@{ctx.user.name} Usage: {self.prefix}{e.usage(name=old_command_name)}')
                 except commands.CommandError as e:
                     self.send_chat_message(e.msg)
 
@@ -307,6 +320,26 @@ class API:
             self.streamlabs_local_receive_buffer_event.clear()
             response = self.streamlabs_local_receive_buffer
         return response
+
+    def get_and_format(self, ctx: contexts.UserContext, message_name: str, **formats):
+        return self.overlord.messages[message_name].format(stocks_alias=self.overlord.messages['stocks_alias'],
+                                                           company_alias=self.overlord.messages['company_alias'],
+                                                           user_name=ctx.user.name,
+                                                           currency_name=self.overlord.currency_name,
+                                                           **formats)
+
+    def load_command_names(self):
+        # self.command_names = {('acquire', None): 'buy', ('my', None): 'my', ('income', 'my'): 'income'}
+
+        session = database.Session()
+        command_names = session.query(database.Settings).get('command_names')
+        if command_names:
+            self.command_names = BidirectionalMap(ast.literal_eval(command_names.value))
+        else:
+            self.command_names = load_command_names()
+            command_names = database.Settings(key='command_names', value=repr(self.command_names))
+            session.add(command_names)
+            session.commit()
 
 
 if __name__ == '__main__':

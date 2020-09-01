@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% from 'macros/forms.html' import render_field %}
+
+{% block body %}
+	<div class="container">
+        {% for message in get_flashed_messages() %}
+            <div class="flash"><span style="color: green">{{ message }}</span></div>
+        {% endfor %}
+
+        {% if form_list.errors %}
+            Nothing Saved.
+            Errors:
+            <span style="color: #8d2828">
+                {% for error in form_list.errors['items']%}
+                    {% if error %}
+                        Row {{ loop.index }}: {{ error['command_message'][0] }}
+                    {% endif %}
+                {% endfor %}
+            </span>
+{#            {% else %}#}
+{#                <span style="color: green">#}
+{#                    {% for message in get_flashed_messages() %}#}
+{#                      <div class="flash">{{ message }}</div>#}
+{#                    {% endfor %}#}
+{#                </span>#}
+        {% endif %}
+
+        <div class="my-dark">
+            <form method="post">
+                {% for form in form_list.items %}
+                    <div class="input-group mb-1 dropdown dropdown-dark">{{ render_field(form.message_name) }} {{ render_field(form.command_message) }}</div>
+                {% endfor %}
+                <input type="submit" value="Save" class="btn btn-outline-success my-1">
+            </form>
+        </div>
+
+        <div>
+            <form action="messages/restore_default">
+                <input type="submit" value="restore default to 1 or more fields" class="btn btn-outline-info my-1">
+            </form>
+        </div>
+
+        <div>
+            <form action = '/customizations' method = "get">
+                <input type="submit" value="back" class="btn btn-outline-secondary my-1">
+            </form>
+        </div>
+
+
+
+
+	</div>
+{% endblock %}

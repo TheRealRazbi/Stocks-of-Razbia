@@ -1,14 +1,19 @@
+import ast
 import json
 import time
 from contextlib import suppress
 from typing import Type, List, Optional
 
-from quart import Quart, render_template, request, flash, redirect, url_for, websocket
+from quart import Quart, render_template, request, flash, redirect, url_for, websocket, current_app
 import database
 from wtforms import validators, Form, FieldList
-from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm, CompaniesNames
+from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm, CompaniesNames, CommandNameForm, \
+    CommandNamesForm, CommandMessagesForm, CommandMessagesRestoreDefaultForm
 import asyncio
 import markdown2
+import commands
+from customizable_stuff import load_command_names, load_message_templates
+from more_tools import BidirectionalMap
 
 app = Quart(__name__, static_folder="static/static")
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
@@ -87,7 +92,7 @@ async def start_minigame():
     return redirect(url_for('home'))
 
 
-@app.route('/settings/company_names', methods=['GET', 'POST'])
+@app.route('/customizations/company_names', methods=['GET', 'POST'])
 async def company_names():
     setting_name = "company_names"
     form_data = await get_form_data()
@@ -300,4 +305,137 @@ async def streamlabs_ws():
         # print(f'received: {data}')
         app.overlord.api.streamlabs_local_receive_buffer = data
         app.overlord.api.streamlabs_local_receive_buffer_event.set()
+
+
+def get_choices_for_command_names():
+    pre_made_choices = []
+    # print(app.overlord.api.command_names.inverse.items())
+    for (og_name, alias_and_group_name) in app.overlord.api.command_names.inverse.items():
+        for alias, group_name in alias_and_group_name:
+            accessible_from = group_name
+            if ' ' in og_name.strip():  # added this check to handle situations where the key is 'my points' so it's accessible from 'root'
+                group_name, _, og_name = og_name.partition(" ")
+            pre_made_choices.append({'command': (og_name, group_name), 'alias': alias, 'group': accessible_from})
+    return pre_made_choices
+
+
+@app.route('/customizations/command_names', methods=['GET', 'POST'])
+async def command_names():
+    form_data = await get_form_data()
+
+    # pre_made_choices = [{'command': ('buy', None), 'alias': 'acquire', 'group': 'all'}]
+
+    form_list = CommandNamesForm(form_data, data={'items': get_choices_for_command_names()})
+
+    if request.method == 'POST':
+        if form_list.validate():
+            res = {}
+            for result in form_list.items.data:
+                if result['alias'].lower() == 'none':
+                    continue
+                result['command'] = ast.literal_eval(result['command'])
+                if result['group'] == 'None':
+                    result['group'] = None
+                if result['command'][1] is not None and result['group'] is None:
+                    result['command'] = (f'{result["command"][1]} {result["command"][0]}', result['command'][1])
+                res[(result['alias'], result['group'])] = result['command'][0]
+                # print(f"Added {result} to new thingies")
+            app.overlord.api.command_names = BidirectionalMap(res)
+            session = database.Session()
+            session.query(database.Settings).get("command_names").value = repr(app.overlord.api.command_names)
+            session.commit()
+            # print(f"New command_names: {res}")
+
+            form_list = CommandNamesForm(data={'items': get_choices_for_command_names()})
+            await flash("Command Aliases saved successfully.")
+
+    return await render_template('command_names.html', form_list=form_list)
+
+
+@app.route('/customizations/command_names/add_alias')
+async def add_alias():
+    anti_duplication_count = 1
+    while (f'buy{anti_duplication_count}', None) in app.overlord.api.command_names:
+        anti_duplication_count += 1
+        # print(f"buy{anti_duplication_count}  in command_names")
+    else:
+        app.overlord.api.command_names[(f'buy{anti_duplication_count}', None)] = 'buy'
+        session = database.Session()
+        session.query(database.Settings).get('command_names').value = repr(app.overlord.api.command_names)
+        session.commit()
+        # print("Added another command_name")
+    return redirect('/customizations/command_names')
+
+
+@app.route('/customizations/command_names/restore_default/confirmed')
+async def confirm_restore_default_command_names():
+    app.overlord.api.command_names = load_command_names()
+    session = database.Session()
+    session.query(database.Settings).get('command_names').value = repr(app.overlord.api.command_names)
+    session.commit()
+    await flash("Command Aliases were reset.")
+    return redirect('/customizations/command_names')
+
+
+@app.route('/customizations/command_names/restore_default')
+async def ask_to_restore_default_command_names():
+    return await render_template('command_names_restore_default.html')
+
+
+@app.route('/customizations')
+async def customizations():
+    return await render_template('customizations.html')
+
+
+@app.route('/customizations/messages', methods=['GET', 'POST'])
+async def command_messages():
+    # form_list = CommandMessagesForm(data={"items": [{"message_name": "thing", 'command_message': "reee"},
+    #                                                 {'message_name': 'thingy2', 'command_message': 'acquire'}]})
+    form_data = await get_form_data()
+
+    messages = []
+    for key, value in app.overlord.messages.items():
+        messages.append({'message_name': key, "command_message": value})
+    form_list = CommandMessagesForm(form_data, data={"items": messages})
+
+    if request.method == 'POST' and form_list.validate():
+        new_messages = {}
+        for res in form_list.items.data:
+            new_messages[res['message_name']] = res['command_message']
+        app.overlord.messages = new_messages
+        session = database.Session()
+        session.query(database.Settings).get('messages').value = json.dumps(app.overlord.messages)
+        session.commit()
+        await flash("Command Outputs saved successfully.")
+
+    return await render_template('command_messages.html', form_list=form_list)
+
+
+@app.route('/customizations/messages/restore_default', methods=['GET', 'POST'])
+async def restore_default():
+    form_data = await get_form_data()
+
+    form = CommandMessagesRestoreDefaultForm(form_data)
+
+    if request.method == 'POST':
+        data = form.message_name.data
+        default_messages = load_message_templates()
+        if data == 'None':
+            pass
+        elif data == 'all':
+            app.overlord.messages = default_messages
+            session = database.Session()
+            session.query(database.Settings).get('messages').value = json.dumps(default_messages)
+            session.commit()
+            await flash("Command Outputs were reset.")
+        else:
+            app.overlord.messages[data] = default_messages[data]
+            session = database.Session()
+            session.query(database.Settings).get('messages').value = json.dumps(app.overlord.messages)
+            session.commit()
+            await flash(f"Command Output '{data}' was reset.")
+        return redirect('/customizations/messages')
+
+    return await render_template('command_messages_restore_default.html', form=form)
+
 

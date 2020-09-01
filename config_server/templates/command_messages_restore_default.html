@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% from 'macros/forms.html' import render_field %}
+
+{% block body %}
+	<div class="container">
+        {% for message in get_flashed_messages() %}
+            <div class="flash"><span style="color: green">{{ message }}</span></div>
+        {% endfor %}
+
+        <div class="my-dark mt-1">
+            <form method="post">
+                {{ form.message_name }} <br>
+                <input type="submit" value="Save" class="btn btn-outline-success my-1">
+            </form>
+        </div>
+
+        <div>
+            <form action = '/customizations/messages' method = "get">
+                <input type="submit" value="back" class="btn btn-outline-secondary my-1">
+            </form>
+        </div>
+
+	</div>
+{% endblock %}

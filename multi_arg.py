@@ -5,3 +5,11 @@ class IntOrStrAll:
 
 class CompanyOrIntOrAll:
     pass
+
+
+class CompanyOrInt:
+    pass
+
+
+
+

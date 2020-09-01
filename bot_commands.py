@@ -4,10 +4,11 @@ from API import API
 
 from database import Company
 import database
-from multi_arg import IntOrStrAll, CompanyOrIntOrAll
+from multi_arg import IntOrStrAll, CompanyOrIntOrAll, CompanyOrInt
 import commands as commands_
 import time
 import random
+from typing import Union
 
 
 def register_commands(api: API):
@@ -27,30 +28,30 @@ def register_commands(api: API):
         ctx.api.send_chat_message(f"All minigame-related chat commands: {', '.join(thing_to_display)}")
 
     @api.command(usage="<company> <amount>")
-    async def buy(ctx, company: CompanyOrIntOrAll, amount: CompanyOrIntOrAll):
+    async def buy(ctx, company: CompanyOrInt, amount: CompanyOrInt):
+        amount: Union[Company, int]
+        company: Union[Company, int]
         if isinstance(company, Company) and not isinstance(amount, Company):
-            if amount == 'all':
-                amount = company.remaining_shares
+            pass
         elif not isinstance(company, Company) and isinstance(amount, Company):
             company, amount = amount, company
-            if amount == 'all':
-                amount = company.remaining_shares
         elif isinstance(company, Company) and isinstance(amount, Company):
-            ctx.api.send_chat_message(f"@{ctx.user.name} inputted 2 companies. You need to input a value and a company")
+            # ctx.api.send_chat_message(f"@{ctx.user.name} inputted 2 companies. You need to input a number and a company.")
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'buy_or_sell_2_companies'))
             return
         elif not isinstance(company, Company) and not isinstance(amount, Company):
-            ctx.api.send_chat_message(f"@{ctx.user.name} didn't input any company. You need to input a value and a company")
+            # ctx.api.send_chat_message(f"@{ctx.user.name} didn't input any company. You need to input a number and a company.")
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'buy_or_sell_0_companies'))
             return
 
         points = await ctx.user.points(ctx.api)
         cost = math.ceil(amount*company.stock_price)
-
-        if company.remaining_shares == 0:
-            ctx.api.send_chat_message(f"@{ctx.user.name} no stocks left to buy at {company.abbv}")
-            return
-        if amount > company.remaining_shares:
-            ctx.api.send_chat_message(f"@{ctx.user.name} tried buying {amount} stocks, but only {company.remaining_shares} are remaining")
-            return
+        # if company.remaining_shares == 0:
+        #     ctx.api.send_chat_message(f"@{ctx.user.name} no stocks left to buy at {company.abbv}")
+        #     return
+        # if amount > company.remaining_shares:
+        #     ctx.api.send_chat_message(f"@{ctx.user.name} tried buying {amount} stocks, but only {company.remaining_shares} are remaining")
+        #     return
         if points >= cost:
             share = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id, company_id=company.id).first()
             if share:
@@ -58,19 +59,29 @@ def register_commands(api: API):
             else:
                 share = database.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount)
                 ctx.session.add(share)
-                # share = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id, company_id=company.id).first()
-            company.increase_chance += .01 * amount
+            company.increase_chance = 50 + .01 * sum(share.amount for share in company.shares)
+            if company.increase_chance > 55:
+                company.increase_chance = 55
             ctx.session.commit()
             await ctx.api.upgraded_add_points(ctx.user, -cost, ctx.session)
-            ctx.api.send_chat_message(f"@{ctx.user.name} just bought {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}. "
-                                      f"Now they gain {math.ceil(share.amount*company.stock_price*.1)} {ctx.api.overlord.currency_name} from {company.abbv} each 10 mins. "
-                                      # f"""{"Tip: Use '!my income' to check your income." if ctx.user.new else ""}"""
-                                      )
+            # ctx.api.send_chat_message(f"@{ctx.user.name} just bought {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}. "
+            #                           f"Now they gain {math.ceil(share.amount*company.stock_price*.1)} {ctx.api.overlord.currency_name} from {company.abbv} each 10 mins. ")
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'buy_successful',
+                                                             amount=f'{amount:,}',
+                                                             company_abbv=company.abbv,
+                                                             company_full_name=company.full_name,
+                                                             cost=f'{cost:,}',
+                                                             passive_income=f'{math.ceil(share.amount*company.stock_price*.1):,}'))
+
             # if ctx.user.new:
             #     ctx.user.new = False
             #     ctx.session.commit()
         else:
-            ctx.api.send_chat_message(f"@{ctx.user.name} has {points} {ctx.api.overlord.currency_name} and requires {cost} aka {cost-points} more")
+            # ctx.api.send_chat_message(f"@{ctx.user.name} has {points:,} {ctx.api.overlord.currency_name} and requires {cost} aka {cost-points} more.")
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'buy_not_enough_points',
+                                                             points=f'{points:,}',
+                                                             cost=f'{points:,}',
+                                                             cost_minus_points=f'{cost-points:,}'))
 
     @api.command(usage="<company> <amount>")
     async def sell(ctx, company: CompanyOrIntOrAll, amount: CompanyOrIntOrAll):
@@ -95,18 +106,48 @@ def register_commands(api: API):
             share.amount -= amount
             if share.amount == 0:
                 ctx.session.delete(share)
-            company.increase_chance -= .01 * amount
+            company.increase_chance = 50 + .01 * sum(share.amount for share in company.shares)
+            if company.increase_chance > 55:
+                company.increase_chance = 55
             ctx.session.commit()
-            ctx.api.send_chat_message(f"@{ctx.user.name} has sold {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}.")
+            # ctx.api.send_chat_message(f"@{ctx.user.name} has sold {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}.")
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'sell_successful',
+                                                             amount=f'{amount:,}',
+                                                             company_abbv=company.abbv,
+                                                             company_full_name=company.full_name,
+                                                             cost=f'{cost:,}'))
         else:
             if not share:
-                message = f"@{ctx.user.name} doesn't have any stocks at company {company.abbv}."
+                # message = f"@{ctx.user.name} doesn't have any stocks at company {company.abbv}."
+                message = ctx.api.get_and_format(ctx, 'sell_no_shares',
+                                                 company_abbv=company.abbv)
             else:
-                message = f"@{ctx.user.name} doesn't have {amount} stocks at company {company.abbv} to sell them. "\
-                          f"They have only {share.amount} stock{'s' if share.amount != 1 else ''}."
+                # message = f"@{ctx.user.name} doesn't have {amount} stocks at company {company.abbv} to sell them. "\
+                #           f"They have only {share.amount} stock{'s' if share.amount != 1 else ''}."
+                message = ctx.api.get_and_format(ctx, 'sell_not_enough_shares',
+                                                 company_abbv=company.abbv,
+                                                 share_amount=f'{share.amount:,}')
             ctx.api.send_chat_message(message)
 
-    # @company.command(usage="<company>")
+    @api.command()
+    async def sell_everything(ctx):
+        total_outcome = 0
+        list_of_all_sells = []
+        if not len(ctx.user.shares):
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'no_shares'))
+            return
+        for share in ctx.user.shares:
+            company = share.company
+            total_outcome += math.ceil(share.amount*company.stock_price)
+            list_of_all_sells.append(f'{company.abbv}: {share.amount:,}')
+            ctx.session.delete(share)
+        await ctx.api.upgraded_add_points(ctx.user, total_outcome, ctx.session)
+        ctx.session.commit()
+        list_of_all_sells = ", ".join(list_of_all_sells)
+        ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'sell_everything_successful',
+                                                         list_of_all_sells=list_of_all_sells,
+                                                         total_outcome=f'{total_outcome:,}'))
+
     @api.command(usage="<company>")
     async def company(ctx, company: Company):
         ctx.api.send_chat_message(company)
@@ -122,32 +163,22 @@ def register_commands(api: API):
             res.append(message)
         ctx.api.send_chat_message(f"@{ctx.user.name} {', '.join(res)} ")
         if ctx.user.new:
-            ctx.api.send_chat_message(f"@{ctx.user.name} Tip: The number on the left is the 'current price'. The one on the right is the 'price change'")
+            # ctx.api.send_chat_message(f"@{ctx.user.name} Tip: The number on the left is the 'current price'. The one on the right is the 'price change'")
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'company_first_time_tip'))
             ctx.user.new = False
             ctx.session.commit()
 
     @api.command()
     async def stocks(ctx):
-        ctx.api.send_chat_message(f"@{ctx.user.name} Minigame basic commands: !autoinvest, !introduction, !buy, !companies, !all commands, !my stats")
-
-    @api.command()
-    async def stonks(ctx):
-        await stocks(ctx)
+        # ctx.api.send_chat_message(f"@{ctx.user.name} Minigame basic commands: !autoinvest, !introduction, !buy, !companies, !all commands, !my stats")
+        ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'stocks'))
 
     @api.command()
     async def introduction(ctx):
-        ctx.api.send_chat_message("This is a stock simulation minigame | '!stocks' for basic commands | "
-                                  "Buy stocks for passive income | "
-                                  "Naming Convention: Company[current_price, price_change] "
-                                  # "For a more in-depth explanation, please go to "
-                                  # "https://github.com/TheRealRazbi/Stocks-of-Razbia/blob/master/introduction.md"
-                                  )
-
-    @api.command()
-    async def next_month(ctx):
-        time_since_last_run = time.time() - ctx.api.overlord.last_check
-        time_till_next_run = ctx.api.overlord.iterate_cooldown - time_since_last_run
-        ctx.api.send_chat_message(f"@{ctx.user.name} The next month starts in {time_till_next_run/60:.0f} minutes")
+        # ctx.api.send_chat_message(f"{ctx.user.name} This is a stock simulation minigame | '!stocks' for basic commands | "
+        #                           "Buy stocks for passive income | "
+        #                           "Naming Convention: Company[current_price, price_change] ")
+        ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'introduction'))
 
     @my.command()
     async def shares(ctx):
@@ -160,25 +191,21 @@ def register_commands(api: API):
 
             ctx.api.send_chat_message(f'@{ctx.user.name} has {", ".join(res)}')
         else:
-            ctx.api.send_chat_message(f"@{ctx.user.name} doesn't own any shares. Use '!buy' to buy some.")
+            # ctx.api.send_chat_message(f"@{ctx.user.name} doesn't own any shares. Use '!buy' to buy some.")
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'no_shares'))
 
     @my.command()
     async def points(ctx):
-        ctx.api.send_chat_message(f"@{ctx.user.name} currently has {await ctx.user.points(ctx.api)} {ctx.api.overlord.currency_name}")
-
-    @api.command()
-    async def mypoints(ctx):
-        await points(ctx)
+        # ctx.api.send_chat_message(f"@{ctx.user.name} currently has {await ctx.user.points(ctx.api)} {ctx.api.overlord.currency_name}")
+        ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'my_points',
+                                                         user_points=await ctx.user.points(ctx.api)
+                                                         ))
 
     @my.command()
     async def profit(ctx):
         profit_str = ctx.user.profit_str
         profit = f"@{ctx.user.name} Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1].format(currency_name=ctx.api.overlord.currency_name)}"
         ctx.api.send_chat_message(profit)
-
-    @api.command()
-    async def myprofit(ctx):
-        await profit(ctx)
 
     @my.command()
     async def income(ctx):
@@ -190,19 +217,18 @@ def register_commands(api: API):
                 company = ctx.session.query(Company).get(share.company_id)
                 stock_price = company.stock_price
                 total_income += math.ceil(stock_price*share.amount*.1)
-                res.append(f"{company.abbv}: {math.ceil(stock_price*share.amount*.1)}")
+                res.append(f"{company.abbv}: {math.ceil(stock_price*share.amount*.1):,}")
 
-            ctx.api.send_chat_message(f'@{ctx.user.name} {", ".join(res)} | Total: {total_income} {ctx.api.overlord.currency_name} per 10 mins.')
+            ctx.api.send_chat_message(f'@{ctx.user.name} {", ".join(res)} | Total: {total_income:,} {ctx.api.overlord.currency_name} per 10 mins.')
         else:
-            ctx.api.send_chat_message(f"@{ctx.user.name} doesn't own any shares. Use '!buy' to buy some.")
-
-    @api.command()
-    async def myincome(ctx):
-        await income(ctx)
+            # ctx.api.send_chat_message(f"@{ctx.user.name} doesn't own any shares. Use '!buy' to buy some.")
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'no_shares'))
 
     @my.command()
     async def stats(ctx):
-        final_final_res = []
+        # final_final_res = []
+        list_of_income = ''
+        total_income = ''
 
         # !my shares
         res = []
@@ -212,9 +238,11 @@ def register_commands(api: API):
                 company = ctx.session.query(Company).get(share.company_id).announcement_description
                 res.append(f"{company}: {share.amount}")
 
-            final_final_res.append(f'Shares: {", ".join(res)}')
+            # final_final_res.append(f'Shares: {", ".join(res)}')
+            list_of_shares = f'{", ".join(res)}'
         else:
-            final_final_res.append(f"You don't own any shares. Use '!buy' to buy some.")
+            # final_final_res.append(f"You don't own any shares. Use '!buy' to buy some.")
+            list_of_shares = ctx.api.get_and_format(ctx, 'no_shares')
 
         # !my income
         res = []
@@ -227,18 +255,23 @@ def register_commands(api: API):
                 total_income += math.ceil(stock_price * share.amount * .1)
                 res.append(f"{company.abbv}: {math.ceil(stock_price * share.amount * .1)}")
 
-            final_final_res.append(
-                f'Income: {", ".join(res)} | Total Income: {total_income} {ctx.api.overlord.currency_name} per 10 mins.')
-        # else:
-        #     final_final_res.append(f"You don't own any shares. Use '!buy' to buy some.")
+            # final_final_res.append(
+            #     f'Income: {", ".join(res)} | Total Income: {total_income} {ctx.api.overlord.currency_name} per 10 mins.')
+            list_of_income = f'{", ".join(res)}'
+            total_income = f'{total_income}'
 
         # !my profit
-
         profit_str = ctx.user.profit_str
-        profit = f"Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1].format(currency_name=ctx.api.overlord.currency_name)}"
-        final_final_res.append(profit)
+        # profit = f"Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1].format(currency_name=ctx.api.overlord.currency_name)}"
+        # final_final_res.append(profit)
 
-        ctx.api.send_chat_message(f'@{ctx.user.name} ' + " ||| ".join(final_final_res))
+        # ctx.api.send_chat_message(f'@{ctx.user.name} ' + " ||| ".join(final_final_res))
+        ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'my_stats',
+                                                         list_of_shares=list_of_shares,
+                                                         list_of_income=list_of_income,
+                                                         total_income=total_income,
+                                                         raw_profit=profit_str[0],
+                                                         percentage_profit=profit_str[1].format(currency_name=ctx.api.overlord.currency_name)))
 
     @next.command()
     async def month(ctx):
@@ -252,25 +285,29 @@ def register_commands(api: API):
         if budget <= user_points:
             companies: list = ctx.session.query(database.Company).all()
             for index_company, company in enumerate(companies):
-                if company.stock_price < 3 or company.stock_price > budget or company.remaining_shares == 0:
+                if company.stock_price < 3 or company.stock_price > budget:
                     companies.pop(index_company)
             chosen_company: Company = random.choice(companies)
             if chosen_company:
                 stocks_to_buy = math.floor(budget/chosen_company.stock_price)
-                if stocks_to_buy > chosen_company.remaining_shares:
-                    stocks_to_buy = chosen_company.remaining_shares
                 if stocks_to_buy <= 0:
-                    ctx.api.send_chat_message(f"@{ctx.user.name} too small budget. No stocks bought.")
+                    # ctx.api.send_chat_message(f"@{ctx.user.name} too small budget. No stocks bought.")
+                    ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_companies'))
                     return
                 await buy.run(ctx, stocks_to_buy, chosen_company)
             else:
-                ctx.api.send_chat_message(f"@{ctx.user.name} too small budget. No stocks bought.")
+                # ctx.api.send_chat_message(f"@{ctx.user.name} too small budget. No stocks bought.")
+                ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_companies'))
         else:
-            ctx.api.send_chat_message(f"@{ctx.user.name} you need {budget} {ctx.api.overlord.currency_name}, aka you need {budget-user_points} more.")
+            # ctx.api.send_chat_message(f"@{ctx.user.name} you need {budget} {ctx.api.overlord.currency_name}, aka you need {budget-user_points} more.")
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_available_points',
+                                                             budget=f'{budget:,}',
+                                                             budget_points_difference=f'{budget-user_points:,}'))
 
     @api.command()
     async def about(ctx):
-        ctx.api.send_chat_message("This minigame is open-source and it was made by Razbi and Nesami. Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia")
+        # ctx.api.send_chat_message(f"@{ctx.user.name} This minigame is open-source and it was made by Razbi and Nesami. Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia")
+        ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'about'))
 
 
 if __name__ == '__main__':

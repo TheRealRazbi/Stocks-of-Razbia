@@ -14,11 +14,13 @@
             {% else %}
                 <span style="color: lightseagreen">[Not Found]</span>
             {% endif %}
+            <br>
+            <input type="submit" value="Save" class="btn btn-outline-success my-1">
         </form>
 
         <div>
             <form action = '/settings/api/' method = "get">
-                <input type="submit" value="back" class="btn btn-outline-secondary">
+                <input type="submit" value="back" class="btn btn-outline-secondary my-1">
             </form>
         </div>
 
@@ -36,7 +38,7 @@
 
         <div>
         Since StreamElements hasn't accepted Stocks of Razbia yet. We have to use a workaround until they accept it.<br>
-        Assuming you are logged in your StreamElements account, go on this page: <a href="https://streamelements.com/dashboard/account/channels">https://streamelements.com/dashboard/account/channels </a><br>
+        Assuming you are logged in your StreamElements account, go on this page: <a href="https://streamelements.com/dashboard/account/channels" target="_blank">https://streamelements.com/dashboard/account/channels </a><br>
         Click the "Show Secrets" in the top right, then copy the "JWT Token" and paste it in the following text field.<br>
             <b><span class="text-warning">Warning: Do NOT show the JWT Token on stream</span></b>
 

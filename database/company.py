@@ -23,10 +23,9 @@ class Company(Base):
     price_diff = Column(t.Float, default=0)
     months = Column(t.Integer, default=0)  # age
 
-    increase_chance = Column(t.Integer, default=55)  # percentage
+    increase_chance = Column(t.Integer, default=50)  # percentage
     max_increase = Column(t.Float, default=0.3)
     max_decrease = Column(t.Float, default=0.35)
-    decay_rate = Column(t.Float, default=0.02)
 
     bankrupt = Column(t.Boolean, default=False)
 
@@ -86,15 +85,15 @@ class Company(Base):
         return f"{self.abbv.upper()}[{self.stock_price:.1f}{-(self.price_diff/(self.stock_price+self.price_diff)*100):+.1f}%]"
 
     def __str__(self):
+        stocks_bought = sum(share.amount for share in self.shares)
         years = int(self.months / 12)
         months = self.months % 12
         return f"Name: '{self.abbv}' aka '{self.full_name}' | stock_price: {self.stock_price:.2f} | " \
                f"price change: {-(self.price_diff/(self.stock_price+self.price_diff)*100):+.1f}% | " \
                f"lifespan: {years} {'years' if not years == 1 else 'year'} " \
-               f"and {months} {'months' if not months == 1 else 'month'} | Remaining stocks: {self.remaining_shares}"
+               f"and {months} {'months' if not months == 1 else 'month'} | Stocks Bought: {stocks_bought}"
 
     def __repr__(self):
         return self._repr(
             **self._getattrs("id", "abbv", "rich", "stock_price"),
-            # TODO: Change this to include what you want
         )

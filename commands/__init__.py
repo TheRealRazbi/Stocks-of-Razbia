@@ -20,7 +20,7 @@ class Command:
         self.name = name
 
         self.long_name = long_name
-        self.usage = f"{long_name} {usage}"
+        self.usage = f"{{name}} {usage}"
 
         self.run = func
         self.args = handle_annotations_args(func)
@@ -40,14 +40,27 @@ class Group:
 
     async def __call__(self, ctx, *args):
         if not args:
-            raise CommandError(f"Valid subcommands: {', '.join(self.sub_commands)}")
+            raise CommandError(f"Valid subcommands: {', '.join(self.remapped_sub_commands(ctx))}")
         sub_command_name, *rest = args
+        sub_command_name = ctx.api.command_names.get((sub_command_name, self.name), sub_command_name)
         if sub_command_name not in self.sub_commands:
-            raise CommandError(f"Valid subcommands: {', '.join(self.sub_commands)}")
+            raise CommandError(f"Valid subcommands: {', '.join(self.remapped_sub_commands(ctx))}")
         return await self.sub_commands[sub_command_name](ctx, *rest)
 
     def command(self, name=None, cls=Command, **kwargs):
         return command(name=name, cls=cls, registry=self.sub_commands, parent=self, **kwargs)
+
+    def remapped_sub_commands(self, ctx):
+        res = [
+            new_command_name
+            for (new_command_name, group_name), old_command_name
+            in ctx.api.command_names.items()
+            if group_name == self.name and old_command_name in self.sub_commands
+        ]
+        if res:
+            return res
+        else:
+            return self.sub_commands
 
 
 def command(*, name=None, cls=Command, registry: t.Dict[str, t.Callable] = None, **kwargs):

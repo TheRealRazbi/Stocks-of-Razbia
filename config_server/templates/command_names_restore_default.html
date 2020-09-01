@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% from 'macros/forms.html' import render_field %}
+
+{% block body %}
+	<div class="container">
+
+        <span style="color: #e36b6b">Are you sure you want to <b>reset</b> command aliases to default?</span>
+        <form action="/customizations/command_names/restore_default/confirmed">
+            <input type="submit" value="Yes" class="btn btn-outline-success my-1">
+        </form>
+
+
+        <div>
+            <form action = '/customizations/command_names' method = "get">
+                <input type="submit" value="No" class="btn btn-outline-danger my-1">
+            </form>
+        </div>
+
+
+	</div>
+{% endblock %}

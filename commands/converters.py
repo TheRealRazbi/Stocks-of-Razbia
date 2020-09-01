@@ -5,7 +5,7 @@ from typing import runtime_checkable, Protocol, Type, Optional, Sequence
 
 from . import exc
 from database import Company
-from multi_arg import IntOrStrAll, CompanyOrIntOrAll
+from multi_arg import IntOrStrAll, CompanyOrIntOrAll, CompanyOrInt
 
 registered_converters = {}
 
@@ -65,7 +65,7 @@ class IntOrAllConverter(Converter):
         except ValueError as e:
             raise exc.ConversionError(
                 arg,
-                msg_format="'{value}' needs to be either an Integer or 'all'"
+                msg_format="'{value}' needs to be either a number or 'all'"
             ) from e
         return arg
 
@@ -88,7 +88,23 @@ class CompanyOrAllStr(Converter):
         arg = arg.upper()
         company = Company.find_by_abbreviation(arg, ctx.session)
         if company is None:
-            raise exc.ConversionError(f"'{arg}' is not 'all', not an integer, nor a Company so it's")
+            raise exc.ConversionError(f"'{arg}' is not 'all', not a number, nor a Company so it's")
+        return company
+
+
+class CompanyOrIntConverter(Converter):
+    @classmethod
+    def convert(cls, ctx, arg: str):
+        arg = arg.lower()
+        try:
+            arg = int(arg)
+            return arg
+        except ValueError:
+            pass
+        arg = arg.upper()
+        company = Company.find_by_abbreviation(arg, ctx.session)
+        if company is None:
+            raise exc.ConversionError(f"'{arg}' is not a number, nor a Company so it's")
         return company
 
 
@@ -103,3 +119,4 @@ StrConverter = create_basic_converter(
 register_converter(CompanyConverter, Company)
 register_converter(IntOrAllConverter, IntOrStrAll)
 register_converter(CompanyOrAllStr, CompanyOrIntOrAll)
+register_converter(CompanyOrIntConverter, CompanyOrInt)

@@ -17,11 +17,17 @@ import config_server.forms
 from company_names import load_default_names
 import webbrowser
 from more_tools import CachedProperty
+import alembic.config
+from customizable_stuff import load_message_templates
 
 
 class Overlord:
     def __init__(self, loop=None):
-        database.Base.metadata.create_all()
+        if not database.engine.dialect.has_table(database.engine, 'alembic_version'):
+            database.Base.metadata.create_all()
+            alembic_args = ['stamp', '0e0024b069d6']
+            alembic.config.main(argv=alembic_args)
+        alembic.config.main(argv=['upgrade', 'head'])
         session = database.Session()
         self.last_check = 0
         self.loop = loop
@@ -48,6 +54,9 @@ class Overlord:
 
         self.names = {}
         self.load_names()
+
+        self.messages = {}
+        self.load_messages()
 
         self.rich = 0
         self.poor = 0
@@ -162,6 +171,19 @@ class Overlord:
             self.names.pop(company.abbv, None)
 
         session.commit()
+
+    def load_messages(self, session: database.Session = None):
+        if session is None:
+            session = database.Session()
+        messages = session.query(database.Settings).get('messages')
+        if messages:
+            self.messages = json.loads(messages.value)
+        else:
+            messages = database.Settings(key='messages', value=json.dumps(load_message_templates()))
+            session.add(messages)
+            session.commit()
+            self.messages = json.loads(messages.value)
+        # print(self.api.commands)
 
     def load_rich_poor(self):
         session = database.Session()
@@ -279,26 +301,6 @@ class Overlord:
                 if message not in res:
                     res.append(message)
         return res, owners
-
-    def delete_table_contents(self, table, session=None):
-        local_session = False
-        if session is None:
-            session = database.Session()
-            local_session = True
-        session.query(table).delete()
-        if table == database.Company:
-            self.rich = 0
-            self.poor = 0
-        session.commit()
-        if local_session:
-            session.close()
-
-    def delete_all(self):
-        session = database.Session()
-        self.delete_table_contents(database.Company, session=session)
-        self.delete_table_contents(database.User, session=session)
-        self.delete_table_contents(database.Shares, session=session)
-        session.close()
 
     @CachedProperty
     def currency_name(self):

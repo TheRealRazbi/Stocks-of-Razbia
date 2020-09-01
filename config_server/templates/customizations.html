@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block body %}
+	<div class="container">
+
+
+
+        <div>
+            <form action = '/customizations/command_names' method = "get">
+                <input type="submit" value="Command Aliases" class="btn btn-outline-primary my-1">
+            </form>
+        </div>
+
+        <div>
+            <form action = '/customizations/company_names' method = "get">
+                <input type="submit" value="Company Names" class="btn btn-outline-primary my-1">
+            </form>
+        </div>
+
+        <div>
+            <form action = '/customizations/messages' method = "get">
+                <input type="submit" value="Command Messages" class="btn btn-outline-primary my-1">
+            </form>
+        </div>
+
+
+        <div>
+            <form action = '/setup' method = "get">
+                <input type="submit" value="back" class="btn btn-outline-secondary my-1">
+            </form>
+        </div>
+
+    </div>
+
+{% endblock %}

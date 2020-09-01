@@ -7,27 +7,29 @@
         {% endfor %}
 
         <form method="POST">
-            <div class="form-group">
+            <div>
 
                 Currency System: {{ setup_form.currency_system(class_="custom-select")}}<br>
-                Currency Name:   {{ setup_form.currency_name }}<br>
+                Currency Name:   {{ setup_form.currency_name }} <br>
 {#                {{ form.value(class="css_class") }}#}
-                <input type="submit" value="Save" class="btn btn-outline-success">
+                <input type="submit" value="Save" class="btn btn-outline-success my-1">
             </div>
         </form>
 
-        <div class="form-group">
-            <form action="/settings/company_names">
-                <input type="submit" value="Edit Company Names" class="btn btn-outline-info">
+        <div>
+            <form action="/customizations">
+                <input type="submit" value="Customize" class="btn btn-outline-info my-1">
             </form>
         </div>
 
-        {% if currency_system and (not twitch_key or not chosen_key) %}
-            <form action = '/settings/api/' method = "get">
-                API Tokens not found. Please generate them.
-                <input type="submit" value="generate tokens" class="btn btn-outline-success"/>
-            </form>
-        {% endif %}
+        <div>
+            {% if currency_system and (not twitch_key or not chosen_key) %}
+                <form action = '/settings/api/' method = "get">
+                    API Tokens not found. Please generate them.
+                    <input type="submit" value="generate tokens" class="btn btn-outline-success my-1">
+                </form>
+            {% endif %}
+        </div>
 
         {% if setup_form.errors %}
             <ul class="errors">
@@ -42,7 +44,7 @@
         {% if tokens_loaded %}
             <div>
                 <form action = '/' method = "get">
-                    <input type="submit" value="back" class="btn btn-outline-secondary">
+                    <input type="submit" value="back" class="btn btn-outline-secondary my-1">
                 </form>
             </div>
         {% endif %}

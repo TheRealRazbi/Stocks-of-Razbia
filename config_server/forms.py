@@ -1,4 +1,12 @@
 from wtforms import Form, fields as f, validators as v
+from wtforms_components import SelectField
+import commands
+from quart import current_app
+
+
+class MySelectField(SelectField):
+    def pre_validate(self, form):
+        pass
 
 
 class UsernameForm(Form):
@@ -42,3 +50,72 @@ class StreamElementsTokenForm(Form):
 
 class CompaniesNames(Form):
     items = f.FieldList(f.FormField(CompanyName), min_entries=15)
+
+
+def generate_choice_for_command():
+    res = {'root': []}
+    for command_name, command in current_app.overlord.api.commands.items():
+        # if isinstance(command, commands.Command):
+        res['root'].append(((command_name, None), command_name))
+        if isinstance(command, commands.Group):
+            res[command_name] = []
+            for sub_command in command.sub_commands:
+                res[command_name].append(((sub_command, command_name), sub_command))
+    return res.items()
+
+
+def generate_choice_for_group():
+    res = [(None, 'root')]
+    for command_name, command in current_app.overlord.api.commands.items():
+        if isinstance(command, commands.Group):
+            res.append((command_name, command_name))
+    return res
+
+
+# ('first', (('First', 'Maybe First'), )), # this is an example of how to structure groups
+# ('second', (('Second', 'Maybe Second'), ))
+class CommandNameForm(Form):
+    alias = f.StringField(
+        "Alias",
+        [v.Length(min=2)]
+    )
+    command = MySelectField('Command', choices=generate_choice_for_command)
+
+    group = MySelectField('Accessible from group', choices=generate_choice_for_group)
+
+
+class CommandNamesForm(Form):
+    items = f.FieldList(f.FormField(CommandNameForm))
+
+
+class CommandMessageForm(Form):
+    message_name = f.TextAreaField("Message ID", render_kw={'rows': 3, 'readonly': True})
+    command_message = f.TextAreaField("Command Output",
+                                      validators=[v.Length(min=3)],
+                                      render_kw={'rows': 3, 'cols': 1})
+
+
+class CommandMessagesForm(Form):
+    items = f.FieldList(f.FormField(CommandMessageForm))
+
+
+def generate_choice_for_message_name():
+    # noinspection PyTypeChecker
+    return [(None, 'Please pick a command to restore to default')] +\
+           [(key, key) for key in current_app.overlord.messages] +\
+           [('all', 'literally all of them')]
+
+
+class CommandMessagesRestoreDefaultForm(Form):
+    message_name = MySelectField('Message Name', choices=generate_choice_for_message_name)
+
+
+
+
+
+
+
+
+
+
+

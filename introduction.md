@@ -17,6 +17,7 @@ Basic Commands:
 - !company <company> | show info about a company such as full-name or price
 
 Extra Commands:
+
 - !my shares | displays all the shares you own
 - !my profit | displays you all the profit from all points invested
 - !my points | displays your points [in case the minigame uses a different currency system than streamer's]

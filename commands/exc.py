@@ -15,9 +15,8 @@ class BadArgumentCount(CommandError):
         super().__init__(*args)
         self.func = func
 
-    @property
-    def usage(self):
-        return self.func.usage
+    def usage(self, name: str):
+        return self.func.usage.format(name=name)
 
 
 class ConversionError(CommandError):

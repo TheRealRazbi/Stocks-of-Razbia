@@ -38,6 +38,14 @@ As long as you read the Notes on each release, before installing it, you should 
 The minigame and all companies are hosted locally.
 As this is currently in the testing version, everything is subject to change.
 
+### Supports:
+ 
+- Streamlabs Extension Currency
+- StreamElements Currency
+- Streamlabs Chatbot Local Currency
+- Streamlabs Cloudbot [not yet, because it has no API support, so I have to do some webscrapping]
+- Fully Local Currency [not yet, I will add it whenever Streamers will ask for it]
+
 ## Contributions:
 
 Discord server: https://discord.gg/yp3T7da <br>

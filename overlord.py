@@ -18,7 +18,7 @@ import config_server
 import config_server.forms
 from company_names import load_default_names
 import webbrowser
-from more_tools import CachedProperty, cd
+from more_tools import CachedProperty
 import alembic.config
 from customizable_stuff import load_message_templates, load_announcements
 from announcements import Announcement, AnnouncementDict

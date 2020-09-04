@@ -61,7 +61,7 @@
                 ws.onmessage = function (event)
                     {
                         {#console.log(event.data);#}
-                        {#document.getElementById('console').innerText += 'Message Sent: ' + event.data + '\n';#}
+                        {#document.getElementById('console').innerText += 'Announcement Sent: ' + event.data + '\n';#}
                         let message_list = event.data.split('\n');
                         message_list = message_list.slice(1)
                         let res = []
@@ -78,14 +78,10 @@
                             res.push('<span style="color: deepskyblue">Message Sent: </span><span style="color: #9da138">'+item+'<span>')
                         });
 
-                        {#res.pop()#}
-                        {#console.log(res)#}
-                        {#document.getElementById('console').innerText = res.toString();#}
                         document.getElementById('console').innerHTML = res.join('<br>');
                         {#document.getElementById('console').scrollBy(0, 50);#}
                     }
                 ws.onopen = function (event) {
-                    {#ws.send('alive');#}
                     console.log('alive')
                 }
                 ws.onclose = function (event) {

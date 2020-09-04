@@ -18,6 +18,7 @@ Basic Commands:
 
 Extra Commands:
 
+- !sell_everything | same as !sell, but on ALL your owned stocks
 - !my shares | displays all the shares you own
 - !my profit | displays you all the profit from all points invested
 - !my points | displays your points [in case the minigame uses a different currency system than streamer's]
@@ -25,6 +26,12 @@ Extra Commands:
 - !my stats | displays your shares + income + profit
 - !all commands | displays literally ALL the commands
 - !introduction | displays a link to this document
+
+Event System:
+
+Each 4 months, a company [usually with fewest owned stocks] gets picked for a positive event.
+The event is announced and it increase the chance of that company making making, by 5-20% for 2-4 months.
+
 
 TL;DR:
 

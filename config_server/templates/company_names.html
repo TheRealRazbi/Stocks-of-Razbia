@@ -3,7 +3,6 @@
 
 {% block body %}
 	<div class="container">
-{#    {% load wtforms %}#}
         <form method="POST">
                 <span class="my-dark">{{ render_field_list(form.items, "Add a company", "Remove this company") }}</span>
             {% for message in get_flashed_messages() %}

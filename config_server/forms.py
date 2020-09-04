@@ -40,7 +40,7 @@ class SetupForm(Form):
                                                               ('stream_elements', 'Stream Elements'),
                                                               ('streamlabs_local', 'Streamlabs Local'),
                                                               ]
-                                  )
+                                    )
     currency_name = f.StringField('Currency Name', [v.Length(min=4)])
 
 
@@ -77,7 +77,7 @@ def generate_choice_for_group():
 class CommandNameForm(Form):
     alias = f.StringField(
         "Alias",
-        [v.Length(min=2)]
+        [v.Length(min=2), v.InputRequired()]
     )
     command = MySelectField('Command', choices=generate_choice_for_command)
 
@@ -89,7 +89,7 @@ class CommandNamesForm(Form):
 
 
 class CommandMessageForm(Form):
-    message_name = f.TextAreaField("Message ID", render_kw={'rows': 3, 'readonly': True})
+    message_name = f.TextAreaField("Announcement ID", render_kw={'rows': 3, 'readonly': True})
     command_message = f.TextAreaField("Command Output",
                                       validators=[v.Length(min=3)],
                                       render_kw={'rows': 3, 'cols': 1})
@@ -107,9 +107,18 @@ def generate_choice_for_message_name():
 
 
 class CommandMessagesRestoreDefaultForm(Form):
-    message_name = MySelectField('Message Name', choices=generate_choice_for_message_name)
+    message_name = MySelectField('Announcement Name', choices=generate_choice_for_message_name)
 
 
+class AnnouncementElementForm(Form):
+    name = f.TextAreaField('name', validators=[v.InputRequired()])
+    contents = f.TextAreaField('content', render_kw={'rows': 3}, validators=[v.InputRequired()])
+    randomize_from = f.BooleanField('randomize_from', default=False)
+
+
+class AnnouncementForm(Form):
+    element_list = f.FieldList(f.FormField(AnnouncementElementForm))
+    result = f.TextAreaField('announcement')
 
 
 

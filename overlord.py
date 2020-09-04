@@ -1,3 +1,4 @@
+import ast
 import json
 import time
 import random
@@ -18,13 +19,18 @@ from company_names import load_default_names
 import webbrowser
 from more_tools import CachedProperty
 import alembic.config
-from customizable_stuff import load_message_templates
+from customizable_stuff import load_message_templates, load_announcements
+from announcements import Announcement, AnnouncementDict
 
 
 class Overlord:
     def __init__(self, loop=None):
-        if not database.engine.dialect.has_table(database.engine, 'alembic_version'):
+        if not os.path.exists('lib/db.sqlite'):
             database.Base.metadata.create_all()
+            alembic_args = ['stamp', 'head']
+            alembic.config.main(argv=alembic_args)
+        elif not database.engine.dialect.has_table(database.engine, 'alembic_version'):
+            # database.Base.metadata.create_all()
             alembic_args = ['stamp', '0e0024b069d6']
             alembic.config.main(argv=alembic_args)
         alembic.config.main(argv=['upgrade', 'head'])
@@ -58,13 +64,13 @@ class Overlord:
         self.messages = {}
         self.load_messages()
 
-        self.rich = 0
-        self.poor = 0
-        self.load_rich_poor()
+        self.announcements = {}
+        self.load_announcements()
 
         self.months = 0
         self.load_age(session=session)
         self.started = False
+        self.company_events_counter = 0
         session.close()
 
     async def run(self):
@@ -104,13 +110,10 @@ class Overlord:
 
             if random.random() > 0.6:
                 starting_price = round(random.uniform(*self.spawn_ranges["poor_range"]), 3)
-                rich = False
-                self.poor += 1
             else:
                 starting_price = round(random.uniform(*self.spawn_ranges["expensive_range"]), 3)
-                rich = True
-                self.rich += 1
-            company = Company.create(starting_price, name=random_abbv, rich=rich)
+
+            company = Company.create(starting_price, name=random_abbv)
             session.add(company)
             spawned_companies.append(f"[{company.abbv}] {company.full_name}, stock_price: {company.stock_price:.1f} {self.currency_name}")
         if spawned_companies:
@@ -120,12 +123,10 @@ class Overlord:
         session.commit()
 
     async def iterate_companies(self, session: database.Session):
+        self.start_company_events(session)
         for index_company, company in enumerate(session.query(Company).all()):
             res = company.iterate()
             if res:
-                # stock_increase = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}"\
-                #                  f"{'+' if company.price_diff >= 0 else ''}{company.price_diff}]"
-                # self.stock_increase.append(stock_increase)
                 self.stock_increase.append(True)
                 shares = session.query(database.Shares).filter_by(company_id=company.id)
                 for share in shares:
@@ -135,10 +136,6 @@ class Overlord:
 
                 session.commit()
             else:
-                if company.rich:
-                    self.rich -= 1
-                else:
-                    self.poor -= 1
                 if not company.abbv == 'DFLT':
                     company.bankrupt = True
                     self.names[company.abbv] = company.full_name
@@ -184,19 +181,6 @@ class Overlord:
             session.commit()
             self.messages = json.loads(messages.value)
         # print(self.api.commands)
-
-    def load_rich_poor(self):
-        session = database.Session()
-        for data in session.query(
-                Company.rich,
-                sql.func.count()
-        ).group_by(Company.rich).all():
-            rich, count = data
-            if rich:
-                self.rich = count
-            else:
-                self.poor = count
-        session.close()
 
     def load_age(self, session: database.Session):
         age = session.query(database.Settings).get('age')
@@ -244,34 +228,51 @@ class Overlord:
     async def start_periodic_announcement(self):
         while True:
             if self.started:
-                stonks_or_stocks = random.choice(['stocks', 'stonks'])
-                final_message = random.choice([f'Wanna make some {self.currency_name} through stonks?', 'Be the master of stonks.'])+' '
+                formatter = AnnouncementDict.from_list(self.announcements['element_list'])
+                result = Announcement(self.announcements['result'])
+                final_message = str(result).format_map(formatter).replace('[currency_name]', self.currency_name)
+                # print(final_message)
 
-                main_variation = random.randint(1, 2)
-                if main_variation == 1:
-                    command_order = ['!introduction', '!companies', '!buy', f'!{stonks_or_stocks}', '!autoinvest', '!my income']
-                    random.shuffle(command_order)
-                    help_tip = random.choice(['Here are some commands to help you do that', "Ughh maybe through these?",
-                                              "I wonder what are these for", "Commands", "Turtles"])
-                    final_message += f"{help_tip}: {', '.join(command_order)}"
-                elif main_variation == 2:
-                    final_message += "For newcomers we got: '!autoinvest <budget>'"
+                # stonks_or_stocks = random.choice(['stocks', 'stonks'])
+                # final_message = random.choice([f'Wanna make some {self.currency_name} through stonks?', 'Be the master of stonks.'])+' '
+                #
+                # main_variation = random.randint(1, 2)
+                # if main_variation == 1:
+                #     command_order = ['!introduction', '!companies', '!buy', f'!{stonks_or_stocks}', '!autoinvest', '!my income']
+                #     random.shuffle(command_order)
+                #     help_tip = random.choice(['Here are some commands to help you do that', "Ughh maybe through these?",
+                #                               "I wonder what are these for", "Commands", "Turtles"])
+                #     final_message += f"{help_tip}: {', '.join(command_order)}"
+                # elif main_variation == 2:
+                #     final_message += "For newcomers we got: '!autoinvest <budget>'"
                 self.api.send_chat_message(final_message)
+
                 await asyncio.sleep(60 * 30)
             else:
                 await asyncio.sleep(.5)
 
-    async def start_company_events(self):
-        while True:
-            if self.started:
-                session = database.Session()
-                company = random.choice(session.query(database.Company).all())
-                # TODO: make an event system AFTER database migrations are working
-                session.close()
+    def start_company_events(self, session: database.Session):
+        if self.company_events_counter >= 4:
+            self.company_events_counter = 0
+            companies = session.query(database.Company).all()
+            company_candidates = []
+            for company in companies:
+                if len(company_candidates) < 2:
+                    company_candidates.append(company)
+                else:
+                    for index, company_candidate in enumerate(company_candidates):
+                        if company.stocks_bought < company_candidate.stocks_bought and company.stock_price < 1000 and not company.event_months_remaining:
+                            company_candidates[index] = company
+                            break
+            company = random.choice(company_candidates)
+            company.event_increase = random.randint(5, 20)
+            company.event_months_remaining = random.randint(2, 3)
+            session.commit()
+            tip = random.choice([f"{self.messages['stocks_alias']} price it's likely to increase", "Buy Buy Buy", "Time to invest"])
+            self.api.send_chat_message(f"{company.full_name} just released a new product. {tip}.")
 
-                await asyncio.sleep(60 * 45)
-            else:
-                await asyncio.sleep(60)
+        else:
+            self.company_events_counter += 1
 
     @staticmethod
     def get_companies_for_updates(session: database.Session):
@@ -307,7 +308,6 @@ class Overlord:
         session = database.Session()
         if currency_name := session.query(database.Settings).get('currency_name'):
             currency_name = currency_name.value
-            # self._cache['currency_name'] = currency_name
         else:
             currency_name = 'points'
             session.add(database.Settings(key='currency_name', value=currency_name))
@@ -331,6 +331,16 @@ This program was made by {colored('Razbi', 'magenta')} and {colored('Nesami', 'm
 Program started at {colored(str(time.strftime('%H : %M')), 'cyan')}
 --------------------------------------------------------------------------\n
         """)
+
+    def load_announcements(self):
+        session = database.Session()
+        if announcements := session.query(database.Settings).get('announcements'):
+            announcements = ast.literal_eval(announcements.value)
+        else:
+            announcements = load_announcements()
+            session.add(database.Settings(key='announcements', value=repr(announcements)))
+            session.commit()
+        self.announcements = announcements
 
 
 def start(func, overlord: Overlord):

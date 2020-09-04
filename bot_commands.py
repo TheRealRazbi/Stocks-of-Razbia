@@ -59,7 +59,7 @@ def register_commands(api: API):
             else:
                 share = database.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount)
                 ctx.session.add(share)
-            company.increase_chance = 50 + .01 * sum(share.amount for share in company.shares)
+            company.increase_chance = 50 + .01 * company.stocks_bought
             if company.increase_chance > 55:
                 company.increase_chance = 55
             ctx.session.commit()
@@ -106,7 +106,7 @@ def register_commands(api: API):
             share.amount -= amount
             if share.amount == 0:
                 ctx.session.delete(share)
-            company.increase_chance = 50 + .01 * sum(share.amount for share in company.shares)
+            company.increase_chance = 50 + .01 * company.stocks_bought
             if company.increase_chance > 55:
                 company.increase_chance = 55
             ctx.session.commit()

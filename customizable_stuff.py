@@ -1,5 +1,5 @@
+from announcements import Announcement
 from more_tools import BidirectionalMap
-
 
 message_templates = {
     'stocks': '@{user_name} Minigame basic commands: !autoinvest, !introduction, !buy, !companies, !all commands, !my stats',
@@ -63,6 +63,37 @@ command_names = BidirectionalMap({
     # ('introduction', None): 'introduction',
 })
 
+announcements = \
+    {
+        'element_list':
+            [
+                {
+                    'name': 'stocks_or_stonks',
+                    'contents': 'stonks | stocks',
+                    'randomize_from': True
+                },
+                {
+                    'name': 'commands',
+                    'contents': "!introduction, !companies, !buy, !{stocks_or_stonks}, !autoinvest, !my income",
+                    'randomize_from': False
+                },
+                {
+                    'name': 'help_tip',
+                    'contents': "Here are some commands to help you do that | " 
+                                "Ughh maybe through these? | "
+                                "I wonder what are these for | Commands | Turtles",
+                    'randomize_from': True
+                },
+                {
+                    'name': 'intro',
+                    'contents': 'Wanna make some [currency_name] through stonks? | Be the master of stonks.',
+                    'randomize_from': True
+                },
+
+            ],
+        'result': '{intro} {help_tip}: {commands}'
+    }
+
 
 def load_message_templates():
     return message_templates
@@ -70,6 +101,10 @@ def load_message_templates():
 
 def load_command_names():
     return command_names
+
+
+def load_announcements():
+    return announcements
 
 
 

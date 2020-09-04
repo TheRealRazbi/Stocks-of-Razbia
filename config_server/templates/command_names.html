@@ -1,25 +1,24 @@
 {% extends 'base.html' %}
-{% from 'macros/forms.html' import render_field %}
+{% from 'macros/forms.html' import render_field_list %}
 
 {% block body %}
 	<div class="container">
         <div class="my-dark">
             <form method="post">
-                {% for form in form_list.items %}
-                <div class="input-group mb-1 dropdown dropdown-dark">{{ render_field(form.alias) }} {{ render_field(form.command) }} {{ render_field(form.group) }}</div>
-{#            <div class="input-group mb-1"></div>#}
-                {% endfor %}
+{#                {% for form in form_list.items %}#}
+{#                    <div class="input-group mb-1 dropdown dropdown-dark">{{ render_field(form.alias) }} {{ render_field(form.command) }} {{ render_field(form.group) }}</div>#}
+                    <div>{{ render_field_list(form_list.items, 'Add an alias', 'Delete an alias') }}</div>
+{#                {% endfor %}#}
 
                 <input type="submit" value="Save" class="btn btn-outline-success my-1">
             </form>
-
         </div>
 
-        <div>
-            <form action="/customizations/command_names/add_alias" method="get">
-                <input type="submit" value="Add an alias" class="btn btn-outline-primary my-1">
-            </form>
-        </div>
+{#        <div>#}
+{#            <form action="/customizations/command_names/add_alias" method="get">#}
+{#                <input type="submit" value="Add an alias" class="btn btn-outline-primary my-1">#}
+{#            </form>#}
+{#        </div>#}
 
         <div>
             <form action="/customizations/command_names/restore_default">
@@ -39,7 +38,7 @@
                 Accessible from group = Where the Alias starts at. [root = no group]<br>\
                 Example: If you set the Alias as [pineapple] for the command [shares] in the [root] group, when the player\
                  writes [!pineapple] in chat, the bot will run the [shares] command.<br> \
-                 <span style=\"color: #1e84de\">Note</span>: to <span style=\"color: #803232\">delete</span> an alias, just rename it to \"<span style=\"color: orange\">none</span>\" then <span style=\"color: green\">save</span>.<br>\
+                 \{#<span style=\"color: #1e84de\">Note</span>: to <span style=\"color: #803232\">delete</span> an alias, just rename it to \"<span style=\"color: orange\">none</span>\" then <span style=\"color: green\">save</span>.<br>\#}
                  <button class=\"btn btn-outline-warning my-1\" onclick=\"closeHelp()\">close</button>"
                 res = res.replace(/Alias/g, '<span style="color: #31e05a">Alias</span>')
                 res = res.replace(/alias/g, '<span style="color: #31e05a">alias</span>')

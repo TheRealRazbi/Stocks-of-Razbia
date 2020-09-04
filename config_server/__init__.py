@@ -7,12 +7,14 @@ from typing import Type, List, Optional
 from quart import Quart, render_template, request, flash, redirect, url_for, websocket, current_app
 import database
 from wtforms import validators, Form, FieldList
+
+from announcements import AnnouncementDict, Announcement
 from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm, CompaniesNames, CommandNameForm, \
-    CommandNamesForm, CommandMessagesForm, CommandMessagesRestoreDefaultForm
+    CommandNamesForm, CommandMessagesForm, CommandMessagesRestoreDefaultForm, AnnouncementForm
 import asyncio
 import markdown2
 import commands
-from customizable_stuff import load_command_names, load_message_templates
+from customizable_stuff import load_command_names, load_message_templates, load_announcements
 from more_tools import BidirectionalMap
 
 app = Quart(__name__, static_folder="static/static")
@@ -38,6 +40,11 @@ async def home():
         app.overlord.api.twitch_key_requires_refreshing = False
         app.overlord.api.twitch_key_just_refreshed = True
         return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
+
+    if app.overlord.api.stream_elements_key_requires_refreshing:
+        app.overlord.api.stream_elements_key_requires_refreshing = False
+        app.overlord.api.stream_elements_key_just_refreshed = True
+        return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamelements_login")
 
     if not app.overlord.api.tokens_ready:
         return redirect(url_for('setup'))
@@ -189,6 +196,29 @@ async def load_streamlabs_token():
     return redirect(url_for('token_settings'))
 
 
+@app.route('/settings/api/stream_elements_token/')
+async def load_stream_elements_token():
+    stream_elements = request.args.getlist('access_token')
+    session = database.Session()
+    await save_token(token=stream_elements, token_name='stream_elements_key', length=22, session=session)
+    expires_in = request.args.getlist('expires_in')
+    if expires_in:
+        expires_at = str(int(time.time()) + int(expires_in[0]))
+        expires_at_db = session.query(database.Settings).get('stream_elements_key_expires_at')
+        if expires_at_db:
+            expires_at_db.value = expires_at
+        else:
+            session.add(database.Settings(key='stream_elements_key_expires_at', value=expires_at))
+        session.commit()
+
+    if app.overlord.api.stream_elements_key_just_refreshed:
+        app.overlord.api.stream_elements_key_just_refreshed = False
+        print("Stream_elements Token refreshed.")
+        return redirect(url_for('home'))
+
+    return redirect(url_for('token_settings'))
+
+
 @app.route('/settings/api/streamlabs_token/generate_token/')
 async def generate_streamlabs_token():
     return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamlabs_login")
@@ -201,26 +231,28 @@ async def generate_twitch_token():
 
 @app.route('/settings/api/stream_elements_token/generate_token/', methods=['GET', 'POST'])
 async def generate_stream_elements_token():
-    # return redirect("https://razbi.funcity.org/stocks-chat-minigame/stream_elements_login")
-    form_data = None
-    if request.method == 'POST':
-        form_data = await request.form
-    stream_elements_token_form = StreamElementsTokenForm(form_data)
-    if request.method == 'POST':
-        if stream_elements_token_form.validate():
-            # stream_elements_token = StreamElementsTokenForm.token.data
-            session = database.Session()
-            stream_elements_token_db = session.query(database.Settings).get('stream_elements_key')
-            if stream_elements_token_db:
-                stream_elements_token_db.value = stream_elements_token_form.token.data
-            else:
-                session.add(database.Settings(key='stream_elements_key', value=stream_elements_token_form.token.data))
-            session.commit()
-            app.overlord.api.stream_elements_key = stream_elements_token_form.token.data
-            await flash("StreamElements token saved successfully.")
+    return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamelements_login")
 
-    return await render_template('generate_stream_elements_token.html', stream_elements_form=stream_elements_token_form,
-                                 stream_elements_token=app.overlord.api.stream_elements_key)
+
+    # form_data = None
+    # if request.method == 'POST':
+    #     form_data = await request.form
+    # stream_elements_token_form = StreamElementsTokenForm(form_data)
+    # if request.method == 'POST':
+    #     if stream_elements_token_form.validate():
+    #         # stream_elements_token = StreamElementsTokenForm.token.data
+    #         session = database.Session()
+    #         stream_elements_token_db = session.query(database.Settings).get('stream_elements_key')
+    #         if stream_elements_token_db:
+    #             stream_elements_token_db.value = stream_elements_token_form.token.data
+    #         else:
+    #             session.add(database.Settings(key='stream_elements_key', value=stream_elements_token_form.token.data))
+    #         session.commit()
+    #         app.overlord.api.stream_elements_key = stream_elements_token_form.token.data
+    #         await flash("StreamElements token saved successfully.")
+    #
+    # return await render_template('generate_stream_elements_token.html', stream_elements_form=stream_elements_token_form,
+    #                              stream_elements_token=app.overlord.api.stream_elements_key)
 
 
 @app.route('/web_sockets_stuff')
@@ -328,26 +360,41 @@ async def command_names():
     form_list = CommandNamesForm(form_data, data={'items': get_choices_for_command_names()})
 
     if request.method == 'POST':
-        if form_list.validate():
-            res = {}
-            for result in form_list.items.data:
-                if result['alias'].lower() == 'none':
-                    continue
-                result['command'] = ast.literal_eval(result['command'])
-                if result['group'] == 'None':
-                    result['group'] = None
-                if result['command'][1] is not None and result['group'] is None:
-                    result['command'] = (f'{result["command"][1]} {result["command"][0]}', result['command'][1])
-                res[(result['alias'], result['group'])] = result['command'][0]
-                # print(f"Added {result} to new thingies")
-            app.overlord.api.command_names = BidirectionalMap(res)
-            session = database.Session()
-            session.query(database.Settings).get("command_names").value = repr(app.overlord.api.command_names)
-            session.commit()
-            # print(f"New command_names: {res}")
+        if "add_field" in form_data:
+            field_path = form_data.get("add_field").split("-")
+            field = getattr_chain(form_list, field_path)
+            if field is not None:
+                field.append_entry()
+        elif "delete_field" in form_data:
+            *field_path, field_num = form_data.get("delete_field").split("-")
+            field = getattr_chain(form_list, field_path)
+            if field is not None:
+                field.entries = [
+                    entry
+                    for entry in field.entries
+                    if not entry.id.endswith(f"-{field_num}")
+                ]
+        else:
+            if form_list.validate():
+                res = {}
+                for result in form_list.items.data:
+                    if result['alias'].lower() == 'none':
+                        continue
+                    result['command'] = ast.literal_eval(result['command'])
+                    if result['group'] == 'None':
+                        result['group'] = None
+                    if result['command'][1] is not None and result['group'] is None:
+                        result['command'] = (f'{result["command"][1]} {result["command"][0]}', result['command'][1])
+                    res[(result['alias'], result['group'])] = result['command'][0]
+                    # print(f"Added {result} to new thingies")
+                app.overlord.api.command_names = BidirectionalMap(res)
+                session = database.Session()
+                session.query(database.Settings).get("command_names").value = repr(app.overlord.api.command_names)
+                session.commit()
+                # print(f"New command_names: {res}")
 
-            form_list = CommandNamesForm(data={'items': get_choices_for_command_names()})
-            await flash("Command Aliases saved successfully.")
+                form_list = CommandNamesForm(data={'items': get_choices_for_command_names()})
+                await flash("Command Aliases saved successfully.")
 
     return await render_template('command_names.html', form_list=form_list)
 
@@ -412,7 +459,7 @@ async def command_messages():
 
 
 @app.route('/customizations/messages/restore_default', methods=['GET', 'POST'])
-async def restore_default():
+async def command_messages_restore_default():
     form_data = await get_form_data()
 
     form = CommandMessagesRestoreDefaultForm(form_data)
@@ -437,5 +484,67 @@ async def restore_default():
         return redirect('/customizations/messages')
 
     return await render_template('command_messages_restore_default.html', form=form)
+
+
+@app.route('/customizations/announcements', methods=['GET', 'POST'])
+async def announcements():
+    form_data = await get_form_data()
+
+    # form_list = AnnouncementForm(form_data, data={'element_list': [{'name': 'thing', 'contents': 'thingy', 'randomize_from': True}], 'result': '{thing}'})
+    form_list = AnnouncementForm(form_data, data=app.overlord.announcements)
+
+    if request.method == 'POST':
+        if "add_field" in form_data:
+            field_path = form_data.get("add_field").split("-")
+            field = getattr_chain(form_list, field_path)
+            if field is not None:
+                field.append_entry()
+        elif "delete_field" in form_data:
+            *field_path, field_num = form_data.get("delete_field").split("-")
+            field = getattr_chain(form_list, field_path)
+            if field is not None:
+                field.entries = [
+                    entry
+                    for entry in field.entries
+                    if not entry.id.endswith(f"-{field_num}")
+                ]
+        else:
+            formatter = AnnouncementDict.from_list(form_list.element_list.data)
+            result = Announcement(form_list.result.data)
+            try:
+                formatter.validate(result)
+            except ValueError as e:
+                form_list.element_list.errors = [e]
+                # print(form_list.element_list.errors, e)
+            else:
+                # print(str(result).format_map(formatter))
+                announcements_saved = {'element_list': form_list.element_list.data, 'result': form_list.result.data}
+                session = database.Session()
+                session.query(database.Settings).get('announcements').value = repr(announcements_saved)
+                session.commit()
+                app.overlord.announcements = announcements_saved
+                await flash("Announcements saved successfully.")
+
+    return await render_template('announcements.html', form_list=form_list)
+
+
+@app.route('/customizations/announcements/restore_default/confirmed')
+async def announcements_restore_default_confirm():
+    announcements_saved = load_announcements()
+    session = database.Session()
+    session.query(database.Settings).get('announcements').value = repr(announcements_saved)
+    session.commit()
+    app.overlord.announcements = announcements_saved
+    await flash("Announcements reset successfully.")
+    return redirect('/customizations/announcements')
+
+
+@app.route('/customizations/announcements_restore_default')
+async def announcements_restore_default():
+    return await render_template('announcements_restore_default.html')
+
+
+
+
 
 

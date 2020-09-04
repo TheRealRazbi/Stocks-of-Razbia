@@ -18,13 +18,14 @@ As long as you read the Notes on each release, before installing it, you should 
 
 - !stocks | displays all the basic commands
 - !autoinvest &lt;budget&gt; | buy random stocks whose value approach the budget value
-- !buy &lt;company&gt; &lt;amount&gt; | amount is a number or 'all'
+- !buy &lt;company&gt; &lt;amount&gt; | amount is a number
 - !sell &lt;company&gt; &lt;amount&gt; | amount is a number or 'all'
 - !companies | display all companies
 - !company &lt;company&gt; | show info about a company such as full-name and price
 
 ### Extra commands:
 
+- !sell_everything | same as !sell, but on ALL your owned stocks
 - !my stats | displays your shares + income + profit
 - !my shares | displays all the shares you own
 - !my profit | it will show you all the profit from all points invested [doesn't take into account the value of current shares]
@@ -38,12 +39,17 @@ As long as you read the Notes on each release, before installing it, you should 
 The minigame and all companies are hosted locally.
 As this is currently in the testing version, everything is subject to change.
 
+### Event System:
+Each 4 months, a company [usually with fewest owned stocks] gets picked for a positive event.
+The event is announced and it increase the chance of that company making making, by 5-20% for 2-4 months.
+
 ### Supports:
  
+- Fully customizable Command Names, Command Outputs and Announcements
 - Streamlabs Extension Currency
 - StreamElements Currency
 - Streamlabs Chatbot Local Currency
-- Streamlabs Cloudbot [not yet, because it has no API support, so I have to do some webscrapping]
+- Streamlabs Cloudbot [not yet, because it has no API support, so it will require webscrapping from my end]
 - Fully Local Currency [not yet, I will add it whenever Streamers will ask for it]
 
 ## Contributions:

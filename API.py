@@ -27,6 +27,8 @@ class API:
         self.twitch_key = ''
         self.twitch_key_requires_refreshing = False
         self.twitch_key_just_refreshed = False
+        self.stream_elements_key_requires_refreshing = False
+        self.stream_elements_key_just_refreshed = False
         self.stream_elements_key = ''
         self.load_keys()
         self._name = None
@@ -176,8 +178,11 @@ class API:
                 return requests.post(url, data=querystring).json()["points"]
             elif self.currency_system == 'stream_elements':
                 url = f'https://api.streamelements.com/kappa/v2/points/{self.stream_elements_id}/{user}/{amount}'
-                headers = {'Authorization': f'Bearer {self.stream_elements_key}'}
-                return requests.put(url, headers=headers).json()["newAmount"]
+                headers = {'Authorization': f'OAuth {self.stream_elements_key}'}
+                res = requests.put(url, headers=headers)
+                # print(res.json())
+                return res.json()["newAmount"]
+                # return requests.put(url, headers=headers).json()["newAmount"]
             elif self.currency_system == 'streamlabs_local':
                 await self.request_streamlabs_local_message(f'!add_points {user} {amount}')
                 return 'it worked, I guess'
@@ -242,6 +247,25 @@ class API:
         raise ValueError(
             f"A response code appeared that Razbi didn't handle, maybe tell him? Response Code: {res.status_code}")
 
+    def validate_stream_elements_key(self):
+        if not self.stream_elements_key:
+            return False
+        url = 'https://api.streamelements.com/oauth2/validate'
+        querystring = {'Authorization': f'OAuth {self.twitch_key}'}
+        res = requests.get(url=url, headers=querystring)
+        if res.status_code == 200:
+            self.stream_elements_key_requires_refreshing = False
+            return True
+        elif res.status_code == 401:
+            print("Stream_elements Token expired. Refreshing Token whenever possible...")
+            self.stream_elements_key_requires_refreshing = True
+            return False
+        elif res.status_code >= 500:
+            print("server errored or... something. better tell Razbi")
+            return False
+        raise ValueError(
+            f"A response code appeared that Razbi didn't handle, maybe tell him? Response Code: {res.status_code}")
+
     @property
     def tokens_ready(self):
         if 'tokens_ready' in self._cache:
@@ -283,6 +307,14 @@ class API:
             expires_at = int(expires_at_db.value)
             return expires_at
 
+    @CachedProperty
+    def stream_elements_key_expires_at(self):
+        session = database.Session()
+        expires_at_db = session.query(database.Settings).get('stream_elements_key_expires_at')
+        if expires_at_db:
+            expires_at = int(expires_at_db.value)
+            return expires_at
+
     async def twitch_key_auto_refresher(self):
         while True:
             if self.tokens_ready and self.twitch_key_expires_at and time.time() + 60 > self.twitch_key_expires_at:
@@ -306,6 +338,30 @@ class API:
                 else:
                     raise ValueError('Unhandled status code when refreshing the twitch key. TELL RAZBI',
                                      res.status_code)
+
+            if self.tokens_ready and self.currency_system == 'stream_elements' and \
+                    self.stream_elements_key_expires_at and time.time() + 60 > self.stream_elements_key_expires_at:
+                url = 'https://razbi.funcity.org/stocks-chat-minigame/stream_elements/refresh_token'
+                querystring = {'access_token': self.stream_elements_key}
+                res = requests.get(url, params=querystring)
+                if res.status_code == 200:
+                    session = database.Session()
+                    stream_element_key_db = session.query(database.Settings).get('stream_elements_key')
+                    if stream_element_key_db:
+                        stream_element_key_db.value = res.json()['access_token']
+                    expires_at_db = session.query(database.Settings).get('stream_elements_key_expires_at')
+                    if expires_at_db:
+                        expires_at_db.value = str(int(time.time()) + res.json()['expires_in'])
+                    self.mark_dirty('stream_elements_key_expires_at')
+                    session.commit()
+                    print("Stream_elements key refreshed successfully.")
+                elif res.status_code == 500:
+                    print(
+                        "Tried refreshing the stream_elements token, but the server is down or smth, please tell Razbi about this. ")
+                else:
+                    raise ValueError('Unhandled status code when refreshing the stream_elements key. TELL RAZBI',
+                                     res.status_code)
+
             await asyncio.sleep(60)
 
     async def ping_streamlabs_local(self):

@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% from 'macros/forms.html' import render_field, render_field_list %}
+
+{% block body %}
+	<div class="container">
+        <div class="my-dark">
+            <form method="post">
+{#                {% for form in form_list.items %}#}
+{#                <div class="input-group input-large mb-1 dropdown dropdown-dark">{{ render_field_list(form_list.element_list, 'Add element', 'Remove element') }}</div>#}
+                <div>{{ render_field_list(form_list.element_list, 'Add element', 'Remove element') }}</div>
+                <div class="input-group mb-1 dropdown dropdown-dark">{{ render_field(form_list.result) }}</div>
+{#                {% endfor %}#}
+
+                <input type="submit" value="Save" class="btn btn-outline-success my-1">
+            </form>
+        </div>
+
+
+        <div id="help_stuff">
+{#            <button class="btn btn-outline-light" onclick="generateHelp()">Help</button>#}
+        </div>
+
+        <script>
+            function generateHelp(){
+                let res = "\
+                The announcement that plays each 30 min is basically the value of 'announcement'.<br>\
+                To reference another 'element', do {name_of_the_element}.<br>\{#<br>\#}
+                Check randomize_from to make one of the messages separated by ' | ' to appear randomly.<br>\
+                Example: potato | pineapple. each roll it's generated randomly to be either 'potato' or 'pineapple'<br>\
+                 \{#<span style=\"color: #1e84de\">Note</span>: to <span style=\"color: #803232\">delete</span> an alias, just rename it to \"<span style=\"color: orange\">none</span>\" then <span style=\"color: green\">save</span>.<br>\#}
+                 <button class=\"btn btn-outline-warning my-1\" onclick=\"closeHelp()\">close</button>"
+                res = res.replace(/announcement/g, '<span style="color: #31e05a">announcement</span>')
+                res = res.replace(/randomize_from/g, '<span style="color: #5587f2">randomize_from</span>')
+                res = res.replace(/randomized/g, '<span style="color: #5587f2">randomized</span>')
+                res = res.replace(/NOT/g, '<span style="color: #803232">NOT</span>')
+                res = res.replace(/'result'/g, '<span style="color: #7accaf">\'result\'</span>')
+                res = res.replace(/potato/g, '<span style="color: #69a8f0">potato</span>')
+                res = res.replace(/pineapple/g, '<span style="color: #debc5d">pineapple</span>')
+                res = res.replace(/Example/g, '<span style="color: #f0de3c">Example</span>')
+                document.getElementById('help_stuff').innerHTML = res
+            }
+            function closeHelp(){
+                document.getElementById('help_stuff').innerHTML = "<button class=\"btn btn-outline-warning my-1\" onclick=\"generateHelp()\">help</button>"
+            }
+            closeHelp()
+        </script>
+
+
+        <div>
+            <form action="/customizations/announcements_restore_default">
+                <input type="submit" value="Restore default" class="btn btn-outline-info my-1">
+            </form>
+        </div>
+
+        <div>
+            <form action = '/customizations' method = "get">
+                <input type="submit" value="back" class="btn btn-outline-secondary my-1">
+            </form>
+        </div>
+
+
+        {% if form_list.errors %}
+            Nothing Saved.
+            Errors:
+            <span style="color: #8d2828">
+                {% for error in form_list.errors['element_list']%}
+                    {% if error %}
+                        {{ error }}
+                    {% endif %}
+                {% endfor %}
+            </span>
+        {% else %}
+            <span style="color: green">
+                {% for message in get_flashed_messages() %}
+                  <div class="flash">{{ message }}</div>
+                {% endfor %}
+            </span>
+        {% endif %}
+
+
+	</div>
+{% endblock %}

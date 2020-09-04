@@ -1,5 +1,6 @@
 import ast
 import json
+import subprocess
 import time
 import random
 
@@ -17,7 +18,7 @@ import config_server
 import config_server.forms
 from company_names import load_default_names
 import webbrowser
-from more_tools import CachedProperty
+from more_tools import CachedProperty, cd
 import alembic.config
 from customizable_stuff import load_message_templates, load_announcements
 from announcements import Announcement, AnnouncementDict
@@ -25,15 +26,17 @@ from announcements import Announcement, AnnouncementDict
 
 class Overlord:
     def __init__(self, loop=None):
+        alembic_extra_args = []
+        if os.path.exists('lib/code'):
+            alembic_extra_args.extend(('-c', 'lib/code/alembic.ini', '-n', 'deploy'))
         if not os.path.exists('lib/db.sqlite'):
             database.Base.metadata.create_all()
-            alembic_args = ['stamp', 'head']
-            alembic.config.main(argv=alembic_args)
+            alembic.config.main(argv=alembic_extra_args+['stamp', 'head'])
         elif not database.engine.dialect.has_table(database.engine, 'alembic_version'):
             # database.Base.metadata.create_all()
-            alembic_args = ['stamp', '0e0024b069d6']
-            alembic.config.main(argv=alembic_args)
-        alembic.config.main(argv=['upgrade', 'head'])
+            alembic.config.main(argv=alembic_extra_args+['stamp', '0e0024b069d6'])
+        alembic.config.main(argv=alembic_extra_args+['upgrade', 'head'])
+
         session = database.Session()
         self.last_check = 0
         self.loop = loop

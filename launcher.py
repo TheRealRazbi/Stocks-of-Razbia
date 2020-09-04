@@ -22,6 +22,7 @@ import wtforms
 import markdown2
 import traceback
 import alembic
+import alembic.config
 import wtforms_components
 
 os.system("cls")
@@ -39,7 +40,7 @@ def start_screen(first='Start'):
     print(f"1 - {colored(first, color='cyan')}\n"
           # f"2 - {colored('Introduction', color='yellow')}\n"
           f"2 - {colored('Check for Updates', color='green')}\n"
-          f"3 - {colored(f'Auto-updates: {auto_updates}', color='green')}\n"
+          f"3 - {colored(f'Auto-updates: {auto_updates}', color='yellow')}\n"
           f"4 - {colored('Quit', color='red')}\n")
     # if first == 'Start':
     #     print(colored("Please consider using the 'Introduction' option in case it's unclear what the minigame does.", 'red'))
@@ -105,8 +106,8 @@ def enable_auto_updates():
 
     if os.path.exists('lib/auto_update_enabled'):
         print(f"Would you like to disable {colored('auto-updates', 'green')}?")
-        print(f"1 - {colored('Yes', color='cyan')}\n",
-              f"2 - {colored('No', color='red')}\n",
+        print(f"1 - {colored('Yes', color='cyan')}\n"
+              f"2 - {colored('No', color='red')}\n"
               )
         choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 2))
         if choice == 1:
@@ -115,8 +116,8 @@ def enable_auto_updates():
         start_screen()
     else:
         print(f"Would you like to enable {colored('auto-updates', 'green')}?")
-        print(f"1 - {colored('Yes', color='cyan')}\n",
-              f"2 - {colored('No', color='red')}\n",
+        print(f"1 - {colored('Yes', color='cyan')}\n"
+              f"2 - {colored('No', color='red')}\n"
               )
         choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 2))
         if choice == 1:

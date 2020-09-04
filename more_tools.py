@@ -1,7 +1,5 @@
 # The reason we're using this file for stuff instead of custom_tools.py is because custom_tools.py is packaged
 # therefore not update-able
-from dataclasses import dataclass
-from random import random
 
 
 class CachedProperty:
@@ -36,21 +34,6 @@ class BidirectionalMap(dict):
         if self[key] in self.inverse and not self.inverse[self[key]]:
             del self.inverse[self[key]]
         super(BidirectionalMap, self).__delitem__(key)
-
-
-# @dataclass
-# class AnnouncementMessage:
-#     contents: str
-#     randomize_from: bool
-#
-#     def __str__(self):
-#         if self.randomize_from:
-#             return random.choice(self.content_list)
-#         return self.contents
-#
-#     @property
-#     def content_list(self):  # cache as needed maybe idk.
-#         return self.contents.split("|")
 
 
 if __name__ == '__main__':

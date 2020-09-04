@@ -8,19 +8,20 @@
 
         <form method="POST">
             <div>
-
                 Currency System: {{ setup_form.currency_system(class_="custom-select")}}<br>
                 Currency Name:   {{ setup_form.currency_name }} <br>
-{#                {{ form.value(class="css_class") }}#}
                 <input type="submit" value="Save" class="btn btn-outline-success my-1">
             </div>
         </form>
 
-        <div>
-            <form action="/customizations">
-                <input type="submit" value="Customize" class="btn btn-outline-info my-1">
-            </form>
-        </div>
+        {% if tokens_loaded %}
+            <div>
+                <form action="/customizations">
+                    <input type="submit" value="Customize" class="btn btn-outline-info my-1">
+                </form>
+            </div>
+        {% endif %}
+
 
         <div>
             {% if currency_system and (not twitch_key or not chosen_key) %}

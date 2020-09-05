@@ -38,7 +38,7 @@ class SetupForm(Form):
                                                               ('', 'Please pick a currency system'),
                                                               ('streamlabs', 'Streamlabs Extension'),
                                                               ('stream_elements', 'Stream Elements'),
-                                                              ('streamlabs_local', 'Streamlabs Local'),
+                                                              ('streamlabs_local', 'Streamlabs Chatbot Local'),
                                                               ]
                                     )
     currency_name = f.StringField('Currency Name', [v.Length(min=4)])
@@ -89,7 +89,7 @@ class CommandNamesForm(Form):
 
 
 class CommandMessageForm(Form):
-    message_name = f.TextAreaField("Announcement ID", render_kw={'rows': 3, 'readonly': True})
+    message_name = f.TextAreaField("Message ID", render_kw={'rows': 3, 'readonly': True})
     command_message = f.TextAreaField("Command Output",
                                       validators=[v.Length(min=3)],
                                       render_kw={'rows': 3, 'cols': 1})

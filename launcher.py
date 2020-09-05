@@ -31,6 +31,7 @@ os.system("cls")
 def auto_update_check():
     if os.path.exists('lib/auto_update_enabled') and os.path.exists('lib/code/'):
         porcelain.pull("lib/code/")
+        print(colored("Checked for updates", 'green'))
 
 
 def start_screen(first='Start'):
@@ -105,7 +106,7 @@ def enable_auto_updates():
         start_screen(first='Install')
 
     if os.path.exists('lib/auto_update_enabled'):
-        print(f"Would you like to disable {colored('auto-updates', 'green')}?")
+        print(f"Would you like to {colored('disable', 'red')} {colored('auto-updates', 'green')}?")
         print(f"1 - {colored('Yes', color='cyan')}\n"
               f"2 - {colored('No', color='red')}\n"
               )
@@ -115,7 +116,7 @@ def enable_auto_updates():
             print(f"{colored('Auto-updates disabled', 'green')}")
         start_screen()
     else:
-        print(f"Would you like to enable {colored('auto-updates', 'green')}?")
+        print(f"Would you like to {colored('enable', 'yellow')} {colored('auto-updates', 'green')}?")
         print(f"1 - {colored('Yes', color='cyan')}\n"
               f"2 - {colored('No', color='red')}\n"
               )
@@ -125,8 +126,8 @@ def enable_auto_updates():
                 pass
             print(f"{colored('Auto-updates enabled', 'green')}")
             print(f"Would you like to {colored('check-for-updates', 'green')} right now?")
-            print(f"1 - {colored('Yes', color='cyan')}\n",
-                  f"2 - {colored('No', color='red')}\n",
+            print(f"1 - {colored('Yes', color='cyan')}\n"
+                  f"2 - {colored('No', color='red')}\n"
                   )
             choice = validate_input('Pick one: ', requires_int=True, int_range=(1, 2))
             if choice == 1:

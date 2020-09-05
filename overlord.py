@@ -271,8 +271,15 @@ class Overlord:
             company.event_increase = random.randint(5, 20)
             company.event_months_remaining = random.randint(2, 3)
             session.commit()
-            tip = random.choice([f"{self.messages['stocks_alias']} price it's likely to increase", "Buy Buy Buy", "Time to invest"])
-            self.api.send_chat_message(f"{company.full_name} just released a new product. {tip}.")
+            # tip = random.choice([f"{self.messages['stocks_alias']} price it's likely to increase", "Buy Buy Buy", "Time to invest"])
+            # self.api.send_chat_message(f"{company.full_name} just released a new product. {tip}.")
+            if 'company_released_product' not in self.messages:
+                self.messages['company_released_product'] = load_message_templates()['company_released_product']
+                session = database.Session()
+                session.query(database.Settings).get('messages').value = json.dumps(self.messages)
+                session.commit()
+            self.api.send_chat_message(self.messages['company_released_product'].format(currency_name=self.currency_name,
+                                                                                        company_full_name=company.full_name))
 
         else:
             self.company_events_counter += 1

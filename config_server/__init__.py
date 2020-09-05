@@ -233,7 +233,6 @@ async def generate_twitch_token():
 async def generate_stream_elements_token():
     return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamelements_login")
 
-
     # form_data = None
     # if request.method == 'POST':
     #     form_data = await request.form

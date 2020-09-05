@@ -29,6 +29,7 @@ os.system("cls")
 
 
 def auto_update_check():
+    print(colored("Checking for updates", 'green'))
     if os.path.exists('lib/auto_update_enabled') and os.path.exists('lib/code/'):
         porcelain.pull("lib/code/")
         print(colored("Checked for updates", 'green'))

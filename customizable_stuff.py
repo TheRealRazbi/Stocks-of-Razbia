@@ -32,7 +32,7 @@ message_templates = {
                                                         'aka you need {budget_points_difference} more.',
     'about': '@{user_name} This minigame is open-source and it was made by Razbi and Nesami. '
              'Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia',
-    'company_released_product': "{company_full_name} just released a new product. Price it's likely to increase.",
+    'company_released_product': "{company_summary} just released a new product. Price it's likely to increase.",
 }
 
 # naming convention: command_names = {('new_name', group_name): 'og_name'}

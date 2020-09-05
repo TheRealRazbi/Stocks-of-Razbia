@@ -279,7 +279,8 @@ class Overlord:
                 session.query(database.Settings).get('messages').value = json.dumps(self.messages)
                 session.commit()
             self.api.send_chat_message(self.messages['company_released_product'].format(currency_name=self.currency_name,
-                                                                                        company_full_name=company.full_name))
+                                                                                        company_full_name=company.full_name,
+                                                                                        company_summary=company.announcement_description))
 
         else:
             self.company_events_counter += 1

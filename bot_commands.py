@@ -168,12 +168,12 @@ def register_commands(api: API):
             # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
             message = company.announcement_description
             res.append(message)
-        ctx.api.send_chat_message(f"@{ctx.user.name} {', '.join(res)} ")
         if ctx.user.new:
             # ctx.api.send_chat_message(f"@{ctx.user.name} Tip: The number on the left is the 'current price'. The one on the right is the 'price change'")
             ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'company_first_time_tip'))
             ctx.user.new = False
             ctx.session.commit()
+        ctx.api.send_chat_message(f"@{ctx.user.name} {', '.join(res)} ")
 
     @api.command()
     async def stocks(ctx):

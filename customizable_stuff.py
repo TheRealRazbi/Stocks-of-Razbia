@@ -17,12 +17,13 @@ message_templates = {
     'sell_not_enough_shares': "@{user_name} doesn't have {amount} at {company_alias} {company_abbv} to sell them. "
                               "They have only {share_amount} {stocks_alias}.",
     'sell_everything_successful': '@{user_name} has sold {list_of_all_sells} for {total_outcome} {currency_name}.',
+    'number_too_small': "@{user_name} has inputted a number too small. Only numbers above 0 work.",
     'introduction': "@{user_name} This is a stock simulation minigame | '!stocks' for basic commands | "
                     "Buy stocks for passive income | "
                     "Naming Convention: Company[current_price, price_change] ",
     'company_first_time_tip': "@{user_name} Tip: The number on the left is the 'current price'. The one on the right is the 'price change'.",
     'no_shares': "@{user_name} doesn't have any shares. Use '!buy' to buy some.",
-    'my_points': '@{user_name} currently has {user_points} {currency_name}',
+    'my_points': '@{user_name} currently has {user_points} {currency_name}.',
     'my_stats': '@{user_name} '
                 'Shares: {list_of_shares} ||| '
                 'Income: {list_of_income} | Total Income: {total_income} {currency_name} per 10 mins ||| '

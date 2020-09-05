@@ -178,6 +178,13 @@ class Overlord:
         messages = session.query(database.Settings).get('messages')
         if messages:
             self.messages = json.loads(messages.value)
+            default_messages = load_message_templates()
+            for default_key in default_messages:
+                if default_key not in self.messages:
+                    self.messages[default_key] = default_messages[default_key]
+                    session = database.Session()
+                    session.query(database.Settings).get('messages').value = json.dumps(self.messages)
+                    session.commit()
         else:
             messages = database.Settings(key='messages', value=json.dumps(load_message_templates()))
             session.add(messages)

@@ -15,7 +15,7 @@ import commands
 from termcolor import colored
 import contextlib
 from more_tools import CachedProperty, BidirectionalMap
-from customizable_stuff import load_command_names
+from customizable_stuff import load_command_names, load_message_templates
 
 
 class API:
@@ -378,6 +378,13 @@ class API:
         return response
 
     def get_and_format(self, ctx: contexts.UserContext, message_name: str, **formats):
+        if message_name not in self.overlord.messages:
+            default_messages = load_message_templates()
+            if message_name in default_messages:
+                self.overlord.messages[message_name] = default_messages[message_name]
+            else:
+                return ''
+
         return self.overlord.messages[message_name].format(stocks_alias=self.overlord.messages['stocks_alias'],
                                                            company_alias=self.overlord.messages['company_alias'],
                                                            user_name=ctx.user.name,

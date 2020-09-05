@@ -44,6 +44,10 @@ def register_commands(api: API):
             ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'buy_or_sell_0_companies'))
             return
 
+        if amount <= 0:
+            ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'number_too_small'))
+            return
+
         points = await ctx.user.points(ctx.api)
         cost = math.ceil(amount*company.stock_price)
         # if company.remaining_shares == 0:
@@ -80,7 +84,7 @@ def register_commands(api: API):
             # ctx.api.send_chat_message(f"@{ctx.user.name} has {points:,} {ctx.api.overlord.currency_name} and requires {cost} aka {cost-points} more.")
             ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'buy_not_enough_points',
                                                              points=f'{points:,}',
-                                                             cost=f'{points:,}',
+                                                             cost=f'{cost:,}',
                                                              cost_minus_points=f'{cost-points:,}'))
 
     @api.command(usage="<company> <amount>")
@@ -100,6 +104,9 @@ def register_commands(api: API):
         if amount == 'all' and share or share and share.amount >= amount:
             if amount == 'all':
                 amount = share.amount
+            if amount <= 0:
+                ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'number_too_small'))
+                return
             cost = math.ceil(amount * company.stock_price)
 
             await ctx.api.upgraded_add_points(ctx.user, cost, ctx.session)

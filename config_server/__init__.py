@@ -454,12 +454,6 @@ async def command_messages():
             session.query(database.Settings).get('messages').value = json.dumps(app.overlord.messages)
             session.commit()
             await flash("Command Outputs saved successfully.")
-    else:
-        if 'company_released_product' not in app.overlord.messages:
-            app.overlord.messages['company_released_product'] = load_message_templates()['company_released_product']
-            session = database.Session()
-            session.query(database.Settings).get('messages').value = json.dumps(app.overlord.messages)
-            session.commit()
 
     return await render_template('command_messages.html', form_list=form_list)
 

@@ -267,27 +267,32 @@ class Overlord:
             companies = session.query(database.Company).all()
             company_candidates = []
             for company in companies:
-                if len(company_candidates) < 2:
+                if company.stock_price > 10000 and company.event_months_remaining <= 0:
+                    company.event_increase = random.randint(-25, -10)
+                    company.event_months_remaining = 3
+                if len(company_candidates) < 2 and company.stock_price < 1000:
                     company_candidates.append(company)
                 else:
                     for index, company_candidate in enumerate(company_candidates):
-                        if company.stocks_bought < company_candidate.stocks_bought and company.stock_price < 1000 and not company.event_months_remaining:
+                        if company.stocks_bought < company_candidate.stocks_bought and company.stock_price < 1000 and company.event_months_remaining <= 0:
                             company_candidates[index] = company
                             break
-            company = random.choice(company_candidates)
-            company.event_increase = random.randint(5, 20)
-            company.event_months_remaining = random.randint(2, 3)
-            session.commit()
-            # tip = random.choice([f"{self.messages['stocks_alias']} price it's likely to increase", "Buy Buy Buy", "Time to invest"])
-            # self.api.send_chat_message(f"{company.full_name} just released a new product. {tip}.")
-            if 'company_released_product' not in self.messages:
-                self.messages['company_released_product'] = load_message_templates()['company_released_product']
-                session = database.Session()
-                session.query(database.Settings).get('messages').value = json.dumps(self.messages)
+
+            if company_candidates:
+                company = random.choice(company_candidates)
+                company.event_increase = random.randint(5, 20)
+                company.event_months_remaining = random.randint(2, 3)
                 session.commit()
-            self.api.send_chat_message(self.messages['company_released_product'].format(currency_name=self.currency_name,
-                                                                                        company_full_name=company.full_name,
-                                                                                        company_summary=company.announcement_description))
+                # tip = random.choice([f"{self.messages['stocks_alias']} price it's likely to increase", "Buy Buy Buy", "Time to invest"])
+                # self.api.send_chat_message(f"{company.full_name} just released a new product. {tip}.")
+                if 'company_released_product' not in self.messages:
+                    self.messages['company_released_product'] = load_message_templates()['company_released_product']
+                    session = database.Session()
+                    session.query(database.Settings).get('messages').value = json.dumps(self.messages)
+                    session.commit()
+                self.api.send_chat_message(self.messages['company_released_product'].format(currency_name=self.currency_name,
+                                                                                            company_full_name=company.full_name,
+                                                                                            company_summary=company.announcement_description))
 
         else:
             self.company_events_counter += 1

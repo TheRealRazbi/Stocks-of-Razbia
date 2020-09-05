@@ -94,12 +94,12 @@ class Company(Base):
 
     @property
     def announcement_description(self):
-        return f"{self.abbv.upper()}[{self.stock_price:.1f}{-(self.price_diff/(self.stock_price+self.price_diff)*100):+.1f}%]"
+        return f"{self.abbv.upper()}[{self.stock_price:,.1f}{-(self.price_diff/(self.stock_price+self.price_diff)*100):+.1f}%]"
 
     def __str__(self):
         years = int(self.months / 12)
         months = self.months % 12
-        return f"Name: '{self.abbv}' aka '{self.full_name}' | stock_price: {self.stock_price:.2f} | " \
+        return f"Name: '{self.abbv}' aka '{self.full_name}' | stock_price: {self.stock_price:,.2f} | " \
                f"price change: {-(self.price_diff/(self.stock_price+self.price_diff)*100):+.1f}% | " \
                f"lifespan: {years} {'years' if not years == 1 else 'year'} " \
                f"and {months} {'months' if not months == 1 else 'month'} | Stocks Bought: {self.stocks_bought}"

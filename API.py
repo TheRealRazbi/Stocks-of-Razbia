@@ -181,7 +181,11 @@ class API:
                 headers = {'Authorization': f'OAuth {self.stream_elements_key}'}
                 res = requests.put(url, headers=headers)
                 # print(res.json())
-                return res.json()["newAmount"]
+                if res.status_code == 200:
+                    return res.json()["newAmount"]
+                raise ValueError(f"Error encountered while adding points with stream_elements system. HTTP Code {res.status_code}. "
+                                 "Please tell Razbi about it.")
+
                 # return requests.put(url, headers=headers).json()["newAmount"]
             elif self.currency_system == 'streamlabs_local':
                 await self.request_streamlabs_local_message(f'!add_points {user} {amount}')
@@ -339,7 +343,7 @@ class API:
                     raise ValueError('Unhandled status code when refreshing the twitch key. TELL RAZBI',
                                      res.status_code)
 
-            if self.tokens_ready and self.currency_system == 'stream_elements' and \
+            elif self.tokens_ready and self.currency_system == 'stream_elements' and \
                     self.stream_elements_key_expires_at and time.time() + 60 > self.stream_elements_key_expires_at:
                 url = 'https://razbi.funcity.org/stocks-chat-minigame/stream_elements/refresh_token'
                 querystring = {'access_token': self.stream_elements_key}

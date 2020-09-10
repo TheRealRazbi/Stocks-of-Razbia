@@ -126,7 +126,6 @@ class Overlord:
         session.commit()
 
     async def iterate_companies(self, session: database.Session):
-        self.start_company_events(session)
         for index_company, company in enumerate(session.query(Company).all()):
             res = company.iterate()
             if res:
@@ -143,6 +142,7 @@ class Overlord:
                     company.bankrupt = True
                     self.names[company.abbv] = company.full_name
                     session.commit()
+        self.start_company_events(session)
 
     async def clear_bankrupt(self, session: database.Session):
         for index_company, company in enumerate(session.query(Company).filter_by(bankrupt=True)):
@@ -264,7 +264,7 @@ class Overlord:
     def start_company_events(self, session: database.Session):
         if self.company_events_counter >= 4:
             self.company_events_counter = 0
-            companies = session.query(database.Company).all()
+            companies = session.query(database.Company).filter_by(bankrupt=False).all()
             company_candidates = []
             for company in companies:
                 if company.stock_price > 10000 and company.event_months_remaining <= 0:

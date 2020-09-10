@@ -62,7 +62,10 @@ class User(Base):
                 elif res.status_code >= 500:
                     print("stream_elements server errored or... something. better tell Razbi, although its probably a stream_elements thing. "
                           "to prevent screwing people's points, the program will shutdown as you press Enter")
-                    input("Press 'enter' to quit")
+                else:
+                    raise ValueError(
+                        f"Error encountered while getting points from user {self.name} with stream_elements system. HTTP Code {res.status_code}. "
+                        "Please tell Razbi about it.")
 
             elif api.currency_system == 'streamlabs_local':
                 return int(await api.request_streamlabs_local_message(f'!get_user_points {self.name}'))

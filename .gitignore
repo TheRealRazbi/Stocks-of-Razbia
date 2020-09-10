@@ -13,3 +13,4 @@ __pycache__
 /dist/
 venv
 /config_server/static/static/scss/
+/selenium_stuff/geckodriver.log

@@ -358,7 +358,7 @@ async def introduction():
 
 """)
     intro = intro.replace("The minigame and all", """
-    </div></div></div>The minigame and all
+    </div></div></div><br>The minigame and all
     """)
     return await render_template('introduction.html', intro=intro)
 

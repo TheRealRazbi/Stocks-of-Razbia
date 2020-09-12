@@ -1,9 +1,11 @@
 import math
 
+from sqlalchemy import func
+
 from API import API
 
 from database import Company
-import database
+import database as db
 from multi_arg import IntOrStrAll, CompanyOrIntOrAll, CompanyOrInt
 import commands as commands_
 import time
@@ -60,11 +62,11 @@ def register_commands(api: API):
         #     ctx.api.send_chat_message(f"@{ctx.user.name} tried buying {amount} stocks, but only {company.remaining_shares} are remaining")
         #     return
         if points >= cost:
-            share = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id, company_id=company.id).first()
+            share = ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id, company_id=company.id).first()
             if share:
                 share.amount += amount
             else:
-                share = database.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount)
+                share = db.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount)
                 ctx.session.add(share)
             company.increase_chance = 50 + .01 * company.stocks_bought
             if company.increase_chance > 55:
@@ -103,7 +105,7 @@ def register_commands(api: API):
             ctx.api.send_chat_message(f"@{ctx.user.name} You didn't input any company. you need to input a value and a company")
             return
 
-        share = ctx.session.query(database.Shares).get((ctx.user.id, company.id))
+        share = ctx.session.query(db.Shares).get((ctx.user.id, company.id))
         if amount == 'all' and share or share and share.amount >= amount:
             if amount == 'all':
                 amount = share.amount
@@ -165,7 +167,7 @@ def register_commands(api: API):
     @api.command()
     async def companies(ctx):
         res = []
-        companies = ctx.session.query(database.Company).order_by(Company.stock_price.desc()).all()
+        companies = ctx.session.query(db.Company).order_by(Company.stock_price.desc()).all()
         for company in companies:
             # message = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}{company.price_diff:+}]"
             # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
@@ -193,7 +195,7 @@ def register_commands(api: API):
     @my.command()
     async def shares(ctx):
         res = []
-        shares = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id).all()
+        shares = ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id).all()
         if shares:
             for share in shares:
                 company = ctx.session.query(Company).get(share.company_id).announcement_description
@@ -220,7 +222,7 @@ def register_commands(api: API):
     @my.command()
     async def income(ctx):
         res = []
-        shares = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id).all()
+        shares = ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id).all()
         if shares:
             total_income = 0
             for share in shares:
@@ -242,7 +244,7 @@ def register_commands(api: API):
 
         # !my shares
         res = []
-        shares = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id).all()
+        shares = ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id).all()
         if shares:
             for share in shares:
                 company = ctx.session.query(Company).get(share.company_id).announcement_description
@@ -256,7 +258,7 @@ def register_commands(api: API):
 
         # !my income
         res = []
-        shares = ctx.session.query(database.Shares).filter_by(user_id=ctx.user.id).all()
+        shares = ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id).all()
         if shares:
             total_income = 0
             for share in shares:
@@ -295,11 +297,12 @@ def register_commands(api: API):
         if budget == 'all':
             budget = user_points
         if budget <= user_points:
-            companies: list = ctx.session.query(database.Company).all()
-            for index_company, company in enumerate(companies):
-                if company.stock_price < 3 or company.stock_price > budget:
-                    companies.pop(index_company)
-            chosen_company: Company = random.choice(companies)
+            # companies: list = ctx.session.query(db.Company).filter((3 < db.Company.stock_price) & (db.Company.stock_price < 10)).all()
+            # chosen_company: Company = random.choice(companies)
+            chosen_company = ctx.session.query(db.Company).filter(
+                Company.stock_price.between(3, budget)).order_by(
+                func.random()).first()
+
             if chosen_company:
                 stocks_to_buy = math.floor(budget/chosen_company.stock_price)
                 if stocks_to_buy <= 0:

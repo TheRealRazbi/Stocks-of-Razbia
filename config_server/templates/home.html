@@ -69,7 +69,7 @@
                         <span style="color: #069d06">Richest Company:</span>
                         <span style="color: #5587f2">{{ most['richest_company'].full_name }} [{{ most['most_bought_company'].abbv }}]</span>
                         <span style="color: #2a88a0"> | </span>
-                        <span style="color: #e09e30;">{{ round(most['richest_company'].stock_price, 2) }} {{ currency_name }} per stock</span>
+                        <span style="color: #e09e30;">{{ round(most['richest_company'].stock_price) }} {{ currency_name }} per stock</span>
                         <br>
                     {% endif %}
                     {% if most['most_bought_company'] %}

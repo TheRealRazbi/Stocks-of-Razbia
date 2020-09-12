@@ -4,12 +4,25 @@
 {% block body %}
 	<div class="container">
         <form method="POST">
-                <span class="my-dark">{{ render_field_list(form.items, "Add a company", "Remove this company") }}</span>
+            <span class="my-dark">{{ render_field_list(form.items, "Add a company", "Remove this company") }}</span>
             {% for message in get_flashed_messages() %}
-              <div class="flash text-info">{{ message }}</div>
+                <div class="flash text-success">{{ message }}</div>
             {% endfor %}
             <input type="submit" value="Save" class="btn btn-outline-success my-1">
         </form>
+
+        <div>
+            <form action="/customizations/company_names/restore_default">
+                <input type="submit" value="Restore default" class="btn btn-outline-info my-1">
+            </form>
+        </div>
+
+        <div>
+            <form action="/customizations/company_names/reset">
+                <input type="submit" value="Refund all stocks. Delete current companies." class="btn btn-outline-danger my-1">
+            </form>
+        </div>
+
         <div>
             <form action = '/customizations' method = "get">
                 <input type="submit" value="back" class="btn btn-outline-secondary my-1">

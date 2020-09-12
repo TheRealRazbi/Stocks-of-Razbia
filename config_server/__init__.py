@@ -1,5 +1,6 @@
 import ast
 import json
+import math
 import time
 from contextlib import suppress
 from typing import Type, List, Optional
@@ -16,9 +17,16 @@ import markdown2
 import commands
 from customizable_stuff import load_command_names, load_message_templates, load_announcements
 from more_tools import BidirectionalMap
+import atexit
 
 app = Quart(__name__, static_folder="static/static")
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+
+
+@atexit.register
+def close_web_socket_upon_crash():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(websocket.close())
 
 
 def getattr_chain(obj, attr: List[str]):
@@ -50,8 +58,18 @@ async def home():
         return redirect(url_for('setup'))
 
     app.overlord.api.console_buffer_done = []
+    session = database.Session()
+    most = {
+            'wealthy_user': session.query(database.User).order_by((database.User.gain-database.User.lost).desc()).first(),
+            'poorest_user': session.query(database.User).order_by((database.User.gain-database.User.lost)).first(),
+            'richest_company': session.query(database.Company).order_by(database.Company.stock_price.desc()).first(),
+            'most_bought_company': session.query(database.Company).order_by(database.Company.stocks_bought.desc()).first(),
+            'oldest_company': session.query(database.Company).order_by(database.Company.months.desc()).first()
+            }
+
     return await render_template("home.html", tokens_loaded=app.overlord.api.tokens_ready, started=app.overlord.started,
-                                 currency_system=app.overlord.api.currency_system.capitalize(), currency_name=app.overlord.currency_name)
+                                 currency_system=app.overlord.api.currency_system.capitalize(), currency_name=app.overlord.currency_name,
+                                 most=most, round=round, int=int)
 
 
 @app.route('/setup', methods=['GET', 'POST'])
@@ -233,26 +251,6 @@ async def generate_twitch_token():
 async def generate_stream_elements_token():
     return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamelements_login")
 
-    # form_data = None
-    # if request.method == 'POST':
-    #     form_data = await request.form
-    # stream_elements_token_form = StreamElementsTokenForm(form_data)
-    # if request.method == 'POST':
-    #     if stream_elements_token_form.validate():
-    #         # stream_elements_token = StreamElementsTokenForm.token.data
-    #         session = database.Session()
-    #         stream_elements_token_db = session.query(database.Settings).get('stream_elements_key')
-    #         if stream_elements_token_db:
-    #             stream_elements_token_db.value = stream_elements_token_form.token.data
-    #         else:
-    #             session.add(database.Settings(key='stream_elements_key', value=stream_elements_token_form.token.data))
-    #         session.commit()
-    #         app.overlord.api.stream_elements_key = stream_elements_token_form.token.data
-    #         await flash("StreamElements token saved successfully.")
-    #
-    # return await render_template('generate_stream_elements_token.html', stream_elements_form=stream_elements_token_form,
-    #                              stream_elements_token=app.overlord.api.stream_elements_key)
-
 
 @app.route('/web_sockets_stuff')
 async def web_sockets_stuff():
@@ -306,7 +304,62 @@ async def introduction():
                                             'currency': '#31e06b',
                                           }
                                          )
+    intro = intro.replace("Basic Commands:", """
+    <div class="accordion my-accordion" id="accordionExample">
+        <div class="card">
+            <div class="card-header" id="headingOne">
+              <h5 class="mb-0">
+                <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                  Basic Commands
+                </button>
+              </h5>
+    </div>
+    <div id="collapseOne" class="collapse" aria-labelledby="headingOne" data-parent="#accordionExample">
+      <div class="card-body">
+    """)
+    intro = intro.replace("Extra Commands:", """
+    </div></div></div>
+      <div class="card">
+    <div class="card-header" id="headingTwo">
+      <h5 class="mb-0">
+        <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+          Extra Commands
+        </button>
+      </h5>
+    </div>
+    <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionExample">
+      <div class="card-body">
+    """)
+    intro = intro.replace("Event System:", """
+    </div></div></div>
+      <div class="card">
+    <div class="card-header" id="headingThree">
+      <h5 class="mb-0">
+        <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+        Event System:
+    </button>
+      </h5>
+    </div>
+    <div id="collapseThree" class="collapse" aria-labelledby="headingThree" data-parent="#accordionExample">
+      <div class="card-body">
+    """)
+    intro = intro.replace("TL;DR:", """
+        </div></div></div>
+        <div class="card">
+            <div class="card-header" id="headingFour">
+              <h5 class="mb-0">
+                <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                TL;DR
+            </button>
+              </h5>
+            </div>
+        <div id="collapseFour" class="collapse" aria-labelledby="headingFour" data-parent="#accordionExample">
+          <div class="card-body">
 
+""")
+    intro = intro.replace("The minigame and all", """
+    </div></div></div>The minigame and all
+    """)
     return await render_template('introduction.html', intro=intro)
 
 
@@ -340,7 +393,6 @@ async def streamlabs_ws():
 
 def get_choices_for_command_names():
     pre_made_choices = []
-    # print(app.overlord.api.command_names.inverse.items())
     for (og_name, alias_and_group_name) in app.overlord.api.command_names.inverse.items():
         for alias, group_name in alias_and_group_name:
             accessible_from = group_name
@@ -353,9 +405,7 @@ def get_choices_for_command_names():
 @app.route('/customizations/command_names', methods=['GET', 'POST'])
 async def command_names():
     form_data = await get_form_data()
-
     # pre_made_choices = [{'command': ('buy', None), 'alias': 'acquire', 'group': 'all'}]
-
     form_list = CommandNamesForm(form_data, data={'items': get_choices_for_command_names()})
 
     if request.method == 'POST':
@@ -425,7 +475,11 @@ async def confirm_restore_default_command_names():
 
 @app.route('/customizations/command_names/restore_default')
 async def ask_to_restore_default_command_names():
-    return await render_template('command_names_restore_default.html')
+    first_option = '/customizations/command_names/restore_default/confirmed'
+    second_option = '/customizations/command_names'
+    warning_message = '<b>reset</b> all command aliases'
+    return await render_template('are_you_sure_template.html', first_option=first_option, second_option=second_option,
+                                 warning_message=warning_message)
 
 
 @app.route('/customizations')
@@ -541,7 +595,62 @@ async def announcements_restore_default_confirm():
 
 @app.route('/customizations/announcements_restore_default')
 async def announcements_restore_default():
-    return await render_template('announcements_restore_default.html')
+    first_option = "/customizations/announcements/restore_default/confirmed"
+    second_option = '/customizations/announcements'
+    warning_message = "<b>reset</b> announcements to default"
+    return await render_template('are_you_sure_template.html', first_option=first_option, second_option=second_option,
+                                 warning_message=warning_message)
+
+
+@app.route('/customizations/company_names/restore_default')
+async def company_names_restore_default():
+    first_option = '/customizations/company_names/restore_default/confirmed'
+    second_option = '/customizations/company_names'
+    warning_message = '<b>reset</b> company names to default'
+    return await render_template('are_you_sure_template.html', first_option=first_option, second_option=second_option,
+                                 warning_message=warning_message)
+
+
+@app.route('/customizations/company_names/restore_default/confirmed')
+async def company_names_restore_default_confirm():
+    session = database.Session()
+    session.delete(session.query(database.Settings).get('company_names'))
+    app.overlord.load_names(session)
+    session.commit()
+    await flash("Company Names reset successfully.")
+    return redirect('/customizations/company_names')
+
+
+@app.route('/customizations/company_names/reset')
+async def company_names_reset():
+    first_option = '/customizations/company_names/reset/confirm'
+    second_option = '/customizations/company_names'
+    warning_message = "<b>refund</b> all stocks and <b>delete</b> current companies"
+    return await render_template('are_you_sure_template.html', first_option=first_option, second_option=second_option,
+                                 warning_message=warning_message
+                                 )
+
+
+@app.route('/customizations/company_names/reset/confirm')
+async def company_names_reset_confirm():
+    session = database.Session()
+    for share in session.query(database.Shares).all():
+        await app.overlord.api.upgraded_add_points(share.user, math.ceil(share.amount*share.company.stock_price), session)
+        session.delete(share)
+    session.query(database.Company).delete()
+    session.commit()
+    await flash("Refunded all stocks. Deleted current companies.")
+    return redirect('/customizations/company_names')
+
+
+@app.route('/test/test')
+async def testing_bootstrap_features():
+    return await render_template('testing_bootstrap_features.html')
+
+
+
+
+
 
 
 

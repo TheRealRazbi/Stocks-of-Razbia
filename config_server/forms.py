@@ -49,7 +49,7 @@ class StreamElementsTokenForm(Form):
 
 
 class CompaniesNames(Form):
-    items = f.FieldList(f.FormField(CompanyName), min_entries=15)
+    items = f.FieldList(f.FormField(CompanyName), min_entries=10)
 
 
 def generate_choice_for_command():

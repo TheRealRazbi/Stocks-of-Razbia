@@ -2,6 +2,7 @@ __all__ = ["User"]
 
 import math
 
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy import Column
 from sqlalchemy.sql import sqltypes as t
 from sqlalchemy.orm import relationship
@@ -30,7 +31,7 @@ class User(Base):
 
     def __repr__(self):
         return self._repr(
-            **self._getattrs("id", "name", "shares"),
+            **self._getattrs("id", "name", "shares", "gain", "lost"),
         )
 
     async def points(self, api):
@@ -73,23 +74,23 @@ class User(Base):
             raise ValueError(f"Unavailable Currency System: {api.currency_system}")
         raise ValueError("Tokens not ready for use. Tell Razbi about this.")
 
+    @hybrid_property
+    def profit(self):
+        return self.gain - self.lost
+
     @property
     def profit_str(self):
         gain, lost = self.gain, self.lost
-        session = Session()
         for share in self.shares:
-            # company: Company = session.query(Company).get(share.company_id)
             company: Company = share.company
-            # print(f"Old gain: {gain}")
             gain += math.ceil(company.stock_price*share.amount)
-            # print(f"New gain: {gain}")
         profit = f'{gain - lost:+}'
         symbol = '+'
         try:
             if lost > gain:
                 symbol = '-'
                 gain, lost = lost, gain
-            percentage_profit = f'{symbol}{(gain / lost * 100):.0f}% ''of {currency_name} invested.'
+            percentage_profit = f'{symbol}{(gain / lost * 100 - 100):.0f}% ''of {currency_name} invested.'
         except ZeroDivisionError:
             percentage_profit = f'0%'
         return profit, percentage_profit

@@ -28,9 +28,9 @@ def register_commands(api: API):
         ctx.api.send_chat_message(f"All minigame-related chat commands: {', '.join(thing_to_display)}")
 
     @api.command(usage="<company> <amount>")
-    async def buy(ctx, company: CompanyOrInt, amount: CompanyOrInt):
-        amount: Union[Company, int]
-        company: Union[Company, int]
+    async def buy(ctx, company: CompanyOrIntOrAll, amount: CompanyOrIntOrAll):
+        amount: Union[Company, int, 'all']
+        company: Union[Company, int, 'all']
         if isinstance(company, Company) and not isinstance(amount, Company):
             pass
         elif not isinstance(company, Company) and isinstance(amount, Company):
@@ -44,11 +44,14 @@ def register_commands(api: API):
             ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'buy_or_sell_0_companies'))
             return
 
+        points = await ctx.user.points(ctx.api)
+        if amount == 'all':
+            amount = math.floor(points/company.stock_price)
+
         if amount <= 0:
             ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'number_too_small'))
             return
 
-        points = await ctx.user.points(ctx.api)
         cost = math.ceil(amount*company.stock_price)
         # if company.remaining_shares == 0:
         #     ctx.api.send_chat_message(f"@{ctx.user.name} no stocks left to buy at {company.abbv}")
@@ -287,8 +290,10 @@ def register_commands(api: API):
         ctx.api.send_chat_message(f"@{ctx.user.name} The next month starts in {time_till_next_run/60:.0f} minutes")
 
     @api.command(usage='<budget>')
-    async def autoinvest(ctx, budget: int):
+    async def autoinvest(ctx, budget: IntOrStrAll):
         user_points = await ctx.user.points(ctx.api)
+        if budget == 'all':
+            budget = user_points
         if budget <= user_points:
             companies: list = ctx.session.query(database.Company).all()
             for index_company, company in enumerate(companies):

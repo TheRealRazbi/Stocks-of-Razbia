@@ -7,7 +7,7 @@
         {% endfor %}
 
         <div class="row">
-            <div class="col-6">
+            <div class="col-5">
                 <div>
                     {% if tokens_loaded %}
                     Tokens: <span style="color: lightgreen"> Loaded </span><br>
@@ -49,9 +49,48 @@
                     </form>
                 </div>
             </div>
-            <div class="col-6">
+            <span class="col-7">
+                {% if tokens_loaded %}
+                    {% if most['wealthy_user'] %}
+                        <span style="color: #069d06">User with most profit:</span>
+                        <span style="color: #923eed">{{ most['wealthy_user'].name }}</span>
+                        <span style="color: #2a88a0"> | </span>
+                        <span style="color:#e09e30;">{{ most['wealthy_user'].profit }} {{ currency_name }} won</span>
+                        <br>
+                    {% endif %}
+                    {% if most['poorest_user'] %}
+                        <span style="color: #069d06">User with fewest profit:</span>
+                        <span style="color: #923eed">{{ most['poorest_user'].name }}</span>
+                        <span style="color: #2a88a0"> | </span>
+                        <span style="color: #e09e30;">{{ most['poorest_user'].profit }} {{ currency_name }} won</span>
+                        <br>
+                    {% endif %}
+                    {% if most['richest_company'] %}
+                        <span style="color: #069d06">Richest Company:</span>
+                        <span style="color: #5587f2">{{ most['richest_company'].full_name }} [{{ most['most_bought_company'].abbv }}]</span>
+                        <span style="color: #2a88a0"> | </span>
+                        <span style="color: #e09e30;">{{ round(most['richest_company'].stock_price, 2) }} {{ currency_name }} per stock</span>
+                        <br>
+                    {% endif %}
+                    {% if most['most_bought_company'] %}
+                        <span style="color: #069d06">Most Bought Company:</span>
+                        <span style="color: #5587f2">{{ most['most_bought_company'].full_name }} [{{ most['most_bought_company'].abbv }}]</span>
+                        <span style="color: #2a88a0"> | </span>
+                        <span style="color: #e09e30;">{{ most['most_bought_company'].stocks_bought }} stocks bought</span>
+                        <br>
+                    {% endif %}
+                    {% if most['oldest_company'] %}
+                        <span style="color: #069d06">Oldest Company:</span>
+                        <span style="color: #5587f2">{{ most['oldest_company'].full_name }} [{{ most['oldest_company'].abbv }}]</span>
+                        <span style="color: #2a88a0"> | </span>
+                        <span style="color: #e09e30;">Year: {{ int(most['oldest_company'].months/12) }} | Month: {{ most['oldest_company'].months % 12 }}</span>
+                        <br>
+                    {% endif %}
 
-            </div>
+
+                {% endif %}
+            </span>
+
         </div>
 
         <div id="console">
@@ -85,9 +124,13 @@
                     console.log('alive')
                 }
                 ws.onclose = function (event) {
-                    document.getElementById('console').innerHTML += '<br><span style="color: #eb3853">Console disconnected</span>';
+                    document.getElementById('console').innerHTML += '<br><span style="color: #eb3853">Console disconnected.</span>';
                 }
 
+                window.onbeforeunload = function(){
+                    ws.onclose = function () {}; // disable onclose handler first
+                    ws.close();
+                }
             </script>
         </div>
 

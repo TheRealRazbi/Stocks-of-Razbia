@@ -10,8 +10,8 @@ message_templates = {
     'buy_not_enough_points': '@{user_name} has {points} {currency_name} and requires {cost} aka {cost_minus_points} more.',
     # 'buy_0_stocks_remaining': '@{user_name} no {stocks_alias} left to buy at {company_abbv}.',
     # 'buy_not_enough_stocks_remaining': '@{user_name} tried buying {amount} {stocks_alias}, but only {remaining_shares} are remaining',
-    'buy_or_sell_2_companies': '@{user_name} has inputted 2 of companies. You need to input a number and a {company_alias}.',
-    'buy_or_sell_0_companies': "@{user_name} didn't input any {company_alias}. You need to input a number and a {company_alias}.",
+    'buy_or_sell_2_companies': "@{user_name} has inputted 2 of companies. You need to input a number or 'all' and a {company_alias}.",
+    'buy_or_sell_0_companies': "@{user_name} didn't input any {company_alias}. You need to input a number or 'all' and a {company_alias}.",
     'sell_successful': "@{user_name} has sold {amount} {stocks_alias} from [{company_abbv}] '{company_full_name}' for {cost} {currency_name}. ",
     'sell_no_shares': "@{user_name} doesn't have any {stocks_alias} at {company_alias} {company_abbv}.",
     'sell_not_enough_shares': "@{user_name} doesn't have {amount} at {company_alias} {company_abbv} to sell them. "
@@ -75,14 +75,9 @@ announcements = \
                     'randomize_from': True
                 },
                 {
-                    'name': 'commands',
-                    'contents': "!introduction, !companies, !buy, !{stocks_or_stonks}, !autoinvest, !my income",
-                    'randomize_from': False
-                },
-                {
                     'name': 'help_tip',
                     'contents': "Here are some commands to help you do that | " 
-                                "Ughh maybe through these? | "
+                                "Maybe through these? | "
                                 "I wonder what are these for | Commands | Turtles",
                     'randomize_from': True
                 },
@@ -91,9 +86,25 @@ announcements = \
                     'contents': 'Wanna make some [currency_name] through stonks? | Be the master of stonks.',
                     'randomize_from': True
                 },
+                {
+                    'name': 'variation1',
+                    'contents': '{intro} {help_tip}: !introduction, !companies, !buy, !{stocks_or_stonks}, !autoinvest, !my income',
+                    'randomize_from': False
+                },
+                {
+                    'name': 'variation2',
+                    'contents': '{intro}: For newcomers we got !autoinvest <number>',
+                    'randomize_from': False
+                },
+                {
+                    'name': 'one_of_the_2_variations',
+                    'contents': '{variation1} | {variation2}',
+                    'randomize_from': True
+                },
+
 
             ],
-        'result': '{intro} {help_tip}: {commands}'
+        'result': '{one_of_the_2_variations}'
     }
 
 

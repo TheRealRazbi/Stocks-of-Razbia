@@ -5,6 +5,9 @@
 	<title>Stocks of Razbia</title>
     <link rel="icon" type='image/x-icon' href={{ url_for('static', filename='Stocks of Razbia.ico')}} >
 	<link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+    <script src="/static/js/bootstrap.min.js"></script>
 </head>
 <style>
 .dark-mode-bg{
@@ -28,8 +31,13 @@
 .form-control[readonly]{background: #1d2124; color:white;}
 .my-dark option, .my-dark optgroup {background: #2d3338; color:white;}
 .form-control:focus {background: #282c30; color:white;}
-
-
+.card {background: #1a3547; color:white; border-color: #2d5d80
+}
+.card-body {background: #1a2a37; color:white;}
+.my-accordion button:focus, .my-accordion button:active {
+   outline: none;
+   box-shadow: none;
+}
 
 #console
 {

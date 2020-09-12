@@ -195,10 +195,10 @@ class API:
         raise ValueError("Tokens not ready for use. Tell Razbi about this.")
 
     async def upgraded_add_points(self, user: User, amount: int, session):
-        if amount < 0:
+        if amount > 0:
             user.gain += amount
-        elif amount > 0:
-            user.lost += -amount
+        elif amount < 0:
+            user.lost -= amount
         session.commit()
         await self.add_points(user.name, amount)
 
@@ -242,14 +242,12 @@ class API:
             self.twitch_key_requires_refreshing = False
             return True
         elif res.status_code == 401:
-            print("Twitch Token expired. Refreshing Token whenever possible...")
-            self.twitch_key_requires_refreshing = True
-            return False
-        elif res.status_code >= 500:
-            print("server errored or... something. better tell Razbi")
+            if not self.twitch_key_requires_refreshing:
+                print("Twitch Token expired. Refreshing Token whenever possible...")
+                self.twitch_key_requires_refreshing = True
             return False
         raise ValueError(
-            f"A response code appeared that Razbi didn't handle, maybe tell him? Response Code: {res.status_code}")
+            f"A response code appeared that Razbi didn't handle when validating a twitch token, maybe tell him? Response Code: {res.status_code}")
 
     def validate_stream_elements_key(self):
         if not self.stream_elements_key:
@@ -268,7 +266,7 @@ class API:
             print("server errored or... something. better tell Razbi")
             return False
         raise ValueError(
-            f"A response code appeared that Razbi didn't handle, maybe tell him? Response Code: {res.status_code}")
+            f"A response code appeared that Razbi didn't handle when validating a stream_elements token, maybe tell him? Response Code: {res.status_code}")
 
     @property
     def tokens_ready(self):

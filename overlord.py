@@ -104,7 +104,7 @@ class Overlord:
         if session.query(Company).count() == 0 and companies_to_spawn == self.max_companies_at_a_time:
             print(colored("hint: you can type the commands only in your twitch chat", "green"))
             self.api.send_chat_message(f"Welcome to Stocks of Razbia. "
-                                       "Naming Convention: company[10.5+9.5%] Number on the left is current price. Number on the right is the price change from last month."
+                                       "Naming Convention: company[10.5+9.5%] Number on the left is current price. Number on the right is the price change from last month. "
                                        "tip: you don't have to type company names in caps. ")
 
         for _ in range(companies_to_spawn):
@@ -267,6 +267,8 @@ class Overlord:
             companies = session.query(database.Company).filter_by(bankrupt=False).all()
             company_candidates = []
             for company in companies:
+                if company.event_months_remaining is None:
+                    company.event_months_remaining = 0
                 if company.stock_price > 10000 and company.event_months_remaining <= 0:
                     company.event_increase = random.randint(-25, -10)
                     company.event_months_remaining = 3

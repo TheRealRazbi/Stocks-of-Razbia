@@ -1,4 +1,4 @@
-In this minigame users can buy and sell stocks from companies to gain passive income or to buy when price is low and sell when the price is high make a profit.
+In this minigame users can buy and sell stocks from companies to gain passive income to make a profit.
 
 Each 10 mins:
 
@@ -25,7 +25,8 @@ Extra Commands:
 - !my income | displays your income from all the companies
 - !my stats | displays your shares + income + profit
 - !all commands | displays literally ALL the commands
-- !introduction | displays a link to this document
+- !introduction | displays a small introduction for users
+- !about | displays a link to the github repo of the project
 
 Event System:
 

@@ -11,10 +11,10 @@ from wtforms import validators, Form, FieldList
 
 from announcements import AnnouncementDict, Announcement
 from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm, CompaniesNames, CommandNameForm, \
-    CommandNamesForm, CommandMessagesForm, CommandMessagesRestoreDefaultForm, AnnouncementForm
+    CommandNamesForm, CommandMessagesForm, CommandMessagesRestoreDefaultForm, AnnouncementForm, TestCommandForm
 import asyncio
 import markdown2
-import commands
+from testing_commands import FakeOverlord
 from customizable_stuff import load_command_names, load_message_templates, load_announcements
 from more_tools import BidirectionalMap
 import atexit
@@ -25,8 +25,11 @@ app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
 @atexit.register
 def close_web_socket_upon_crash():
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(websocket.close())
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(websocket.close())
+    except:
+        pass
 
 
 def getattr_chain(obj, attr: List[str]):
@@ -407,6 +410,7 @@ async def command_names():
     form_data = await get_form_data()
     # pre_made_choices = [{'command': ('buy', None), 'alias': 'acquire', 'group': 'all'}]
     form_list = CommandNamesForm(form_data, data={'items': get_choices_for_command_names()})
+    test_command_form = TestCommandForm(form_data, data={'user_points': 10000})
 
     if request.method == 'POST':
         if "add_field" in form_data:
@@ -445,7 +449,7 @@ async def command_names():
                 form_list = CommandNamesForm(data={'items': get_choices_for_command_names()})
                 await flash("Command Aliases saved successfully.")
 
-    return await render_template('command_names.html', form_list=form_list)
+    return await render_template('command_names.html', form_list=form_list, test_command_form=test_command_form)
 
 
 @app.route('/customizations/command_names/add_alias')
@@ -497,6 +501,7 @@ async def command_messages():
     for key, value in app.overlord.messages.items():
         messages.append({'message_name': key, "command_message": value})
     form_list = CommandMessagesForm(form_data, data={"items": messages})
+    test_command_form = TestCommandForm(form_data, data={'user_points': 10000})
 
     if request.method == 'POST':
         if form_list.validate():
@@ -509,7 +514,7 @@ async def command_messages():
             session.commit()
             await flash("Command Outputs saved successfully.")
 
-    return await render_template('command_messages.html', form_list=form_list)
+    return await render_template('command_messages.html', form_list=form_list, test_command_form=test_command_form)
 
 
 @app.route('/customizations/messages/restore_default', methods=['GET', 'POST'])
@@ -579,7 +584,7 @@ async def announcements():
                 app.overlord.announcements = announcements_saved
                 await flash("Announcements saved successfully.")
 
-    return await render_template('announcements.html', form_list=form_list)
+    return await render_template('announcements.html', form_list=form_list, str=str, Announcement=Announcement, AnnouncementDict=AnnouncementDict)
 
 
 @app.route('/customizations/announcements/restore_default/confirmed')
@@ -593,13 +598,26 @@ async def announcements_restore_default_confirm():
     return redirect('/customizations/announcements')
 
 
-@app.route('/customizations/announcements_restore_default')
+@app.route('/customizations/announcements/restore_default')
 async def announcements_restore_default():
     first_option = "/customizations/announcements/restore_default/confirmed"
     second_option = '/customizations/announcements'
     warning_message = "<b>reset</b> announcements to default"
     return await render_template('are_you_sure_template.html', first_option=first_option, second_option=second_option,
                                  warning_message=warning_message)
+
+
+@app.route('/customizations/announcements/test', methods=['POST'])
+async def announcements_test():
+    form_data = await get_form_data()
+    form_list = AnnouncementForm(form_data, data=app.overlord.announcements)
+    formatter = AnnouncementDict.from_list(form_list.element_list.data)
+    result = Announcement(form_list.result.data)
+    try:
+        formatter.validate(result)
+    except ValueError as e:
+        return f'Error: {e}'
+    return str(result).format_map(formatter).replace("[currency_name]", app.overlord.currency_name)
 
 
 @app.route('/customizations/company_names/restore_default')
@@ -648,8 +666,44 @@ async def testing_bootstrap_features():
     return await render_template('testing_bootstrap_features.html')
 
 
+@app.route('/customizations/testing_commands', methods=['POST'])
+async def testing_commands():
+    form_data = await get_form_data()
+    # print(form_data)
+    form = TestCommandForm(form_data, data={'user_points': 10000})
 
+    form_messages = CommandMessagesForm(form_data)
+    new_messages = {}
+    if form_messages.validate():
+        for res in form_messages.items.data:
+            new_messages[res['message_name']] = res['command_message']
+    if new_messages == {}:
+        new_messages = app.overlord.messages
 
+    form_names = CommandNamesForm(form_data, data={'items': get_choices_for_command_names()})
+    command_names = {}
+    for result in form_names.items.data:
+        if result['alias'].lower() == 'none' or result['command'] is None:
+            continue
+        result['command'] = ast.literal_eval(result['command'])
+        if result['group'] == 'None':
+            result['group'] = None
+        if result['command'][1] is not None and result['group'] is None:
+            result['command'] = (f'{result["command"][1]} {result["command"][0]}', result['command'][1])
+        command_names[(result['alias'], result['group'])] = result['command'][0]
+    if command_names == {}:
+        command_names = app.overlord.api.command_names
+
+    fake_overlord = FakeOverlord(messages_dict=new_messages, command_names=command_names, commands=app.overlord.api.commands,
+                                 currency_name=app.overlord.currency_name, name=app.overlord.api.name, real_overlord=app.overlord,
+                                 user_points=form.user_points.data)
+    # print(form.contents.data)
+    await fake_overlord.api.handler(form.contents.data)
+    # print(fake_overlord.api.message_sent_buffer)
+    res = '\n'.join(fake_overlord.return_sent_messages())
+    if res == '':
+        res = "*No output*"
+    return {'message': res, 'user_points': fake_overlord.api.fake_points}
 
 
 

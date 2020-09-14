@@ -322,7 +322,8 @@ def register_commands(api: API):
     @api.command()
     async def about(ctx):
         # ctx.api.send_chat_message(f"@{ctx.user.name} This minigame is open-source and it was made by Razbi and Nesami. Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia")
-        ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'about'))
+        ctx.api.send_chat_message(f'@{ctx.user.name} This minigame is open-source and it was made by Razbi and Nesami. '
+                                  'Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia')
 
 
 if __name__ == '__main__':

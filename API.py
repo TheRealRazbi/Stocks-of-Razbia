@@ -95,12 +95,12 @@ class API:
         user = await self.generate_user(username, session=session)
         return contexts.UserContext(user=user, api=self, session=session)
 
-    async def handler(self, conn, message: Message):
+    async def handler(self, conn, message: Union[Message, str]):
         text: str = message.parameters[1].lower()
-
-        username = message.prefix.user
         if not text.startswith(self.prefix):
             return
+        username = message.prefix.user
+
         text = text[len(self.prefix):]
         old_command_name, *args = text.split()
         command_name = self.command_names.get((old_command_name, None), old_command_name)

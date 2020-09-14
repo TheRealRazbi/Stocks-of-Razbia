@@ -26,12 +26,40 @@
         {% endif %}
 
         <div class="my-dark">
-            <form method="post">
+            <form method="post" id="my-form">
                 {% for form in form_list.items %}
                     <div class="input-group mb-1 dropdown dropdown-dark">{{ render_field(form.message_name) }} {{ render_field(form.command_message) }}</div>
                 {% endfor %}
                 <input type="submit" value="Save" class="btn btn-outline-success my-1">
             </form>
+        </div>
+
+
+        <script>
+            async function run_command() {
+                let formData = new FormData(document.getElementById('test_command'));
+                let formData2 = new FormData(document.getElementById("my-form"));
+                for (let pair of formData2.entries()) {
+                    formData.append(pair[0], pair[1]);
+                    }
+
+                const response = await fetch('/customizations/testing_commands', {method: 'POST', body: formData});
+                let res = (await response.json());
+                document.getElementById('command_output').innerText = res['message'];
+                document.getElementById('user_points').value = res['user_points'];
+            }
+        </script>
+
+        <div>
+            <form id="test_command" class="my-dark">
+                <div class="my-1">Command: {{ test_command_form.contents }}</div>
+                <div class="my-1">User Points: {{ test_command_form.user_points }}</div>
+            </form>
+        </div>
+
+        <button class="btn btn-outline-primary my-1" onclick="run_command()">Test command</button>
+        <div>
+            <span style="color: #9da138" id="command_output"></span>
         </div>
 
         <div>

@@ -95,13 +95,11 @@ class Overlord:
             # time.sleep(self.iterate_cooldown-time_since_last_run)
 
     def spawn_companies(self, session: database.Session):
-        companies_to_spawn = 0
         spawned_companies = []
-        if session.query(Company).count() < self.max_companies:
-            companies_to_spawn = self.max_companies - session.query(Company).count()
-            if companies_to_spawn > self.max_companies_at_a_time:
-                companies_to_spawn = self.max_companies_at_a_time
-        if session.query(Company).count() == 0 and companies_to_spawn == self.max_companies_at_a_time:
+        companies_count = session.query(Company).count()
+        companies_to_spawn = min(self.max_companies - companies_count, self.max_companies_at_a_time)
+
+        if companies_count == 0:
             print(colored("hint: you can type the commands only in your twitch chat", "green"))
             self.api.send_chat_message(f"Welcome to Stocks of Razbia. "
                                        "Naming Convention: company[10.5+9.5%] Number on the left is current price. Number on the right is the price change from last month. "
@@ -178,6 +176,8 @@ class Overlord:
         messages = session.query(database.Settings).get('messages')
         if messages:
             self.messages = json.loads(messages.value)
+            if 'about' in self.messages:
+                del self.messages['about']
             default_messages = load_message_templates()
             for default_key in default_messages:
                 if default_key not in self.messages:
@@ -385,7 +385,8 @@ async def iterate_forever_and_start_reading_chat(overlord: Overlord):
 
 
 async def iterate_forever_read_chat_and_run_interface(overlord: Overlord):
-    webbrowser.open('http://localhost:5000')
+    if os.path.exists('lib/code'):
+        webbrowser.open('http://localhost:5000')
     config_server.app.overlord = overlord
     await asyncio.gather(
         config_server.app.run_task(use_reloader=False),

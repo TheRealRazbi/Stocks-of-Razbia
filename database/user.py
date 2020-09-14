@@ -35,6 +35,8 @@ class User(Base):
         )
 
     async def points(self, api):
+        if hasattr(api, 'fake_points'):
+            return api.fake_points
         if api.tokens_ready:
             if api.currency_system == 'streamlabs':
                 url = "https://streamlabs.com/api/v1.0/points"

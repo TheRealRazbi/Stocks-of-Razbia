@@ -31,8 +31,6 @@ message_templates = {
     'autoinvest_budget_too_small_for_companies': '@{user_name} too small budget. No {stocks_alias} bought.',
     'autoinvest_budget_too_small_for_available_points': '@{user_name} you need {budget} {currency_name}, '
                                                         'aka you need {budget_points_difference} more.',
-    'about': '@{user_name} This minigame is open-source and it was made by Razbi and Nesami. '
-             'Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia',
     'company_released_product': "{company_summary} just released a new product. Price it's likely to increase.",
 }
 

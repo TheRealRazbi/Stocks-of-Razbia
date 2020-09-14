@@ -121,6 +121,10 @@ class AnnouncementForm(Form):
     result = f.TextAreaField('announcement')
 
 
+class TestCommandForm(Form):
+    contents = f.StringField()
+    user_points = f.IntegerField(id='user_points')
+
 
 
 

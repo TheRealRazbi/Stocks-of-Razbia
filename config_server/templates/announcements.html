@@ -4,7 +4,7 @@
 {% block body %}
 	<div class="container">
         <div class="my-dark">
-            <form method="post">
+            <form method="post" id="my-form">
 {#                {% for form in form_list.items %}#}
 {#                <div class="input-group input-large mb-1 dropdown dropdown-dark">{{ render_field_list(form_list.element_list, 'Add element', 'Remove element') }}</div>#}
                 <div>{{ render_field_list(form_list.element_list, 'Add element', 'Remove element') }}</div>
@@ -15,16 +15,21 @@
             </form>
         </div>
 
-
         <div id="help_stuff">
 {#            <button class="btn btn-outline-light" onclick="generateHelp()">Help</button>#}
         </div>
 
+        <button class="btn btn-outline-primary my-1" onclick="generate_announcement()">Test announcement</button>
+
+        <div>
+            <span style="color: #9da138" id="generated_announcement"></span>
+        </div>
         <script>
+
             function generateHelp(){
                 let res = "\
                 The announcement that plays each 30 min is basically the value of 'announcement'.<br>\
-                To reference another 'element', do {name_of_the_element}.<br>\{#<br>\#}
+                To reference another 'element', do {name_of_the_element}.<br>\
                 Check randomize_from to make one of the messages separated by ' | ' to appear randomly.<br>\
                 Example: potato | pineapple. each roll it's generated randomly to be either 'potato' or 'pineapple'<br>\
                  \{#<span style=\"color: #1e84de\">Note</span>: to <span style=\"color: #803232\">delete</span> an alias, just rename it to \"<span style=\"color: orange\">none</span>\" then <span style=\"color: green\">save</span>.<br>\#}
@@ -47,7 +52,7 @@
 
 
         <div>
-            <form action="/customizations/announcements_restore_default">
+            <form action="/customizations/announcements/restore_default">
                 <input type="submit" value="Restore default" class="btn btn-outline-info my-1">
             </form>
         </div>
@@ -58,6 +63,12 @@
             </form>
         </div>
 
+        <script>
+            async function generate_announcement() {
+                const response = await fetch('/customizations/announcements/test', {method: 'POST', body: new FormData(document.getElementById('my-form'))});
+                document.getElementById('generated_announcement').innerText = await response.text()
+            }
+        </script>
 
         {% if form_list.errors %}
             Nothing Saved.

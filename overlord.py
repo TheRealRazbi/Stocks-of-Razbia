@@ -55,6 +55,7 @@ class Overlord:
             "poor_range": (7, 15),
             "expensive_range": (15, 35),
         }
+        self.max_stocks_owned = 100_000
         self._cache = {}
 
         self.stock_increase = []
@@ -130,8 +131,12 @@ class Overlord:
                 self.stock_increase.append(True)
                 shares = session.query(database.Shares).filter_by(company_id=company.id)
                 for share in shares:
-                    cost = math.ceil(math.ceil(share.amount*company.stock_price)*.1)
+                    cost = math.ceil(share.amount*company.stock_price)
                     user = session.query(User).get(share.user_id)
+                    income_percent = 0.10
+                    total_shares = sum(share.amount for share in user.shares if share.company_id == company.id)
+                    income_percent -= (total_shares/10_000)/1000
+                    cost = math.ceil(cost * math.ceil(max(income_percent, 0.01)))
                     await self.api.upgraded_add_points(user, cost, session)
 
                 session.commit()
@@ -186,10 +191,10 @@ class Overlord:
                     session.query(database.Settings).get('messages').value = json.dumps(self.messages)
                     session.commit()
         else:
-            messages = database.Settings(key='messages', value=json.dumps(load_message_templates()))
-            session.add(messages)
-            session.commit()
-            self.messages = json.loads(messages.value)
+            # messages = database.Settings(key='messages', value=json.dumps(load_message_templates()))
+            # session.add(messages)
+            # session.commit()
+            self.messages = load_message_templates()
         # print(self.api.commands)
 
     def load_age(self, session: database.Session):
@@ -363,8 +368,8 @@ Program started at {colored(str(time.strftime('%H : %M')), 'cyan')}
             announcements = ast.literal_eval(announcements.value)
         else:
             announcements = load_announcements()
-            session.add(database.Settings(key='announcements', value=repr(announcements)))
-            session.commit()
+            # session.add(database.Settings(key='announcements', value=repr(announcements)))
+            # session.commit()
         self.announcements = announcements
 
 

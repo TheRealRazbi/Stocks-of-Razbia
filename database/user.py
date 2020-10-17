@@ -85,7 +85,9 @@ class User(Base):
         gain, lost = self.gain, self.lost
         for share in self.shares:
             company: Company = share.company
-            gain += math.ceil(company.stock_price*share.amount)
+            value_of_owned_stocks = math.ceil(company.stock_price*share.amount)
+            gain += value_of_owned_stocks
+            lost -= value_of_owned_stocks
         profit = f'{gain - lost:+}'
         symbol = '+'
         try:

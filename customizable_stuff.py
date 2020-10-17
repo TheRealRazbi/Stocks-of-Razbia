@@ -18,6 +18,8 @@ message_templates = {
                               "They have only {share_amount} {stocks_alias}.",
     'sell_everything_successful': '@{user_name} has sold {list_of_all_sells} for {total_outcome} {currency_name}.',
     'number_too_small': "@{user_name} has inputted a number too small. Only numbers above 0 work.",
+    'reached_stocks_limit': "@{user_name} has reached the stocks limit of {stocks_limit} on company {company_abbv}.",
+    'reached_stocks_limit_on_everything': "@{user_name} has reached the stocks limit of {stocks_limit} on all companies.",
     'introduction': "@{user_name} This is a stock simulation minigame | '!stocks' for basic commands | "
                     "Buy stocks for passive income | "
                     "Naming Convention: Company[current_price, price_change] ",

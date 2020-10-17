@@ -398,10 +398,11 @@ def get_choices_for_command_names():
     pre_made_choices = []
     for (og_name, alias_and_group_name) in app.overlord.api.command_names.inverse.items():
         for alias, group_name in alias_and_group_name:
+            temp_og_name = og_name
             accessible_from = group_name
             if ' ' in og_name.strip():  # added this check to handle situations where the key is 'my points' so it's accessible from 'root'
-                group_name, _, og_name = og_name.partition(" ")
-            pre_made_choices.append({'command': (og_name, group_name), 'alias': alias, 'group': accessible_from})
+                group_name, _, temp_og_name = og_name.partition(" ")
+            pre_made_choices.append({'command': (temp_og_name, group_name), 'alias': alias, 'group': accessible_from})
     return pre_made_choices
 
 
@@ -441,8 +442,21 @@ async def command_names():
                     res[(result['alias'], result['group'])] = result['command'][0]
                     # print(f"Added {result} to new thingies")
                 app.overlord.api.command_names = BidirectionalMap(res)
+                default_command_names = load_command_names()
+                saved_result = {}
+                for key in res:
+                    if key in default_command_names:
+                        if res[key] != default_command_names[key]:
+                            saved_result[key] = res[key]
+                    else:
+                        saved_result[key] = res[key]
+                # print(f"\ndefault: {default_command_names}\nres: {res}\ncurrent_command_names: {app.overlord.api.command_names}\nsaved_result: {saved_result}")
+
                 session = database.Session()
-                session.query(database.Settings).get("command_names").value = repr(app.overlord.api.command_names)
+                if command_names_db := session.query(database.Settings).get("command_names"):
+                    command_names_db.value = repr(saved_result)
+                else:
+                    session.add(database.Settings(key='command_names', value=repr(saved_result)))
                 session.commit()
                 # print(f"New command_names: {res}")
 
@@ -471,7 +485,8 @@ async def add_alias():
 async def confirm_restore_default_command_names():
     app.overlord.api.command_names = load_command_names()
     session = database.Session()
-    session.query(database.Settings).get('command_names').value = repr(app.overlord.api.command_names)
+    if command_names_db := session.query(database.Settings).get('command_names'):
+        session.delete(command_names_db)
     session.commit()
     await flash("Command Aliases were reset.")
     return redirect('/customizations/command_names')
@@ -506,11 +521,21 @@ async def command_messages():
     if request.method == 'POST':
         if form_list.validate():
             new_messages = {}
+            saved_messages = {}
+            default_messages = load_message_templates()
             for res in form_list.items.data:
                 new_messages[res['message_name']] = res['command_message']
+                if res['message_name'] in default_messages:
+                    if res['command_message'] != default_messages[res['message_name']]:
+                        print(f"Saved {res['command_message']} because: {res['command_message']} is different than {default_messages[res['message_name']]}")
+                        saved_messages[res['message_name']] = res['command_message']
             app.overlord.messages = new_messages
             session = database.Session()
-            session.query(database.Settings).get('messages').value = json.dumps(app.overlord.messages)
+            # session.query(database.Settings).get('messages').value = json.dumps(app.overlord.messages)
+            if messages_db := session.query(database.Settings).get('messages'):
+                messages_db.value = json.dumps(saved_messages)
+            else:
+                session.add(database.Settings(key='messages', value=json.dumps(saved_messages)))
             session.commit()
             await flash("Command Outputs saved successfully.")
 
@@ -531,13 +556,20 @@ async def command_messages_restore_default():
         elif data == 'all':
             app.overlord.messages = default_messages
             session = database.Session()
-            session.query(database.Settings).get('messages').value = json.dumps(default_messages)
+            if messages_db := session.query(database.Settings).get('messages'):
+                session.delete(messages_db)
             session.commit()
             await flash("Command Outputs were reset.")
         else:
             app.overlord.messages[data] = default_messages[data]
             session = database.Session()
-            session.query(database.Settings).get('messages').value = json.dumps(app.overlord.messages)
+            if messages_db := session.query(database.Settings).get('messages'):
+                data_from_db = json.loads(messages_db.value)
+                new_messages = {}
+                for message_name in data_from_db:
+                    if not message_name == data:
+                        new_messages[message_name] = default_messages[message_name]
+                messages_db.value = json.dumps(new_messages)
             session.commit()
             await flash(f"Command Output '{data}' was reset.")
         return redirect('/customizations/messages')
@@ -577,9 +609,15 @@ async def announcements():
                 # print(form_list.element_list.errors, e)
             else:
                 # print(str(result).format_map(formatter))
+                default_announcements = load_announcements()
                 announcements_saved = {'element_list': form_list.element_list.data, 'result': form_list.result.data}
                 session = database.Session()
-                session.query(database.Settings).get('announcements').value = repr(announcements_saved)
+                if announcements_db := session.query(database.Settings).get('announcements'):
+                    if announcements_saved != default_announcements:
+                        announcements_db.value = repr(announcements_saved)
+                elif not announcements_db and announcements_saved != default_announcements:
+                    session.add(database.Settings(key='announcements', value=repr(announcements_saved)))
+
                 session.commit()
                 app.overlord.announcements = announcements_saved
                 await flash("Announcements saved successfully.")
@@ -589,10 +627,11 @@ async def announcements():
 
 @app.route('/customizations/announcements/restore_default/confirmed')
 async def announcements_restore_default_confirm():
-    announcements_saved = load_announcements()
     session = database.Session()
-    session.query(database.Settings).get('announcements').value = repr(announcements_saved)
+    if announcements_db := session.query(database.Settings).get('announcements'):
+        session.delete(announcements_db)
     session.commit()
+    announcements_saved = load_announcements()
     app.overlord.announcements = announcements_saved
     await flash("Announcements reset successfully.")
     return redirect('/customizations/announcements')

@@ -391,6 +391,7 @@ class API:
                                                            company_alias=self.overlord.messages['company_alias'],
                                                            user_name=ctx.user.name,
                                                            currency_name=self.overlord.currency_name,
+                                                           stocks_limit=f'{self.overlord.max_stocks_owned:,}',
                                                            **formats)
 
     def load_command_names(self):
@@ -400,11 +401,15 @@ class API:
         command_names = session.query(database.Settings).get('command_names')
         if command_names:
             self.command_names = BidirectionalMap(ast.literal_eval(command_names.value))
+            default_command_names = load_command_names()
+            for key in default_command_names:
+                if key not in self.command_names or self.command_names[key] != default_command_names[key]:
+                    self.command_names[key] = default_command_names[key]
         else:
             self.command_names = load_command_names()
-            command_names = database.Settings(key='command_names', value=repr(self.command_names))
-            session.add(command_names)
-            session.commit()
+            # command_names = database.Settings(key='command_names', value=repr(self.command_names))
+            # session.add(command_names)
+            # session.commit()
 
 
 if __name__ == '__main__':

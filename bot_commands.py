@@ -50,6 +50,15 @@ def register_commands(api: API):
         if amount == 'all':
             amount = math.floor(points/company.stock_price)
 
+        if share := ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id, company_id=company.id).first():
+            stocks_till_100k = 100_000 - share.amount
+            if stocks_till_100k == 0:
+                ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'reached_stocks_limit', company_abbv=company.abbv))
+                return
+            amount = min(amount, stocks_till_100k)
+        else:
+            amount = min(amount, 100_000)
+
         if amount <= 0:
             ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'number_too_small'))
             return
@@ -62,7 +71,6 @@ def register_commands(api: API):
         #     ctx.api.send_chat_message(f"@{ctx.user.name} tried buying {amount} stocks, but only {company.remaining_shares} are remaining")
         #     return
         if points >= cost:
-            share = ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id, company_id=company.id).first()
             if share:
                 share.amount += amount
             else:
@@ -297,11 +305,11 @@ def register_commands(api: API):
         if budget == 'all':
             budget = user_points
         if budget <= user_points:
-            # companies: list = ctx.session.query(db.Company).filter((3 < db.Company.stock_price) & (db.Company.stock_price < 10)).all()
-            # chosen_company: Company = random.choice(companies)
-            chosen_company = ctx.session.query(db.Company).filter(
-                Company.stock_price.between(3, budget)).order_by(
-                func.random()).first()
+            chosen_company = ctx.session.query(db.Company).outerjoin(db.Shares,
+                                                                     (db.Shares.user_id == ctx.user.id) & (db.Shares.company_id == Company.id)
+                                                                     ).filter(
+                db.Company.stock_price.between(3, budget) & (func.coalesce(db.Shares.amount, 0) < ctx.api.overlord.max_stocks_owned)
+            ).order_by(func.random()).first()
 
             if chosen_company:
                 stocks_to_buy = math.floor(budget/chosen_company.stock_price)
@@ -312,7 +320,13 @@ def register_commands(api: API):
                 await buy.run(ctx, stocks_to_buy, chosen_company)
             else:
                 # ctx.api.send_chat_message(f"@{ctx.user.name} too small budget. No stocks bought.")
-                ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_companies'))
+                total_shares = 0
+                for share in ctx.user.shares:
+                    total_shares += share.amount
+                if total_shares >= ctx.api.overlord.max_stocks_owned * ctx.api.overlord.max_companies:
+                    ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'reached_stocks_limit_on_everything'))
+                else:
+                    ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_companies'))
         else:
             # ctx.api.send_chat_message(f"@{ctx.user.name} you need {budget} {ctx.api.overlord.currency_name}, aka you need {budget-user_points} more.")
             ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_available_points',
@@ -338,4 +352,3 @@ if __name__ == '__main__':
     # ctx = Contdext(api, user)
     # prepared_args = prepare_args(ctx, command, args)
     # command(ctx, *args)
-

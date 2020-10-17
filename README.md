@@ -11,7 +11,7 @@ As long as you read the Notes on each release, before installing it, you should 
 
 - 2 companies spawn until they reach 7 companies in total
 - price of each existing company goes up or down randomly
-- users gain points equal to 10% of the value of the stocks they own
+- users gain points equal to 10% of the value of the stocks they own [this value gets decreased by 1% for each 10k stocks owned on a "per-company" basis. min 1%]
 - companies, the users have stocks at, are slightly more likely to gain more money
 
 ### Basic Commands:

@@ -135,7 +135,7 @@ class Overlord:
                     user = session.query(User).get(share.user_id)
                     income_percent = 0.10
                     total_shares = sum(share.amount for share in user.shares if share.company_id == company.id)*company.stock_price
-                    income_percent -= (total_shares/5_000)/1000
+                    income_percent -= (total_shares/5_000)/100
                     cost = math.ceil(cost * max(income_percent, 0.01))
                     await self.api.upgraded_add_points(user, cost, session)
 

@@ -323,7 +323,7 @@ def register_commands(api: API):
                 total_shares = 0
                 for share in ctx.user.shares:
                     total_shares += share.amount
-                if total_shares >= ctx.api.overlord.max_stocks_owned * ctx.api.overlord.max_companies:
+                if total_shares >= ctx.api.overlord.max_stocks_owned * ctx.session.query(Company).count():
                     ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'reached_stocks_limit_on_everything'))
                 else:
                     ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_companies'))

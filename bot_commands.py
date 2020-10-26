@@ -50,7 +50,7 @@ def register_commands(api: API):
         if amount == 'all':
             amount = math.floor(points/company.stock_price)
 
-        if share := ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id, company_id=company.id).first():
+        if share := ctx.session.query(db.Shares).get((ctx.user.id, company.id)):
             stocks_till_100k = 100_000 - share.amount
             if stocks_till_100k == 0:
                 ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'reached_stocks_limit', company_abbv=company.abbv))
@@ -88,7 +88,7 @@ def register_commands(api: API):
                                                              company_abbv=company.abbv,
                                                              company_full_name=company.full_name,
                                                              cost=f'{cost:,}',
-                                                             passive_income=f'{math.ceil(share.amount*company.stock_price*.1):,}'))
+                                                             passive_income=f'{ctx.user.passive_income(company, ctx.session):,}'))
 
             # if ctx.user.new:
             #     ctx.user.new = False
@@ -235,9 +235,9 @@ def register_commands(api: API):
             total_income = 0
             for share in shares:
                 company = ctx.session.query(Company).get(share.company_id)
-                stock_price = company.stock_price
-                total_income += math.ceil(stock_price*share.amount*.1)
-                res.append(f"{company.abbv}: {math.ceil(stock_price*share.amount*.1):,}")
+                specific_income = ctx.user.passive_income(company, ctx.session)
+                total_income += specific_income
+                res.append(f"{company.abbv}: {math.ceil(specific_income):,}")
 
             ctx.api.send_chat_message(f'@{ctx.user.name} {", ".join(res)} | Total: {total_income:,} {ctx.api.overlord.currency_name} per 10 mins.')
         else:
@@ -271,9 +271,9 @@ def register_commands(api: API):
             total_income = 0
             for share in shares:
                 company = ctx.session.query(Company).get(share.company_id)
-                stock_price = company.stock_price
-                total_income += math.ceil(stock_price * share.amount * .1)
-                res.append(f"{company.abbv}: {math.ceil(stock_price * share.amount * .1)}")
+                specific_income = ctx.user.passive_income(company, ctx.session)
+                total_income += specific_income
+                res.append(f"{company.abbv}: {math.ceil(specific_income):,}")
 
             # final_final_res.append(
             #     f'Income: {", ".join(res)} | Total Income: {total_income} {ctx.api.overlord.currency_name} per 10 mins.')

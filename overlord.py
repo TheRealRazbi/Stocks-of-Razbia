@@ -131,12 +131,14 @@ class Overlord:
                 self.stock_increase.append(True)
                 shares = session.query(database.Shares).filter_by(company_id=company.id)
                 for share in shares:
-                    cost = math.ceil(share.amount*company.stock_price)
                     user = session.query(User).get(share.user_id)
-                    income_percent = 0.10
-                    total_shares = sum(share.amount for share in user.shares if share.company_id == company.id)*company.stock_price
-                    income_percent -= (total_shares/5_000)/100
-                    cost = math.ceil(cost * max(income_percent, 0.01))
+                    cost = user.passive_income(company=company, session=session)
+                    # cost = math.ceil(share.amount*company.stock_price)
+                    # user = session.query(User).get(share.user_id)
+                    # income_percent = 0.10
+                    # total_shares = sum(share.amount for share in user.shares if share.company_id == company.id)*company.stock_price
+                    # income_percent -= (total_shares/5_000)/100
+                    # cost = math.ceil(cost * max(income_percent, 0.01))
                     await self.api.upgraded_add_points(user, cost, session)
 
                 session.commit()

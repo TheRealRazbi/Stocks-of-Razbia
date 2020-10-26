@@ -12,6 +12,7 @@ import asyncio
 
 from .db import Base, Session
 from .company import Company
+from .shares import Shares
 
 
 class User(Base):
@@ -98,4 +99,14 @@ class User(Base):
         except ZeroDivisionError:
             percentage_profit = f'0%'
         return profit, percentage_profit
+
+    def passive_income(self, company: Company, session: Session) -> int:
+        share = session.query(Shares).get((self.id, company.id))
+        value_of_stocks = math.ceil(share.amount*company.stock_price)
+        income_percent = 0.10 - (share.amount/5_000)/100
+        return math.ceil(value_of_stocks * max(income_percent, 0.01))
+
+
+
+
 

@@ -6,10 +6,9 @@ from API import API
 
 from database import Company
 import database as db
-from multi_arg import IntOrStrAll, CompanyOrIntOrAll, CompanyOrInt
+from multi_arg import IntOrStrAll, CompanyOrIntOrAll
 import commands as commands_
 import time
-import random
 from typing import Union
 
 
@@ -64,21 +63,13 @@ def register_commands(api: API):
             return
 
         cost = math.ceil(amount*company.stock_price)
-        # if company.remaining_shares == 0:
-        #     ctx.api.send_chat_message(f"@{ctx.user.name} no stocks left to buy at {company.abbv}")
-        #     return
-        # if amount > company.remaining_shares:
-        #     ctx.api.send_chat_message(f"@{ctx.user.name} tried buying {amount} stocks, but only {company.remaining_shares} are remaining")
-        #     return
         if points >= cost:
             if share:
                 share.amount += amount
             else:
                 share = db.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount)
                 ctx.session.add(share)
-            company.increase_chance = 50 + .01 * company.stocks_bought
-            if company.increase_chance > 55:
-                company.increase_chance = 55
+            company.increase_chance = max(50 - .001 * company.stocks_bought, 45)
             ctx.session.commit()
             await ctx.api.upgraded_add_points(ctx.user, -cost, ctx.session)
             # ctx.api.send_chat_message(f"@{ctx.user.name} just bought {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}. "
@@ -90,9 +81,6 @@ def register_commands(api: API):
                                                              cost=f'{cost:,}',
                                                              passive_income=f'{ctx.user.passive_income(company, ctx.session):,}'))
 
-            # if ctx.user.new:
-            #     ctx.user.new = False
-            #     ctx.session.commit()
         else:
             # ctx.api.send_chat_message(f"@{ctx.user.name} has {points:,} {ctx.api.overlord.currency_name} and requires {cost} aka {cost-points} more.")
             ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'buy_not_enough_points',
@@ -126,9 +114,7 @@ def register_commands(api: API):
             share.amount -= amount
             if share.amount == 0:
                 ctx.session.delete(share)
-            company.increase_chance = 50 + .01 * company.stocks_bought
-            if company.increase_chance > 55:
-                company.increase_chance = 55
+            company.increase_chance = max(50 - .01 * company.stocks_bought, 45)
             ctx.session.commit()
             # ctx.api.send_chat_message(f"@{ctx.user.name} has sold {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}.")
             ctx.api.send_chat_message(ctx.api.get_and_format(ctx, 'sell_successful',

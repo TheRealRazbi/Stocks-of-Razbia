@@ -1,23 +1,23 @@
 import ast
+import asyncio
+import atexit
 import json
 import math
 import time
 from contextlib import suppress
-from typing import Type, List, Optional
+from typing import List, Optional
 
-from quart import Quart, render_template, request, flash, redirect, url_for, websocket, current_app
+import markdown2
+from quart import Quart, render_template, request, flash, redirect, url_for, websocket
+from wtforms import FieldList
+
 import database
-from wtforms import validators, Form, FieldList
-
 from announcements import AnnouncementDict, Announcement
 from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm, CompaniesNames, CommandNameForm, \
     CommandNamesForm, CommandMessagesForm, CommandMessagesRestoreDefaultForm, AnnouncementForm, TestCommandForm
-import asyncio
-import markdown2
-from testing_commands import FakeOverlord
 from customizable_stuff import load_command_names, load_message_templates, load_announcements
 from more_tools import BidirectionalMap
-import atexit
+from testing_commands import FakeOverlord
 
 app = Quart(__name__, static_folder="static/static")
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
@@ -250,7 +250,7 @@ async def generate_twitch_token():
     return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
 
 
-@app.route('/settings/api/stream_elements_token/generate_token/', methods=['GET', 'POST'])
+@app.route('/settings/api/stream_elements_token/generate_token/')
 async def generate_stream_elements_token():
     return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamelements_login")
 
@@ -733,8 +733,8 @@ async def testing_commands():
     if command_names == {}:
         command_names = app.overlord.api.command_names
 
-    fake_overlord = FakeOverlord(messages_dict=new_messages, command_names=command_names, commands=app.overlord.api.commands,
-                                 currency_name=app.overlord.currency_name, name=app.overlord.api.name, real_overlord=app.overlord,
+    fake_overlord = FakeOverlord(messages_dict=new_messages, command_names=command_names,
+                                 name=app.overlord.api.name, currency_name=app.overlord.currency_name,
                                  user_points=form.user_points.data)
     # print(form.contents.data)
     await fake_overlord.api.handler(form.contents.data)

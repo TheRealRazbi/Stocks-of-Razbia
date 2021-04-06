@@ -1,5 +1,5 @@
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship
 
 __all__ = ["Company"]
 import random
@@ -72,7 +72,7 @@ class Company(Base):
             name = ["dflt", "default"]
         return cls(
             stock_price=starting_price,
-            abbv=name[0],
+            abbv=name[0].upper(),
             full_name=name[1],
             **kwargs,
         )

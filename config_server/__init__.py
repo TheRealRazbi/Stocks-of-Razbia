@@ -18,6 +18,7 @@ from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm,
 from customizable_stuff import load_command_names, load_message_templates, load_announcements
 from more_tools import BidirectionalMap
 from testing_commands import FakeOverlord
+from utils import CurrencySystem
 
 app = Quart(__name__, static_folder="static/static")
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
@@ -28,7 +29,7 @@ def close_web_socket_upon_crash():
     try:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(websocket.close())
-    except:
+    except Exception:
         pass
 
 
@@ -87,8 +88,10 @@ async def setup():
         session = database.Session()
         if setup_form.currency_system.data and setup_form.currency_system.data != app.overlord.api.currency_system:
             if currency_system_db := session.query(database.Settings).get('currency_system'):
+                currency_system = setup_form.currency_system.data
+                app.overlord.api.token_manager.set_currency_system(getattr(CurrencySystem, currency_system.upper()))
                 app.overlord.api.mark_dirty('currency_system')
-                currency_system_db.value = setup_form.currency_system.data
+                currency_system_db.value = currency_system
                 session.commit()
                 if app.overlord.api.currency_system == 'streamlabs_local' and app.overlord.api.started.is_set():
                     await app.overlord.api.ping_streamlabs_local()
@@ -191,7 +194,7 @@ async def load_twitch_token():
     twitch_token = request.args.getlist('access_token')
     session = database.Session()
     await save_token(token=twitch_token, token_name='twitch_key', length=30, session=session)
-    app.overlord.api.twitch_token_manager.load_token()
+    app.overlord.api.token_manager.load_twitch_token()
     expires_in = request.args.getlist('expires_in')
     if expires_in:
         expires_at = str(int(time.time()) + int(expires_in[0]))
@@ -214,7 +217,7 @@ async def load_twitch_token():
 async def load_streamlabs_token():
     streamlabs_token = request.args.getlist('access_token')
     await save_token(token=streamlabs_token, token_name='streamlabs_key', length=40)
-    app.overlord.api.streamlabs_token_manager.load_token()
+    app.overlord.api.token_manager.load_currency_system_token()
 
     return redirect(url_for('token_settings'))
 
@@ -224,7 +227,7 @@ async def load_stream_elements_token():
     stream_elements = request.args.getlist('access_token')
     session = database.Session()
     await save_token(token=stream_elements, token_name='stream_elements_key', length=22, session=session)
-    app.overlord.api.stream_elements_token_manager.load_token()
+    app.overlord.api.token_manager.load_currency_system_token()
     expires_in = request.args.getlist('expires_in')
     if expires_in:
         expires_at = str(int(time.time()) + int(expires_in[0]))

@@ -44,3 +44,19 @@ class TokenManager:
     @property
     async def tokens_ready(self):
         return await self.validate_tokens()
+
+    async def get_channel_name(self):
+        if self.currency_system_manager is None:
+            raise ValueError("No currency system selected but tried fetching channel name")
+        channel_name = await self.currency_system_manager.get_channel_name()
+        if channel_name is None:
+            raise ValueError("Channel Name not found. Tell Razbi about it")
+
+        return channel_name
+
+    def get_bot_account_name(self):
+        bot_name = self.twitch_token_manager.get_channel_name()
+        if bot_name is None:
+            raise ValueError("Bot Name not found. Tell Razbi about it")
+
+        return bot_name

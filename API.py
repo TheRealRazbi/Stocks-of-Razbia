@@ -1,5 +1,4 @@
 import ast
-import time
 from typing import Union, Dict
 import requests
 import pickle
@@ -9,7 +8,7 @@ from asyncirc.protocol import IrcProtocol
 from asyncirc.server import Server
 from irclib.parser import Message
 
-from token_manager import StreamElementsTokenManager, TwitchTokenManager, StreamlabsTokenManager
+from token_manager import TokenManager
 from database import User
 import database
 import contexts
@@ -18,16 +17,17 @@ from termcolor import colored
 import contextlib
 from more_tools import CachedProperty, BidirectionalMap
 from customizable_stuff import load_command_names, load_message_templates
+from utils import CurrencySystem, print_with_time, green
 
 
 class API:
     def __init__(self, overlord=None, loop=None, prefix="!"):
         self.overlord = overlord
-        self.twitch_token_manager = TwitchTokenManager()
-        self.stream_elements_token_manager = StreamElementsTokenManager()
-        self.streamlabs_token_manager = StreamlabsTokenManager()
-        self.twitch_client_id = 'q4nn0g7b07xfo6g1lwhp911spgutps'
         self._cache = {}
+        self.token_manager = TokenManager()
+        self.token_manager.set_currency_system(getattr(CurrencySystem, self.currency_system.upper()))
+
+        self.twitch_client_id = 'q4nn0g7b07xfo6g1lwhp911spgutps'
         self.streamlabs_key = ''
         self.twitch_key = ''
         self.twitch_key_requires_refreshing = False
@@ -66,7 +66,7 @@ class API:
         self.load_key(key_name='streamlabs_key', session=session)
         self.load_key(key_name='twitch_key', session=session)
         self.load_key(key_name='stream_elements_key', session=session)
-        await self.validate_twitch_token()
+        await self.token_manager.validate_twitch_token()
 
     def load_key(self, key_name, session=None):
         if session is None:
@@ -194,18 +194,8 @@ class API:
         raise ValueError("Tokens not ready for use. Tell Razbi about this.")
 
     async def update_channel_name(self):
-        if self.currency_system == 'streamlabs_local':
-            print(
-                "BOT ACCOUNT SEPARATION NOT SUPPORTED WITH STREAMLABS CHATBOT. MAKE SURE YOU USE YOUR MAIN ACCOUNT INSTEAD OF A BOT ACCOUNT FOR THE TWITCH TOKEN")
-        elif self.currency_system == 'streamlabs':
-            self.channel_name = await self.streamlabs_token_manager.get_channel_name()
-        elif self.currency_system == 'stream_elements':
-            self.channel_name = await self.stream_elements_token_manager.get_channel_name()
-        else:
-            raise ValueError("No currency system selected but tried fetching channel name")
-
-        if self.channel_name is None:
-            raise ValueError("Channel Name not found. Tell Razbi about it")
+        self.channel_name = await self.token_manager.get_channel_name()
+        print_with_time(f"Channel name set to {green(self.channel_name)}")
 
     async def upgraded_add_points(self, user: User, amount: int, session):
         if amount > 0:
@@ -223,7 +213,7 @@ class API:
 
     @property
     def name(self):
-        return self.twitch_token_manager.get_channel_name()
+        return self.token_manager.get_bot_account_name()
 
     @CachedProperty
     def currency_system(self):
@@ -241,17 +231,11 @@ class API:
         if f'{setting}' in self._cache.keys():
             del self._cache[setting]
 
-    async def validate_twitch_token(self):
-        return await self.twitch_token_manager.validate_token()
-
-    async def validate_stream_elements_key(self):
-        return await self.stream_elements_token_manager.validate_token()
-
     @property
     async def tokens_ready(self):
         if 'tokens_ready' in self._cache:
             return self._cache['tokens_ready']
-        if self.currency_system and self.twitch_key and await self.validate_twitch_token():
+        if self.currency_system and self.twitch_key and await self.token_manager.validate_twitch_token():
             if self.currency_system == 'streamlabs' and self.streamlabs_key or \
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
                 self._cache['tokens_ready'] = True
@@ -263,8 +247,7 @@ class API:
         return False
 
     async def stream_elements_id(self):
-        if await self.tokens_ready:
-            return await self.stream_elements_token_manager.get_user_id()
+        return await self.token_manager.currency_system_manager.get_user_id()
 
     async def ping_streamlabs_local(self):
         self.send_chat_message('!connect_minigame')
@@ -312,11 +295,7 @@ class API:
             # session.commit()
 
     async def validate_tokens(self):
-        await self.twitch_token_manager.validate_token()
-        if self.currency_system == 'stream_elements':
-            await self.stream_elements_token_manager.validate_token()
-        elif self.currency_system == 'streamlabs':
-            await self.streamlabs_token_manager.validate_token()
+        await self.token_manager.validate_tokens()
 
 
 if __name__ == '__main__':
@@ -341,8 +320,8 @@ if __name__ == '__main__':
     def main2():
         loop = asyncio.get_event_loop()
 
-        s = StreamElementsTokenManager()
-        res_ = loop.run_until_complete(s.get_channel_name())
+        t = TokenManager()
+        res_ = loop.run_until_complete(t.get_channel_name())
         print(res_)
 
 

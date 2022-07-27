@@ -1,13 +1,15 @@
 __all__ = ["AbstractTokenManager"]
 
 import json
-from abc import ABC
+import time
+from abc import ABC, abstractmethod
 
 import aiohttp
 
 import database
 from utils import print_with_time
 from datetime import timedelta
+import gettext
 
 
 class AbstractTokenManager(ABC):
@@ -21,6 +23,7 @@ class AbstractTokenManager(ABC):
     def __init__(self):
         self.token = None
         self.display_name = None
+        self.expires_at = 0
         for attr_name, _ in self.attrs_to_save_from_validate.items():
             setattr(self, attr_name, None)
 
@@ -54,11 +57,25 @@ class AbstractTokenManager(ABC):
         if token_db:
             session.delete(token_db)
             session.commit()
+            self.token = None
+
+    @staticmethod
+    def generate_expires_in_text_str(expires_in: timedelta):
+        return f"{expires_in.days} {gettext.ngettext('day', 'days', expires_in.days)}" if expires_in.days \
+            else f"{expires_in.seconds // 3600} {gettext.ngettext('hour', 'hours', expires_in.seconds // 3600)}" if expires_in >= timedelta(
+            hours=3) else f"{expires_in.seconds // 60} {gettext.ngettext('minute', 'minutes', expires_in.seconds // 60)}"
 
     async def validate_token(self):
         if not self.token:
-            print_with_time(f"{self.token_name} Token wasn't generated yet...", "magenta")
-            return False
+            self.load_token()
+            if not self.token:
+                print_with_time(f"{self.token_name} Token wasn't generated yet...", "magenta")
+                return False
+
+        if time.time() < self.expires_at:
+            # print_with_time(f"Returning cached result available for {self.generate_expires_in_text_str(abs(timedelta(seconds=time.time() - self.expires_at)))}", "green")
+            return True
+
         headers = {'Authorization': f'OAuth {self.token}'}
         async with aiohttp.ClientSession() as session:
             async with session.get(url=self.validate_url_endpoint, headers=headers) as res:
@@ -68,12 +85,14 @@ class AbstractTokenManager(ABC):
                         setattr(self, name_in_class, res_json.get(name_in_request))
 
                     expires_in = timedelta(seconds=res_json.get('expires_in'))
-                    expires_in_str = f'{expires_in.days} days' if expires_in.days else f'{expires_in.seconds // 60} minutes'
+                    self.expires_at = time.time() + expires_in.total_seconds() - self.refresh_before_expires.total_seconds()
+                    expires_in_str = self.generate_expires_in_text_str(expires_in=expires_in)
                     print_with_time(f"{self.token_name} Token validated. Token expires in {expires_in_str}.",
                                     "green")
                     if expires_in <= self.refresh_before_expires:
-                        print_with_time(f'{expires_in_str} till Token expires. Refreshing the Token...',
-                                        "yellow")
+                        print_with_time(
+                            f'{expires_in_str} till {self.token_name} Token expires. Refreshing the Token...',
+                            "yellow")
                         await self.refresh_token()
                     return True
                 elif res.status == 401:
@@ -121,3 +140,7 @@ class AbstractTokenManager(ABC):
 
     def __repr__(self):
         return f"{self.__class__.__name__}: {self.token_name=}"
+
+    @abstractmethod
+    def get_channel_name(self):
+        raise NotImplemented

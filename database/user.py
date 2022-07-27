@@ -37,12 +37,12 @@ class User(Base):
     async def points(self, api):
         if hasattr(api, 'fake_points'):
             return api.fake_points
-        if api.tokens_ready:
+        if await api.tokens_ready:
             if api.currency_system == 'streamlabs':
                 url = "https://streamlabs.com/api/v1.0/points"
                 querystring = {"access_token": api.streamlabs_key,
                                "username": self.name,
-                               "channel": api.name,
+                               "channel": api.channel_name,
                                }
                 res = requests.get(url, params=querystring)
                 if res.status_code == 200:
@@ -57,7 +57,7 @@ class User(Base):
                     input("Press 'enter' to quit")
 
             elif api.currency_system == 'stream_elements':
-                url = f'https://api.streamelements.com/kappa/v2/points/{api.stream_elements_id}/{self.name}'
+                url = f'https://api.streamelements.com/kappa/v2/points/{await api.stream_elements_id()}/{self.name}'
                 headers = {'Authorization': f'OAuth {api.stream_elements_key}'}
                 res = requests.get(url, headers=headers)
                 if res.status_code == 200:

@@ -45,7 +45,7 @@ class TwitchTokenManagerTestCase(AbstractTokenManagerTestCase):
 
     async def test_invalid_or_non_refresh_able_twitch_token(self):
         fake_token = self.add_token(self.GENERIC_TOKEN)
-        self.token_manager.twitch_token_manager.load_token()
+        self.token_manager.load_twitch_token()
         with aioresponses() as m:
             for i in range(2):
                 m.get(self.TWITCH_VALIDATE_URL_ENDPOINT, status=401)
@@ -56,7 +56,7 @@ class TwitchTokenManagerTestCase(AbstractTokenManagerTestCase):
 
     async def test_expired_refresh_able_twitch_token(self):
         fake_token = self.add_token(self.GENERIC_TOKEN)
-        self.token_manager.twitch_token_manager.load_token()
+        self.token_manager.load_twitch_token()
         with aioresponses() as m:
             for status_code in (401, 200):
                 m.get(self.TWITCH_VALIDATE_URL_ENDPOINT, status=status_code, payload=self.generate_fake_validate_details())
@@ -65,7 +65,7 @@ class TwitchTokenManagerTestCase(AbstractTokenManagerTestCase):
 
     async def test_almost_expired_refresh_able_twitch_token(self):
         fake_token = self.add_token(self.GENERIC_TOKEN)
-        self.token_manager.twitch_token_manager.load_token()
+        self.token_manager.load_twitch_token()
         with aioresponses() as m:
             m.get(self.TWITCH_VALIDATE_URL_ENDPOINT, status=200, payload=self.generate_fake_validate_details(expires_in=120))
             m.get(f'{self.TWITCH_REFRESH_URL_ENDPOINT}?access_token={fake_token}', status=200, payload=dict(access_token='fake new access token'))
@@ -74,13 +74,22 @@ class TwitchTokenManagerTestCase(AbstractTokenManagerTestCase):
 
     async def test_saving_attributes_from_twitch_validate(self):
         self.add_token('fake_token')
-        self.token_manager.twitch_token_manager.load_token()
+        self.token_manager.load_twitch_token()
         with aioresponses() as m:
             fake_details_payload = self.generate_fake_validate_details()
             m.get(self.TWITCH_VALIDATE_URL_ENDPOINT, status=200, payload=fake_details_payload)
             await self.token_manager.validate_twitch_token()
             for saved_attr, needs_save_attr in self.token_manager.twitch_token_manager.attrs_to_save_from_validate.items():
                 self.assertEqual(getattr(self.token_manager.twitch_token_manager, saved_attr), fake_details_payload.get(needs_save_attr))
+
+    async def test_caching(self):
+        self.add_token('fake_token')
+        self.token_manager.load_twitch_token()
+        fake_details_payload = self.generate_fake_validate_details(expires_in=self.token_manager.twitch_token_manager.refresh_before_expires.total_seconds()+10)
+        with aioresponses() as m:
+            m.get(self.TWITCH_VALIDATE_URL_ENDPOINT, status=200, payload=fake_details_payload)
+            for _ in range(20):
+                self.assertTrue(await self.token_manager.validate_twitch_token())
 
 
 class StreamElementsTokenManagerTestCase(AbstractTokenManagerTestCase):
@@ -141,6 +150,16 @@ class StreamElementsTokenManagerTestCase(AbstractTokenManagerTestCase):
             for saved_attr, needs_save_attr in self.token_manager.currency_system_manager.attrs_to_save_from_validate.items():
                 self.assertEqual(getattr(self.token_manager.currency_system_manager, saved_attr), fake_details_payload.get(needs_save_attr))
 
+    async def test_caching(self):
+        self.add_token('fake_token')
+        self.token_manager.load_currency_system_token()
+        fake_details_payload = self.generate_fake_validate_details(expires_in=self.token_manager.currency_system_manager.refresh_before_expires.total_seconds()+10)
+        with aioresponses() as m:
+            m.get(self.STREAM_ELEMENTS_VALIDATE_URL_ENDPOINT, status=200, payload=fake_details_payload)
+            self.assertTrue(await self.token_manager.validate_currency_system())
+            for _ in range(20):  # testing if the answer is cached. if it's not, it should error of a refused request
+                self.assertTrue(await self.token_manager.validate_currency_system())
+
 
 class StreamlabsTokenManagerTestCase(AbstractTokenManagerTestCase):
     STREAMLABS_VALIDATE_URL_ENDPOINTS = 'https://streamlabs.com/api/v1.0/user'
@@ -158,7 +177,7 @@ class StreamlabsTokenManagerTestCase(AbstractTokenManagerTestCase):
         return {
             "twitch": {
                 'id': user_id if user_id else 123,
-                'display_name': display_name if display_name else "Razbi"
+                'name': display_name if display_name else "Razbi"
             }
         }
 
@@ -183,7 +202,7 @@ class StreamlabsTokenManagerTestCase(AbstractTokenManagerTestCase):
         with aioresponses() as m:
             m.get(f'{self.STREAMLABS_VALIDATE_URL_ENDPOINTS}?access_token={fake_token}', status=200, payload=fake_details_payload)
             await self.token_manager.validate_currency_system()
-            self.assertTrue(self.token_manager.currency_system_manager.display_name, fake_details_payload.get('twitch').get('display_name'))
+            self.assertTrue(self.token_manager.currency_system_manager.display_name, fake_details_payload.get('twitch').get('name'))
 
 
 if __name__ == '__main__':

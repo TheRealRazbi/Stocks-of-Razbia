@@ -1,27 +1,25 @@
 import ast
-import json
-import subprocess
-import time
-import random
-
-import sqlalchemy as sql
-
-from API import API
 import asyncio
-from bot_commands import register_commands
-from database import User, Company
-import database
-from termcolor import colored
-import math
+import json
 import os
+import random
+import time
+import webbrowser
+
+import alembic.config
+from termcolor import colored
+
 import config_server
 import config_server.forms
-from company_names import load_default_names
-import webbrowser
-from more_tools import CachedProperty
-import alembic.config
-from customizable_stuff import load_message_templates, load_announcements
+import database
+from scheduler import AsyncScheduler, AsyncTask
+from API import API
 from announcements import Announcement, AnnouncementDict
+from bot_commands import register_commands
+from company_names import load_default_names
+from customizable_stuff import load_message_templates, load_announcements
+from database import User, Company
+from more_tools import CachedProperty
 
 
 class Overlord:
@@ -31,11 +29,11 @@ class Overlord:
             alembic_extra_args.extend(('-c', 'lib/code/alembic.ini', '-n', 'deploy'))
         if not os.path.exists('lib/db.sqlite'):
             database.Base.metadata.create_all()
-            alembic.config.main(argv=alembic_extra_args+['stamp', 'head'])
+            alembic.config.main(argv=alembic_extra_args + ['stamp', 'head'])
         elif not database.engine.dialect.has_table(database.engine, 'alembic_version'):
             # database.Base.metadata.create_all()
-            alembic.config.main(argv=alembic_extra_args+['stamp', '0e0024b069d6'])
-        alembic.config.main(argv=alembic_extra_args+['upgrade', 'head'])
+            alembic.config.main(argv=alembic_extra_args + ['stamp', '0e0024b069d6'])
+        alembic.config.main(argv=alembic_extra_args + ['upgrade', 'head'])
 
         session = database.Session()
         self.last_check = 0
@@ -44,11 +42,14 @@ class Overlord:
             self.loop = asyncio.get_event_loop()
         self.api = API(overlord=self, loop=loop)
         register_commands(self.api)
-        self.iterate_cooldown = 10*60
+        self.iterate_cooldown = 10 * 60
         # self.iterate_cooldown = 3
-        self.new_companies_messages = ['ughhh... buy from them or smth?', "stonks", "nice, I guess...", "oh yeah, I like that one",
-                                       "wait, what are these?", "I like turtles", "who's Razbi?", "Glory to Arstotzka, wait..., wrong game", "buy buy buy"]
-        self.bankrupt_companies_messages = ['Feelsbadman', 'just invest better Kappa', 'imagine losing {currency_name} to those Kappa', 'this is fine monkaS']
+        self.new_companies_messages = ['ughhh... buy from them or smth?', "stonks", "nice, I guess...",
+                                       "oh yeah, I like that one",
+                                       "wait, what are these?", "I like turtles", "who's Razbi?",
+                                       "Glory to Arstotzka, wait..., wrong game", "buy buy buy"]
+        self.bankrupt_companies_messages = ['Feelsbadman', 'just invest better Kappa',
+                                            'imagine losing {currency_name} to those Kappa', 'this is fine monkaS']
         self.max_companies = 7
         self.max_companies_at_a_time = 2
         self.spawn_ranges = {
@@ -73,13 +74,14 @@ class Overlord:
 
         self.months = 0
         self.load_age(session=session)
-        self.started = False
+        self.started = asyncio.Event()
         self.company_events_counter = 0
         session.close()
 
     async def run(self):
         time_since_last_run = time.time() - self.last_check
-        if self.started and time_since_last_run > self.iterate_cooldown:
+        await self.started.wait()
+        if time_since_last_run > self.iterate_cooldown:
             self.last_check = time.time()
             session = database.Session()
 
@@ -117,7 +119,8 @@ class Overlord:
 
             company = Company.create(starting_price, name=random_abbv)
             session.add(company)
-            spawned_companies.append(f"[{company.abbv}] {company.full_name}, stock_price: {company.stock_price:.1f} {self.currency_name}")
+            spawned_companies.append(
+                f"[{company.abbv}] {company.full_name}, stock_price: {company.stock_price:.1f} {self.currency_name}")
         if spawned_companies:
             tip = random.choice(self.new_companies_messages)
             self.api.send_chat_message(f"Newly spawned companies: {' | '.join(spawned_companies)}, {tip}")
@@ -147,7 +150,7 @@ class Overlord:
                     company.bankrupt = True
                     self.names[company.abbv] = company.full_name
                     session.commit()
-        self.start_company_events(session)
+        self.handle_company_events(session)
 
     async def clear_bankrupt(self, session: database.Session):
         for index_company, company in enumerate(session.query(Company).filter_by(bankrupt=True)):
@@ -242,33 +245,14 @@ class Overlord:
                                        f'{" ".join(self.owners_of_bankrupt_companies)} {random_comment if self.owners_of_bankrupt_companies else ""}')
             self.bankrupt_info = []
 
-    async def start_periodic_announcement(self):
-        while True:
-            if self.started:
-                formatter = AnnouncementDict.from_list(self.announcements['element_list'])
-                result = Announcement(self.announcements['result'])
-                final_message = str(result).format_map(formatter).replace('[currency_name]', self.currency_name)
-                # print(final_message)
+    async def periodic_announcement(self):
+        await self.started.wait()
+        formatter = AnnouncementDict.from_list(self.announcements['element_list'])
+        result = Announcement(self.announcements['result'])
+        final_message = str(result).format_map(formatter).replace('[currency_name]', self.currency_name)
+        self.api.send_chat_message(final_message)
 
-                # stonks_or_stocks = random.choice(['stocks', 'stonks'])
-                # final_message = random.choice([f'Wanna make some {self.currency_name} through stonks?', 'Be the master of stonks.'])+' '
-                #
-                # main_variation = random.randint(1, 2)
-                # if main_variation == 1:
-                #     command_order = ['!introduction', '!companies', '!buy', f'!{stonks_or_stocks}', '!autoinvest', '!my income']
-                #     random.shuffle(command_order)
-                #     help_tip = random.choice(['Here are some commands to help you do that', "Ughh maybe through these?",
-                #                               "I wonder what are these for", "Commands", "Turtles"])
-                #     final_message += f"{help_tip}: {', '.join(command_order)}"
-                # elif main_variation == 2:
-                #     final_message += "For newcomers we got: '!autoinvest <budget>'"
-                self.api.send_chat_message(final_message)
-
-                await asyncio.sleep(60 * 30)
-            else:
-                await asyncio.sleep(.5)
-
-    def start_company_events(self, session: database.Session):
+    def handle_company_events(self, session: database.Session):
         if self.company_events_counter >= 4:
             self.company_events_counter = 0
             companies = session.query(database.Company).filter_by(bankrupt=False).all()
@@ -299,9 +283,10 @@ class Overlord:
                     session = database.Session()
                     session.query(database.Settings).get('messages').value = json.dumps(self.messages)
                     session.commit()
-                self.api.send_chat_message(self.messages['company_released_product'].format(currency_name=self.currency_name,
-                                                                                            company_full_name=company.full_name,
-                                                                                            company_summary=company.announcement_description))
+                self.api.send_chat_message(
+                    self.messages['company_released_product'].format(currency_name=self.currency_name,
+                                                                     company_full_name=company.full_name,
+                                                                     company_summary=company.announcement_description))
 
         else:
             self.company_events_counter += 1
@@ -322,7 +307,8 @@ class Overlord:
             res.append(message)
 
         if len(res) < 3:
-            richest_companies = session.query(database.Company).order_by(Company.stock_price.desc()).limit(3-len(res)).all()
+            richest_companies = session.query(database.Company). \
+                order_by(Company.stock_price.desc()).limit(3 - len(res)).all()
             for company in richest_companies:
                 if company.price_diff == 0:
                     continue
@@ -330,7 +316,8 @@ class Overlord:
                 # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
                 message = company.announcement_description
                 if company.stock_price < 0:
-                    print("A company has like stock_price under 0, I have absolutely no idea how was this possible, please tell Razbi about it")
+                    print(
+                        "A company has like stock_price under 0, I have absolutely no idea how was this possible, please tell Razbi about it")
                 if message not in res:
                     res.append(message)
         return res, owners
@@ -391,33 +378,23 @@ async def iterate_forever_and_start_reading_chat(overlord: Overlord):
     await asyncio.sleep(60 * 60 * 365 * 100)
 
 
-async def iterate_forever_read_chat_and_run_interface(overlord: Overlord):
+def iterate_forever_read_chat_and_run_interface(overlord: Overlord, loop=None):
     if os.path.exists('lib/code'):
-        webbrowser.open('http://localhost:5000')
+        webbrowser.open("http://localhost:5000")
     config_server.app.overlord = overlord
-    await asyncio.gather(
-        config_server.app.run_task(use_reloader=False),
-        iterate_forever(overlord),
-        overlord.api.start_read_chat(),
-        overlord.api.twitch_key_auto_refresher(),
-        overlord.start_periodic_announcement(),
-        asyncio.sleep(60 * 60 * 365 * 100),
-    )
-
-    await asyncio.sleep(60 * 60 * 365 * 100)
+    s = AsyncScheduler(loop=loop)
+    s.add_task(AsyncTask(func=iterate_forever, args=(overlord,))) \
+        .add_task(AsyncTask(func=config_server.app.run_task, kwargs={'use_reloader': False})) \
+        .add_task(AsyncTask(func=overlord.api.start_read_chat)) \
+        .add_task(AsyncTask(func=overlord.api.validate_tokens, call_each_seconds=60 * 60)) \
+        .add_task(AsyncTask(func=overlord.periodic_announcement, call_each_seconds=60 * 30,
+                            call_before_sleep=True))
+    # .add_task(AsyncTask(func=overlord.api.twitch_key_auto_refresher, call_each_seconds=60)) \
+    s.run(forever=True)
 
 
 if __name__ == '__main__':
-    o = Overlord()
-    start(iterate_forever_read_chat_and_run_interface(o), o)
-    # webbrowser.open('http://localhost:5000')
-
-
-
-
-
-
-
-
-
-
+    loop_ = asyncio.get_event_loop()
+    o = Overlord(loop=loop_)
+    # start(iterate_forever_read_chat_and_run_interface(o), o)
+    iterate_forever_read_chat_and_run_interface(o, loop=loop_)

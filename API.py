@@ -8,6 +8,8 @@ import asyncio
 from asyncirc.protocol import IrcProtocol
 from asyncirc.server import Server
 from irclib.parser import Message
+
+from token_manager import StreamElementsTokenManager, TwitchTokenManager, StreamlabsTokenManager
 from database import User
 import database
 import contexts
@@ -21,6 +23,9 @@ from customizable_stuff import load_command_names, load_message_templates
 class API:
     def __init__(self, overlord=None, loop=None, prefix="!"):
         self.overlord = overlord
+        self.twitch_token_manager = TwitchTokenManager()
+        self.stream_elements_token_manager = StreamElementsTokenManager()
+        self.streamlabs_token_manager = StreamlabsTokenManager()
         self.twitch_client_id = 'q4nn0g7b07xfo6g1lwhp911spgutps'
         self._cache = {}
         self.streamlabs_key = ''
@@ -30,14 +35,13 @@ class API:
         self.stream_elements_key_requires_refreshing = False
         self.stream_elements_key_just_refreshed = False
         self.stream_elements_key = ''
-        self.load_keys()
         self._name = None
         self.users = []
         self.conn = None
         self.prefix = prefix
         self.commands: Dict[str, Union[commands.Command, commands.Group]] = {}
         self.loop = loop
-        self.started = False
+        self.started = asyncio.Event()
         self.console_buffer = ['placeholder']
 
         # self.command_names = {('acquire', None): 'buy', ('my', None): 'my', ('income', 'my'): 'income'}
@@ -47,7 +51,7 @@ class API:
         #     ('stocks', None): 'stocks',
         #     ('stonks', None): 'stocks',
         # }
-
+        self.channel_name = None
         self.console_buffer_done = []
         self.not_sent_buffer = []
 
@@ -57,12 +61,12 @@ class API:
         self.streamlabs_local_send_buffer_event = asyncio.Event()
         self.streamlabs_local_receive_buffer_event = asyncio.Event()
 
-    def load_keys(self):
+    async def load_keys(self):
         session = database.Session()
         self.load_key(key_name='streamlabs_key', session=session)
         self.load_key(key_name='twitch_key', session=session)
         self.load_key(key_name='stream_elements_key', session=session)
-        self.validate_twitch_token()
+        await self.validate_twitch_token()
 
     def load_key(self, key_name, session=None):
         if session is None:
@@ -77,19 +81,6 @@ class API:
                 session.add(database.Settings(key=f'{key_name}', value=key))
                 session.commit()
                 os.remove(f'lib/{key_name}')
-
-    def get_user(self):
-        """:returns: Information regarding the Streamer through Twitch API. Currently used just for fetching the name."""
-        if self.tokens_ready:
-            url = "https://api.twitch.tv/helix/users"
-            headers = {"Authorization": f'Bearer {self.twitch_key}', 'Client-ID': f'{self.twitch_client_id}'}
-            res = requests.get(url, headers=headers)
-            if res.status_code == 200:
-                return res.json()
-            else:
-                raise ValueError("Tried fetching user info, but failed. Probably an invalid Twitch Token. Tell Razbi.")
-        return ValueError("Tried fetching user info, but tokens are not ready for use. Tell Razbi. "
-                          "If this actually happened, it's really really bad.")
 
     async def create_context(self, username, session):
         user = await self.generate_user(username, session=session)
@@ -134,13 +125,14 @@ class API:
         return user
 
     async def start_read_chat(self):
-        while not self.started:
-            await asyncio.sleep(.5)
+        await self.load_keys()
+        await self.started.wait()
+        await self.update_channel_name()
         server = [Server("irc.chat.twitch.tv", 6667, password=f'oauth:{self.twitch_key}')]
         self.conn = IrcProtocol(server, nick=self.name, loop=self.loop)
         self.conn.register('PRIVMSG', self.handler)
         await self.conn.connect()
-        self.conn.send(f"JOIN #{self.name}")
+        self.conn.send(f"JOIN #{self.channel_name}")
         print(f"{colored('Ready to read chat commands', 'green')}. "
               f"To see all basic commands type {colored('!stocks', 'magenta')} in the twitch chat")
         self.clear_unsent_buffer()
@@ -152,7 +144,7 @@ class API:
 
     def send_chat_message(self, message: str):
         if self.conn and self.conn.connected:
-            self.conn.send(f"PRIVMSG #{self.name} :{message}")
+            self.conn.send(f"PRIVMSG #{self.channel_name} :{message}")
             if message != '':
                 print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
                 self.console_buffer.append(str(message))
@@ -167,24 +159,31 @@ class API:
                 self.send_chat_message(element)
 
     async def add_points(self, user: str, amount: int):
-        if self.tokens_ready:
+        if await self.tokens_ready:
             if self.currency_system == 'streamlabs':
+                if self.channel_name is None:
+                    await self.update_channel_name()
                 url = "https://streamlabs.com/api/v1.0/points/subtract"
                 querystring = {"access_token": self.streamlabs_key,
                                "username": user,
-                               "channel": self.name,
+                               "channel": self.channel_name,
                                "points": -amount}
 
-                return requests.post(url, data=querystring).json()["points"]
+                res = requests.post(url, data=querystring)
+                if res.status_code == 200:
+                    return res.json()["points"]
+                else:
+                    raise ValueError(f'Error while setting points. Request: {res.content}')
             elif self.currency_system == 'stream_elements':
-                url = f'https://api.streamelements.com/kappa/v2/points/{self.stream_elements_id}/{user}/{amount}'
+                url = f'https://api.streamelements.com/kappa/v2/points/{await self.stream_elements_id()}/{user}/{amount}'
                 headers = {'Authorization': f'OAuth {self.stream_elements_key}'}
                 res = requests.put(url, headers=headers)
                 # print(res.json())
                 if res.status_code == 200:
                     return res.json()["newAmount"]
-                raise ValueError(f"Error encountered while adding points with stream_elements system. HTTP Code {res.status_code}. "
-                                 "Please tell Razbi about it.")
+                raise ValueError(
+                    f"Error encountered while adding points with stream_elements system. HTTP Code {res.status_code}. "
+                    "Please tell Razbi about it.")
 
                 # return requests.put(url, headers=headers).json()["newAmount"]
             elif self.currency_system == 'streamlabs_local':
@@ -193,6 +192,20 @@ class API:
 
             raise ValueError(f"Unavailable Currency System: {self.currency_system}")
         raise ValueError("Tokens not ready for use. Tell Razbi about this.")
+
+    async def update_channel_name(self):
+        if self.currency_system == 'streamlabs_local':
+            print(
+                "BOT ACCOUNT SEPARATION NOT SUPPORTED WITH STREAMLABS CHATBOT. MAKE SURE YOU USE YOUR MAIN ACCOUNT INSTEAD OF A BOT ACCOUNT FOR THE TWITCH TOKEN")
+        elif self.currency_system == 'streamlabs':
+            self.channel_name = await self.streamlabs_token_manager.get_channel_name()
+        elif self.currency_system == 'stream_elements':
+            self.channel_name = await self.stream_elements_token_manager.get_channel_name()
+        else:
+            raise ValueError("No currency system selected but tried fetching channel name")
+
+        if self.channel_name is None:
+            raise ValueError("Channel Name not found. Tell Razbi about it")
 
     async def upgraded_add_points(self, user: User, amount: int, session):
         if amount > 0:
@@ -210,11 +223,7 @@ class API:
 
     @property
     def name(self):
-        if self._name:
-            return self._name
-        if self.tokens_ready:
-            self._name = self.get_user()['data'][0]['login']
-            return self._name
+        return self.twitch_token_manager.get_channel_name()
 
     @CachedProperty
     def currency_system(self):
@@ -232,47 +241,17 @@ class API:
         if f'{setting}' in self._cache.keys():
             del self._cache[setting]
 
-    def validate_twitch_token(self):
-        if not self.twitch_key:
-            return False
-        url = 'https://id.twitch.tv/oauth2/validate'
-        querystring = {'Authorization': f'OAuth {self.twitch_key}'}
-        res = requests.get(url=url, headers=querystring)
-        if res.status_code == 200:
-            self.twitch_key_requires_refreshing = False
-            return True
-        elif res.status_code == 401:
-            if not self.twitch_key_requires_refreshing:
-                print("Twitch Token expired. Refreshing Token whenever possible...")
-                self.twitch_key_requires_refreshing = True
-            return False
-        raise ValueError(
-            f"A response code appeared that Razbi didn't handle when validating a twitch token, maybe tell him? Response Code: {res.status_code}")
+    async def validate_twitch_token(self):
+        return await self.twitch_token_manager.validate_token()
 
-    def validate_stream_elements_key(self):
-        if not self.stream_elements_key:
-            return False
-        url = 'https://api.streamelements.com/oauth2/validate'
-        querystring = {'Authorization': f'OAuth {self.twitch_key}'}
-        res = requests.get(url=url, headers=querystring)
-        if res.status_code == 200:
-            self.stream_elements_key_requires_refreshing = False
-            return True
-        elif res.status_code == 401:
-            print("Stream_elements Token expired. Refreshing Token whenever possible...")
-            self.stream_elements_key_requires_refreshing = True
-            return False
-        elif res.status_code >= 500:
-            print("server errored or... something. better tell Razbi")
-            return False
-        raise ValueError(
-            f"A response code appeared that Razbi didn't handle when validating a stream_elements token, maybe tell him? Response Code: {res.status_code}")
+    async def validate_stream_elements_key(self):
+        return await self.stream_elements_token_manager.validate_token()
 
     @property
-    def tokens_ready(self):
+    async def tokens_ready(self):
         if 'tokens_ready' in self._cache:
             return self._cache['tokens_ready']
-        if self.currency_system and self.twitch_key and self.validate_twitch_token():
+        if self.currency_system and self.twitch_key and await self.validate_twitch_token():
             if self.currency_system == 'streamlabs' and self.streamlabs_key or \
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
                 self._cache['tokens_ready'] = True
@@ -280,91 +259,12 @@ class API:
 
             if self.currency_system == 'streamlabs_local':
                 self._cache['tokens_ready'] = True
-
-                # self.send_chat_message('!connect_minigame')
-                # print("connected")
                 return True
         return False
 
-    @CachedProperty
-    def stream_elements_id(self):
-        if self.tokens_ready:
-            session = database.Session()
-            stream_elements_id_db = session.query(database.Settings).get('stream_elements_id')
-            if stream_elements_id_db:
-                return stream_elements_id_db.value
-            url = f'https://api.streamelements.com/kappa/v2/channels/{self.name}'
-            headers = {'accept': 'application/json'}
-            res = requests.get(url, headers=headers)
-            if res.status_code == 200:
-                stream_elements_id = res.json()['_id']
-                session.add(database.Settings(key='stream_elements_id', value=stream_elements_id))
-                return stream_elements_id
-
-    @CachedProperty
-    def twitch_key_expires_at(self):
-        session = database.Session()
-        expires_at_db = session.query(database.Settings).get('twitch_key_expires_at')
-        if expires_at_db:
-            expires_at = int(expires_at_db.value)
-            return expires_at
-
-    @CachedProperty
-    def stream_elements_key_expires_at(self):
-        session = database.Session()
-        expires_at_db = session.query(database.Settings).get('stream_elements_key_expires_at')
-        if expires_at_db:
-            expires_at = int(expires_at_db.value)
-            return expires_at
-
-    async def twitch_key_auto_refresher(self):
-        while True:
-            if self.tokens_ready and self.twitch_key_expires_at and time.time() + 60 > self.twitch_key_expires_at:
-                url = 'https://razbi.funcity.org/stocks-chat-minigame/twitch/refresh_token'
-                querystring = {'access_token': self.twitch_key}
-                res = requests.get(url, params=querystring)
-                if res.status_code == 200:
-                    session = database.Session()
-                    twitch_key_db = session.query(database.Settings).get('twitch_key')
-                    if twitch_key_db:
-                        twitch_key_db.value = res.json()['access_token']
-                    expires_at_db = session.query(database.Settings).get('twitch_key_expires_at')
-                    if expires_at_db:
-                        expires_at_db.value = str(int(time.time()) + res.json()['expires_in'])
-                    self.mark_dirty('twitch_key_expires_at')
-                    session.commit()
-                    print("Twitch key refreshed successfully.")
-                elif res.status_code == 500:
-                    print(
-                        "Tried refreshing the twitch token, but the server is down or smth, please tell Razbi about this. ")
-                else:
-                    raise ValueError('Unhandled status code when refreshing the twitch key. TELL RAZBI',
-                                     res.status_code)
-
-            elif self.tokens_ready and self.currency_system == 'stream_elements' and \
-                    self.stream_elements_key_expires_at and time.time() + 60 > self.stream_elements_key_expires_at:
-                url = 'https://razbi.funcity.org/stocks-chat-minigame/stream_elements/refresh_token'
-                querystring = {'access_token': self.stream_elements_key}
-                res = requests.get(url, params=querystring)
-                if res.status_code == 200:
-                    session = database.Session()
-                    stream_element_key_db = session.query(database.Settings).get('stream_elements_key')
-                    if stream_element_key_db:
-                        stream_element_key_db.value = res.json()['access_token']
-                    expires_at_db = session.query(database.Settings).get('stream_elements_key_expires_at')
-                    if expires_at_db:
-                        expires_at_db.value = str(int(time.time()) + res.json()['expires_in'])
-                    self.mark_dirty('stream_elements_key_expires_at')
-                    session.commit()
-                    print("Stream_elements key refreshed successfully.")
-                elif res.status_code == 500:
-                    print(
-                        "Tried refreshing the stream_elements token, but the server is down or smth, please tell Razbi about this. ")
-                else:
-                    raise ValueError('Unhandled status code when refreshing the stream_elements key. TELL RAZBI',
-                                     res.status_code)
-
-            await asyncio.sleep(60)
+    async def stream_elements_id(self):
+        if await self.tokens_ready:
+            return await self.stream_elements_token_manager.get_user_id()
 
     async def ping_streamlabs_local(self):
         self.send_chat_message('!connect_minigame')
@@ -411,20 +311,39 @@ class API:
             # session.add(command_names)
             # session.commit()
 
+    async def validate_tokens(self):
+        await self.twitch_token_manager.validate_token()
+        if self.currency_system == 'stream_elements':
+            await self.stream_elements_token_manager.validate_token()
+        elif self.currency_system == 'streamlabs':
+            await self.streamlabs_token_manager.validate_token()
+
 
 if __name__ == '__main__':
-    api = API()
+    def main():
+        api = API()
 
-    loop = asyncio.get_event_loop()
-    # api = API()
-    # print(api.get_user('razbith3player'))
-    # print(api.get_points('nerzul007'))
-    # print(api.twitch_key)
-    try:
-        loop.run_until_complete(api.start_read_chat())
-    finally:
-        loop.stop()
-    # print(type(api.twitch_key))
-    # api.read_chat()
-    # loop.run_until_complete(api.read_chat())
-    # just FYI, if you plan on testing just API alone, do it in the Overlord.py, not here
+        loop = asyncio.get_event_loop()
+        # api = API()
+        # print(api.get_user('razbith3player'))
+        # print(api.get_points('nerzul007'))
+        # print(api.twitch_key)
+        try:
+            loop.run_until_complete(api.start_read_chat())
+        finally:
+            loop.stop()
+        # print(type(api.twitch_key))
+        # api.read_chat()
+        # loop.run_until_complete(api.read_chat())
+        # just FYI, if you plan on testing just API alone, do it in the Overlord.py, not here
+
+
+    def main2():
+        loop = asyncio.get_event_loop()
+
+        s = StreamElementsTokenManager()
+        res_ = loop.run_until_complete(s.get_channel_name())
+        print(res_)
+
+
+    main2()

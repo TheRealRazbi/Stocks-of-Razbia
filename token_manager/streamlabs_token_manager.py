@@ -34,7 +34,7 @@ class StreamlabsTokenManager(AbstractTokenManager):
                     return False
                 elif res.status >= 500:
                     raise ValueError(
-                        f"Streamlabs token servers seem to be down. This is an unrecoverable error. Error code: {res.status}")
+                        f"Streamlabs token servers seem to be down. This is an unrecoverable error. Error code: {res.status} | Content {res.content.read()}")
                 else:
                     raise ValueError(
                         f"A response code appeared that Razbi didn't handle when validating a {self.token_name} Token, maybe tell him? Response Code: {res.status}")

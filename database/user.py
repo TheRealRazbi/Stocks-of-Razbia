@@ -3,15 +3,17 @@ __all__ = ["User"]
 import math
 
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy import Column
+from sqlalchemy import Column, select
 from sqlalchemy.sql import sqltypes as t
 from sqlalchemy.orm import relationship
 
 import requests
 
-from .db import Base, Session
+import database
+from .db import Base, Session, AsyncSession
 from .company import Company
 from .shares import Shares
+import json
 
 
 class User(Base):
@@ -19,6 +21,7 @@ class User(Base):
 
     id = Column(t.Integer, primary_key=True)
     name = Column(t.String, nullable=False)
+    discord_id = Column(t.String)
 
     gain = Column(t.Integer, default=1)
     lost = Column(t.Integer, default=1)
@@ -31,12 +34,30 @@ class User(Base):
 
     def __repr__(self):
         return self._repr(
-            **self._getattrs("id", "name", "shares", "gain", "lost"),
+            **self._getattrs("id", "name", "discord_id", "shares", "gain", "lost"),
         )
 
     async def points(self, api):
         if hasattr(api, 'fake_points'):
             return api.fake_points
+
+        if self.api.use_local_points_instead:
+            with open("points.json", "r") as f:
+                points_db = json.load(f)
+
+            if self.name not in points_db:
+                points_db[self.name] = 10_000
+
+            # testers_without_twitch = ('swavyL',)
+            # testers_discord_ids = ('757834005390426222', '916526447521308712', '779363710505582654', '534388740966187038')
+            with open("points.json", "w") as f:
+                json.dump(points_db, f)
+
+            return points_db[self.name]
+
+            # if self.name in testers_without_twitch or self.discord_id in testers_discord_ids:
+            #     return 1_000_000
+
         if await api.tokens_ready:
             if api.currency_system == 'streamlabs':
                 url = "https://streamlabs.com/api/v1.0/points"
@@ -47,13 +68,16 @@ class User(Base):
                 res = requests.get(url, params=querystring)
                 if res.status_code == 200:
                     return res.json()["points"]
+                elif res.status_code == 404:
+                    return 0
                 # if res.json()["message"].lower() == "user not found":
                 #     print("Looks like you don't have loyalty points enabled, therefore users don't have points, so it errors when tries to fetch the points.")
                 #     input("Please enable streamlabs loyalty points here https://streamlabs.com/dashboard#/loyalty , even if you don't use them, it needs those. Press any key to continue... [it's gonna close itself. open it when you solve it]")
                 #     raise SystemExit
                 elif res.status_code >= 500:
-                    print("streamlabs server errored or... something. better tell Razbi, although its probably a Streamlabs thing. "
-                          "to prevent screwing people's points, the program will shutdown as you press Enter")
+                    print(
+                        "streamlabs server errored or... something. better tell Razbi, although its probably a Streamlabs thing. "
+                        "to prevent screwing people's points, the program will shutdown as you press Enter")
                     input("Press 'enter' to quit")
 
             elif api.currency_system == 'stream_elements':
@@ -62,9 +86,12 @@ class User(Base):
                 res = requests.get(url, headers=headers)
                 if res.status_code == 200:
                     return res.json()['points']
+                elif res.status_code == 400:
+                    return 0
                 elif res.status_code >= 500:
-                    print("stream_elements server errored or... something. better tell Razbi, although its probably a stream_elements thing. "
-                          "to prevent screwing people's points, the program will shutdown as you press Enter")
+                    print(
+                        "stream_elements server errored or... something. better tell Razbi, although its probably a stream_elements thing. "
+                        "to prevent screwing people's points, the program will shutdown as you press Enter")
                 else:
                     raise ValueError(
                         f"Error encountered while getting points from user {self.name} with stream_elements system. HTTP Code {res.status_code}. "
@@ -80,12 +107,18 @@ class User(Base):
     def profit(self):
         return self.gain - self.lost
 
-    @property
-    def profit_str(self):
+    def get_all_owned_stocks(self, session: Session):
+        query = select(database.Shares).where(database.Shares.user_id == self.id)
+        query = session.execute(query)
+        return query.scalars().all()
+
+    def profit_str(self, session: Session):
         gain, lost = self.gain, self.lost
-        for share in self.shares:
+        shares = self.get_all_owned_stocks(session=session)
+
+        for share in shares:
             company: Company = share.company
-            value_of_owned_stocks = math.ceil(company.stock_price*share.amount)
+            value_of_owned_stocks = math.ceil(company.stock_price * share.amount)
             gain += value_of_owned_stocks
             lost -= value_of_owned_stocks
         profit = f'{gain - lost:+}'
@@ -94,18 +127,19 @@ class User(Base):
             if lost > gain:
                 symbol = '-'
                 gain, lost = lost, gain
-            percentage_profit = f'{symbol}{(gain / lost * 100 - 100):.0f}% ''of {currency_name} invested.'
+
+            gain, lost = abs(gain), abs(lost)
+            percentage_profit = f'{symbol}{((gain / lost) * 100 - 100):.0f}% ''of {currency_name} invested.'
         except ZeroDivisionError:
             percentage_profit = f'0%'
         return profit, percentage_profit
 
     def passive_income(self, company: Company, session: Session) -> int:
         if share := session.query(Shares).get((self.id, company.id)):
-            value_of_stocks = math.ceil(share.amount*company.stock_price)
-            income_percent = 0.10 - (share.amount/5_000)/100
+            value_of_stocks = math.ceil(share.amount * company.stock_price)
+            income_percent = 0.10 - (share.amount / 5_000) / 100
             return math.ceil(value_of_stocks * max(income_percent, 0.01))
         return 0
 
-
-
-
+    def refresh(self, session: database.Session):
+        return session.query(User).get(self.id)

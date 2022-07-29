@@ -54,5 +54,5 @@ The event is announced, and it increases the chance of that company's stock incr
 
 ## Contributions:
 
-Discord server: https://discord.gg/yp3T7da <br>
+Discord server: https://discord.gg/PYqDyXQHEj <br>
 Currently any testing is greatly appreciated. For feedback/questions please visit the discord server.<br>

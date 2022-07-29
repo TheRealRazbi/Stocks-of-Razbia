@@ -1,4 +1,5 @@
 import ast
+import json
 from typing import Union, Dict
 import requests
 import pickle
@@ -8,11 +9,14 @@ from asyncirc.protocol import IrcProtocol
 from asyncirc.server import Server
 from irclib.parser import Message
 
+from message_manager import create_twitch_messenger, create_discord_messenger
+from discord_manager import DiscordManager
 from token_manager import TokenManager
-from database import User
+from database import User, get_object_by_kwargs, AsyncSession
 import database
 import contexts
 import commands
+import discord
 from termcolor import colored
 import contextlib
 from more_tools import CachedProperty, BidirectionalMap
@@ -25,16 +29,15 @@ class API:
         self.overlord = overlord
         self._cache = {}
         self.token_manager = TokenManager()
-        self.token_manager.set_currency_system(getattr(CurrencySystem, self.currency_system.upper()))
+        if self.currency_system:
+            self.token_manager.set_currency_system(getattr(CurrencySystem, self.currency_system.upper()))
+        self.discord_manager = DiscordManager(self)
 
         self.twitch_client_id = 'q4nn0g7b07xfo6g1lwhp911spgutps'
-        self.streamlabs_key = ''
-        self.twitch_key = ''
         self.twitch_key_requires_refreshing = False
         self.twitch_key_just_refreshed = False
         self.stream_elements_key_requires_refreshing = False
         self.stream_elements_key_just_refreshed = False
-        self.stream_elements_key = ''
         self._name = None
         self.users = []
         self.conn = None
@@ -43,6 +46,7 @@ class API:
         self.loop = loop
         self.started = asyncio.Event()
         self.console_buffer = ['placeholder']
+        self.use_local_points_instead = False  # only use local points for offline testing and nothing else
 
         # self.command_names = {('acquire', None): 'buy', ('my', None): 'my', ('income', 'my'): 'income'}
         self.command_names = {}
@@ -61,12 +65,6 @@ class API:
         self.streamlabs_local_send_buffer_event = asyncio.Event()
         self.streamlabs_local_receive_buffer_event = asyncio.Event()
 
-    async def load_keys(self):
-        session = database.Session()
-        self.load_key(key_name='streamlabs_key', session=session)
-        self.load_key(key_name='twitch_key', session=session)
-        self.load_key(key_name='stream_elements_key', session=session)
-        await self.token_manager.validate_twitch_token()
 
     def load_key(self, key_name, session=None):
         if session is None:
@@ -82,9 +80,16 @@ class API:
                 session.commit()
                 os.remove(f'lib/{key_name}')
 
-    async def create_context(self, username, session):
-        user = await self.generate_user(username, session=session)
-        return contexts.UserContext(user=user, api=self, session=session)
+    async def create_context(self, session, username: str = None, user_id: str = None,
+                             discord_message: discord.Message = None):
+        user = await self.generate_user(name=username, user_id=user_id, session=session)
+        if discord_message is None:
+            send_message = create_twitch_messenger(self)
+        else:
+            send_message = create_discord_messenger(discord_message)
+
+        return contexts.UserContext(user=user, api=self, session=session, discord_message=discord_message,
+                                    send_message=send_message)
 
     async def handler(self, conn, message: Union[Message, str]):
         text: str = message.parameters[1].lower()
@@ -92,43 +97,64 @@ class API:
             return
         username = message.prefix.user
 
-        text = text[len(self.prefix):]
-        old_command_name, *args = text.split()
+        text_without_prefix = text[len(self.prefix):]
+        await self.run_command(username=username, text_without_prefix=text_without_prefix)
+
+    async def run_command(self, text_without_prefix, user_id: str = None, username: str = None,
+                          discord_message: discord.Message = None):
+        old_command_name, *args = text_without_prefix.split()
         command_name = self.command_names.get((old_command_name, None), old_command_name)
         command_name, _, group_name = command_name.partition(" ")
         if group_name:
             args.insert(0, group_name)
         if command_name in self.commands:
-            with contextlib.closing(database.Session()) as session:
-                ctx = await self.create_context(username, session)
-                try:
-                    # noinspection PyTypeChecker
-                    await self.commands[command_name](ctx, *args)
-                except commands.BadArgumentCount as e:
-                    self.send_chat_message(f'@{ctx.user.name} Usage: {self.prefix}{e.usage(name=old_command_name)}')
-                except commands.CommandError as e:
-                    self.send_chat_message(e.msg)
-
-    @staticmethod
-    async def generate_user(name, session=None):
-        local_session = False
-        if session is None:
-            local_session = True
             session = database.Session()
-        user = session.query(User).filter_by(name=name).first()
-        if not user:
-            user = User(name=name)
-            session.add(user)
-            session.commit()
-        if local_session:
+            ctx = await self.create_context(session, user_id=user_id, username=username,
+                                            discord_message=discord_message)
+            try:
+                # noinspection PyTypeChecker
+                await self.commands[command_name](ctx, *args)
+            except commands.BadArgumentCount as e:
+                await ctx.send_message(f'@{ctx.user.name} Usage: {self.prefix}{e.usage(name=old_command_name)}')
+            except commands.CommandError as e:
+                await ctx.send_message(e.msg)
             session.close()
+
+    async def generate_user(self, user_id: str = None, name: str = None, session: AsyncSession = None,
+                            discord_id: str = None):
+        if user_id is None and name is None:
+            raise ValueError("Tried generating a user without any user_id or name")
+
+        local_session = False
+        if session is None or type(session) is not AsyncSession:
+            local_session = True
+            session = AsyncSession()
+
+        user = None
+        if name and not user_id:
+            user = await get_object_by_kwargs(User, session, name=name)
+            user_id = await self.token_manager.twitch_token_manager.username_to_id(username=name)
+
+        if user_id and user is None:
+            user = await get_object_by_kwargs(User, session, id=user_id)
+
+        if user is None:
+            if user_id and not name:
+                name = await self.token_manager.twitch_token_manager.id_to_username(user_id=user_id)
+            user = User(id=user_id, name=name)
+            session.add(user)
+        if discord_id:
+            user.discord_id = discord_id
+        await session.commit()
+        if local_session:
+            await session.close()
         return user
 
     async def start_read_chat(self):
-        await self.load_keys()
+        await self.tokens_ready
         await self.started.wait()
         await self.update_channel_name()
-        server = [Server("irc.chat.twitch.tv", 6667, password=f'oauth:{self.twitch_key}')]
+        server = [Server("irc.chat.twitch.tv", 6667, password=f'oauth:{self.token_manager.twitch_token_manager.token}')]
         self.conn = IrcProtocol(server, nick=self.name, loop=self.loop)
         self.conn.register('PRIVMSG', self.handler)
         await self.conn.connect()
@@ -143,11 +169,13 @@ class API:
         await asyncio.sleep(24 * 60 * 60 * 365 * 100)
 
     def send_chat_message(self, message: str):
+        if message == '':
+            return
+
         if self.conn and self.conn.connected:
             self.conn.send(f"PRIVMSG #{self.channel_name} :{message}")
-            if message != '':
-                print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
-                self.console_buffer.append(str(message))
+            print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
+            self.console_buffer.append(str(message))
         else:
             self.not_sent_buffer.append(message)
 
@@ -159,6 +187,22 @@ class API:
                 self.send_chat_message(element)
 
     async def add_points(self, user: str, amount: int):
+        await self.tokens_ready
+        if self.use_local_points_instead:
+            with open("points.json", "r") as f:
+                points_db = json.load(f)
+
+            if user not in points_db:
+                points_db[user] = 10_000
+
+            points_db[user] += amount
+            # testers_without_twitch = ('swavyL',)
+            # testers_discord_ids = ('757834005390426222', '916526447521308712', '779363710505582654', '534388740966187038')
+            with open("points.json", "w") as f:
+                json.dump(points_db, f)
+
+            return points_db[user]
+
         if await self.tokens_ready:
             if self.currency_system == 'streamlabs':
                 if self.channel_name is None:
@@ -197,7 +241,8 @@ class API:
         self.channel_name = await self.token_manager.get_channel_name()
         print_with_time(f"Channel name set to {green(self.channel_name)}")
 
-    async def upgraded_add_points(self, user: User, amount: int, session):
+    async def upgraded_add_points(self, user: User, amount: int, session: database.Session):
+        user = user.refresh(session)
         if amount > 0:
             user.gain += amount
         elif amount < 0:
@@ -235,7 +280,7 @@ class API:
     async def tokens_ready(self):
         if 'tokens_ready' in self._cache:
             return self._cache['tokens_ready']
-        if self.currency_system and self.twitch_key and await self.token_manager.validate_twitch_token():
+        if self.currency_system and self.token_manager.twitch_token_manager.token and await self.token_manager.validate_twitch_token():
             if self.currency_system == 'streamlabs' and self.streamlabs_key or \
                     self.currency_system == 'stream_elements' and self.stream_elements_key:
                 self._cache['tokens_ready'] = True
@@ -296,6 +341,22 @@ class API:
 
     async def validate_tokens(self):
         await self.token_manager.validate_tokens()
+
+    @property
+    def twitch_key(self):
+        return self.token_manager.twitch_token_manager.token
+
+    @property
+    def streamlabs_key(self):
+        return self.token_manager.currency_system_manager.token
+
+    @property
+    def stream_elements_key(self):
+        return self.token_manager.currency_system_manager.token
+
+    async def announce(self, message):
+        """Announces a message on the pre-specified text channel on discord"""
+        await self.discord_manager.announce(message)
 
 
 if __name__ == '__main__':

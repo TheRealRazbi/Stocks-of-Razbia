@@ -24,7 +24,6 @@ class AsyncScheduler:
     def add_task(self, task: AsyncTask):
         if task.call_each_seconds > 0:
             task = self.loop_to_once(task)
-
         self.tasks.append(task)
         return self
 
@@ -39,13 +38,13 @@ class AsyncScheduler:
     def loop_to_once(task: AsyncTask):
         reusable_task = task.func
 
-        async def inner():
+        async def inner(*args, **kwargs):
             while True:
                 if task.call_before_sleep:
-                    await reusable_task()
+                    await reusable_task(*args, **kwargs)
                 await asyncio.sleep(task.call_each_seconds)
                 if not task.call_before_sleep:
-                    await reusable_task()
+                    await reusable_task(*args, **kwargs)
 
         task.func = inner
         return task

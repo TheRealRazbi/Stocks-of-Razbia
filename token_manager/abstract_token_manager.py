@@ -125,13 +125,17 @@ class AbstractTokenManager(ABC):
                 elif res.status == 500:
                     error_message = await res.text()
                     if error_message:
-                        error_code = json.loads(error_message).get('code')
-                        if error_code == 'invalid token':
-                            print_with_time(
-                                f"Tried refreshing the {self.token_name} Token, but it's no longer valid, please generate a new one on the home page of the web interface",
-                                "red")
-                            self.delete_token()
-                            return 'invalid token'
+                        try:
+                            error_code = json.loads(error_message).get('code')
+                        except json.decoder.JSONDecodeError:
+                            raise ValueError(f"Error message while refreshing the {self.token_name} token {error_message}")
+                        else:
+                            if error_code == 'invalid token':
+                                print_with_time(
+                                    f"Tried refreshing the {self.token_name} Token, but it's no longer valid, please generate a new one on the home page of the web interface",
+                                    "red")
+                                self.delete_token()
+                                return 'invalid token'
                     raise ValueError(
                         f"Tried refreshing the {self.token_name} Token, but the server is down or smth, please tell Razbi about this. P.S.: This is an unrecoverable error")
                 else:

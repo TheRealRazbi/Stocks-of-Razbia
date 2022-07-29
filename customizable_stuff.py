@@ -14,7 +14,7 @@ message_templates = {
     'buy_or_sell_0_companies': "@{user_name} didn't input any {company_alias}. You need to input a number or 'all' and a {company_alias}.",
     'sell_successful': "@{user_name} has sold {amount} {stocks_alias} from [{company_abbv}] '{company_full_name}' for {cost} {currency_name}. ",
     'sell_no_shares': "@{user_name} doesn't have any {stocks_alias} at {company_alias} {company_abbv}.",
-    'sell_not_enough_shares': "@{user_name} doesn't have {amount} at {company_alias} {company_abbv} to sell them. "
+    'sell_not_enough_shares': "@{user_name} doesn't have {amount} at {company_alias} {company_abbv} needed to sell. "
                               "They have only {share_amount} {stocks_alias}.",
     'sell_everything_successful': '@{user_name} has sold {list_of_all_sells} for {total_outcome} {currency_name}.',
     'number_too_small': "@{user_name} has inputted a number too small. Only numbers above 0 work.",

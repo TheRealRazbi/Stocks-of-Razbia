@@ -10,6 +10,13 @@ class CurrencySystem(Enum):
     STREAMLABS_LOCAL = 'streamlabs_local'
 
 
+class EmbedColor(Enum):
+    GREEN = 0x39c050
+    RED = 0xba3b4e
+    GRAY = 0x404040
+    BLUE = 0x6791e4
+
+
 def generate_colored_function(color):
     def wrapper(message: str, print_=False, add_time=False, milliseconds=True):
         message = colored(message, color)

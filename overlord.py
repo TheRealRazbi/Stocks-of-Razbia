@@ -14,6 +14,7 @@ from termcolor import colored
 import config_server
 import config_server.forms
 import database
+from discord_manager import create_embed
 from scheduler import AsyncScheduler, AsyncTask
 from API import API
 from announcements import Announcement, AnnouncementDict
@@ -22,6 +23,7 @@ from company_names import load_default_names
 from customizable_stuff import load_message_templates, load_announcements
 from database import User, Company
 from more_tools import CachedProperty
+from utils import EmbedColor
 
 
 class Overlord:
@@ -38,7 +40,7 @@ class Overlord:
         alembic.config.main(argv=alembic_extra_args + ['upgrade', 'head'])
 
         session = database.Session()
-        self.last_check = 0
+        self.last_check = time.time()
         self.loop = loop
         if loop is None:
             self.loop = asyncio.get_event_loop()
@@ -62,7 +64,7 @@ class Overlord:
         self._cache = {}
 
         self.stock_increase = []
-        self.bankrupt_info = []
+        self.bankrupt_companies = []
         self.owners_of_bankrupt_companies = set()
 
         self.names = {}
@@ -77,6 +79,10 @@ class Overlord:
         self.months = 0
         self.load_age(session=session)
         self.autostart = False  # JUST FOR DEBUGGING TODO REMOVE ON DEPLOY
+        self.iterate_right_away = False
+
+        if self.iterate_right_away:
+            self.last_check = 0
         self.started = asyncio.Event()
         if self.autostart:
             self.started.set()
@@ -104,7 +110,7 @@ class Overlord:
             # time.sleep(self.iterate_cooldown-time_since_last_run)
 
     async def spawn_companies(self, session: database.Session):
-        spawned_companies = []
+        spawned_companies = {}
         companies_count = session.query(Company).count()
         companies_to_spawn = min(self.max_companies - companies_count, self.max_companies_at_a_time)
 
@@ -125,11 +131,15 @@ class Overlord:
 
             company = Company.create(starting_price, name=random_abbv)
             session.add(company)
-            spawned_companies.append(
-                f"[{company.abbv}] {company.full_name}, stock_price: {company.stock_price:.1f} {self.currency_name}")
+            spawned_companies[
+                company.abbv] = f"{company.full_name}, stock_price: {company.stock_price:.1f} {self.currency_name}"
         if spawned_companies:
-            tip = random.choice(self.new_companies_messages)
-            await self.api.announce(f"Newly spawned companies: {' | '.join(spawned_companies)}, {tip}")
+            footer = random.choice(self.new_companies_messages)
+            embed = create_embed('Newly spawned companies' if len(spawned_companies) > 2 else 'New company',
+                                 content=spawned_companies, footer=footer, color=EmbedColor.GREEN)
+
+            await self.api.announce(embed=embed)
+            # await self.api.announce(f"Newly spawned companies: {' | '.join(spawned_companies)}, {tip}")
 
         session.commit()
 
@@ -137,7 +147,7 @@ class Overlord:
         for index_company, company in enumerate(session.query(Company).all()):
             res = company.iterate()
             if res:
-                self.stock_increase.append(True)
+                self.stock_increase = True
                 shares = session.query(database.Shares).filter_by(company_id=company.id)
                 for share in shares:
                     user = session.query(User).get(share.user_id)
@@ -160,12 +170,15 @@ class Overlord:
 
     async def clear_bankrupt(self, session: database.Session):
         for index_company, company in enumerate(session.query(Company).filter_by(bankrupt=True)):
-            self.bankrupt_info.append(f'{company.abbv.upper()}')
+            self.bankrupt_companies.append(company)
             shares = session.query(database.Shares).filter_by(company_id=company.id).all()
             for share in shares:
                 user = session.query(database.User).get(share.user_id)
                 await self.api.upgraded_add_points(user, share.amount, session)
-                self.owners_of_bankrupt_companies.add(f'@{user.name}')
+                if user.discord_id:
+                    self.owners_of_bankrupt_companies.add(f'<@{user.discord_id}>')
+                # else:
+                #     self.owners_of_bankrupt_companies.add(f'@{user.name}')
                 # print(f"Refunded {share.amount} points to @{user.name}")
             session.delete(company)
             session.commit()
@@ -233,33 +246,28 @@ class Overlord:
 
     async def display_update(self, session: database.Session):
         if self.stock_increase:
-            res = []
             companies = session.query(Company).order_by(Company.stock_price.desc()).all()
-            for company in companies:
-                # message = f"{company.abbv.upper()}[{company.stock_price-company.price_diff:.1f}{company.price_diff:+}]"
-                # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
-                message = company.announcement_description
-                res.append(message)
-            time_send_at = datetime.datetime.now().strftime('[%H:%M]')
-            await self.api.announce(f"{time_send_at} Month {self.months}: {', '.join(res)} ")
 
-            # companies_to_announce, owners = self.get_companies_for_updates(session)
-            # await self.api.announce(f'Month: {self.months} | {", ".join(self.stock_increase)}')
-            #
-            # await self.api.announce(f'Year: {int(self.months / 12)} | Month: {self.months % 12} | '
-            #                         f'{", ".join(companies_to_announce)} {" ".join(owners)} | '
-            #                         f'Use "!stocks" to display all available commands.')
+            time_send_at = datetime.datetime.now().strftime('%H:%M')
+            footer = f'Sent at {time_send_at}'
+            content = {company.abbv: company.price_and_price_diff for company in companies}
+            embed = create_embed(title=f'{self.year_and_month}', content=content, footer=footer, color=EmbedColor.GREEN)
 
-            # await self.api.announce(f"Minigame basic commands: !introduction, !companies, !my shares, !buy, !all commands, !stocks")
+            await self.api.announce(embed=embed)
 
-            self.stock_increase = []
+            self.stock_increase = False
         # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
         #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
-        if self.bankrupt_info:
+        if self.bankrupt_companies:
             random_comment = random.choice(self.bankrupt_companies_messages).format(currency_name=self.currency_name)
-            await self.api.announce(f'The following companies bankrupt: {", ".join(self.bankrupt_info)} '
-                                    f'{" ".join(self.owners_of_bankrupt_companies)} {random_comment if self.owners_of_bankrupt_companies else ""}')
-            self.bankrupt_info = []
+            content = {company.abbv: company for company in self.bankrupt_companies}
+            embed = create_embed("The following companies bankrupt:", content=content, footer=random_comment, color=EmbedColor.RED)
+
+            await self.api.announce(embed=embed)
+            # await self.api.announce(f'The following companies bankrupt: {", ".join(self.bankrupt_companies)} '
+            #                         f'{" ".join(self.owners_of_bankrupt_companies)} {random_comment if self.owners_of_bankrupt_companies else ""}')
+            self.bankrupt_companies = []
+            self.owners_of_bankrupt_companies = set()
 
     async def periodic_announcement(self):
         await self.started.wait()
@@ -271,8 +279,7 @@ class Overlord:
         # await self.api.discord_manager.announce(final_message)
 
     async def handle_company_events(self, session: database.Session):
-        if self.company_events_counter >= 4:
-            self.company_events_counter = 0
+        if self.months % 4 == 0:
             companies = session.query(database.Company).filter_by(bankrupt=False).all()
             company_candidates = []
             for company in companies:
@@ -305,9 +312,6 @@ class Overlord:
                     self.messages['company_released_product'].format(currency_name=self.currency_name,
                                                                      company_full_name=company.full_name,
                                                                      company_summary=company.announcement_description))
-
-        else:
-            self.company_events_counter += 1
 
     @staticmethod
     def get_companies_for_updates(session: database.Session):
@@ -354,6 +358,13 @@ class Overlord:
     def mark_dirty(self, setting):
         if setting in self._cache:
             del self._cache[setting]
+
+    @property
+    def year_and_month(self):
+        year = self.months // 12
+        month = self.months % 12
+
+        return f"{f'Year: {year}  ' if year else ''}Month: {month}"
 
     @staticmethod
     def display_credits():

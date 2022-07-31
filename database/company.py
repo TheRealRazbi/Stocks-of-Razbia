@@ -94,7 +94,11 @@ class Company(Base):
 
     @property
     def announcement_description(self):
-        return f"{self.abbv.upper()}[{self.stock_price:,.1f}{-(self.price_diff/(self.stock_price+self.price_diff)*100):+.1f}%]"
+        return f"{self.abbv.upper()}[{self.price_and_price_diff}]"
+
+    @property
+    def price_and_price_diff(self):
+        return f"{self.stock_price:,.1f}{-(self.price_diff/(self.stock_price+self.price_diff)*100):+.1f}%"
 
     def __str__(self):
         years = int(self.months / 12)

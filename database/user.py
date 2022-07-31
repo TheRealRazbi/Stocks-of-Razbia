@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 import requests
 
 import database
-from .db import Base, Session, AsyncSession
+from .db import Base, Session
 from .company import Company
 from .shares import Shares
 import json
@@ -26,6 +26,7 @@ class User(Base):
     gain = Column(t.Integer, default=1)
     lost = Column(t.Integer, default=1)
     new = Column(t.Boolean, default=True)
+    last_worth_checked = Column(t.Integer, default=0)
 
     shares = relationship("Shares", backref="user", passive_deletes=True)
 
@@ -37,23 +38,40 @@ class User(Base):
             **self._getattrs("id", "name", "discord_id", "shares", "gain", "lost"),
         )
 
-    async def points(self, api):
+    def stocks_worth(self, session: database.Session) -> int:
+        worth = 0
+        shares = self.get_all_owned_stocks(session=session)
+        for share in shares:
+            company = session.query(Company).get(share.company_id)
+            worth += math.ceil(share.amount*company.stock_price)
+        return worth
+
+    async def total_worth(self, api, session: database.Session) -> int:
+        points = await self.points(api=api, session=session)
+        worth = points + self.stocks_worth(session=session)
+
+        return worth
+
+    async def points(self, api, session: database.Session) -> int:
+        user = session.query(User).get(self.id)
         if hasattr(api, 'fake_points'):
             return api.fake_points
-
-        if self.api.use_local_points_instead:
+        if api.use_local_points_instead:
             with open("points.json", "r") as f:
                 points_db = json.load(f)
 
             if self.name not in points_db:
-                points_db[self.name] = 10_000
+                points_db[self.name] = 1_000
 
-            # testers_without_twitch = ('swavyL',)
-            # testers_discord_ids = ('757834005390426222', '916526447521308712', '779363710505582654', '534388740966187038')
-            with open("points.json", "w") as f:
-                json.dump(points_db, f)
+                # testers_without_twitch = ('swavyL',)
+                # testers_discord_ids = ('757834005390426222', '916526447521308712', '779363710505582654', '534388740966187038')
+                with open("points.json", "w") as f:
+                    json.dump(points_db, f)
 
-            return points_db[self.name]
+            points = points_db[self.name]
+            user.last_worth_checked = points + user.stocks_worth(session=session)
+            session.commit()
+            return points
 
             # if self.name in testers_without_twitch or self.discord_id in testers_discord_ids:
             #     return 1_000_000
@@ -67,7 +85,10 @@ class User(Base):
                                }
                 res = requests.get(url, params=querystring)
                 if res.status_code == 200:
-                    return res.json()["points"]
+                    points = res.json()["points"]
+                    user.last_worth_checked = points + user.stocks_worth(session=session)
+                    session.commit()
+                    return points
                 elif res.status_code == 404:
                     return 0
                 # if res.json()["message"].lower() == "user not found":
@@ -85,7 +106,10 @@ class User(Base):
                 headers = {'Authorization': f'OAuth {api.stream_elements_key}'}
                 res = requests.get(url, headers=headers)
                 if res.status_code == 200:
-                    return res.json()['points']
+                    points = res.json()['points']
+                    user.last_worth_checked = points + user.stocks_worth(session=session)
+                    session.commit()
+                    return points
                 elif res.status_code == 400:
                     return 0
                 elif res.status_code >= 500:
@@ -112,24 +136,18 @@ class User(Base):
         query = session.execute(query)
         return query.scalars().all()
 
-    def profit_str(self, session: Session):
+    async def profit_str(self, api, session: Session):
         gain, lost = self.gain, self.lost
-        shares = self.get_all_owned_stocks(session=session)
-
-        for share in shares:
-            company: Company = share.company
-            value_of_owned_stocks = math.ceil(company.stock_price * share.amount)
-            gain += value_of_owned_stocks
-            lost -= value_of_owned_stocks
+        gain += await self.total_worth(api=api, session=session)
         profit = f'{gain - lost:+}'
         symbol = '+'
         try:
             if lost > gain:
                 symbol = '-'
-                gain, lost = lost, gain
+                # gain, lost = lost, gain
 
             gain, lost = abs(gain), abs(lost)
-            percentage_profit = f'{symbol}{((gain / lost) * 100 - 100):.0f}% ''of {currency_name} invested.'
+            percentage_profit = f'{symbol}{abs((gain / lost) * 100 - 100):.0f}% ''of {currency_name} invested.'
         except ZeroDivisionError:
             percentage_profit = f'0%'
         return profit, percentage_profit
@@ -137,7 +155,7 @@ class User(Base):
     def passive_income(self, company: Company, session: Session) -> int:
         if share := session.query(Shares).get((self.id, company.id)):
             value_of_stocks = math.ceil(share.amount * company.stock_price)
-            income_percent = 0.10 - (share.amount / 5_000) / 100
+            income_percent = 0.10 - (value_of_stocks / 5_000) / 100
             return math.ceil(value_of_stocks * max(income_percent, 0.01))
         return 0
 

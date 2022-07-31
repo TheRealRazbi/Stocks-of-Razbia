@@ -18,7 +18,6 @@ import contexts
 import commands
 import discord
 from termcolor import colored
-import contextlib
 from more_tools import CachedProperty, BidirectionalMap
 from customizable_stuff import load_command_names, load_message_templates
 from utils import CurrencySystem, print_with_time, green
@@ -46,7 +45,7 @@ class API:
         self.loop = loop
         self.started = asyncio.Event()
         self.console_buffer = ['placeholder']
-        self.use_local_points_instead = False  # only use local points for offline testing and nothing else
+        self.use_local_points_instead = False  # only use local points for offline testing and nothing else TODO remove on deploy
 
         # self.command_names = {('acquire', None): 'buy', ('my', None): 'my', ('income', 'my'): 'income'}
         self.command_names = {}
@@ -64,7 +63,6 @@ class API:
         self.streamlabs_local_buffer_lock = asyncio.Lock()
         self.streamlabs_local_send_buffer_event = asyncio.Event()
         self.streamlabs_local_receive_buffer_event = asyncio.Event()
-
 
     def load_key(self, key_name, session=None):
         if session is None:
@@ -200,8 +198,8 @@ class API:
             # testers_discord_ids = ('757834005390426222', '916526447521308712', '779363710505582654', '534388740966187038')
             with open("points.json", "w") as f:
                 json.dump(points_db, f)
-
-            return points_db[user]
+            points = points_db[user]
+            return points
 
         if await self.tokens_ready:
             if self.currency_system == 'streamlabs':
@@ -215,7 +213,8 @@ class API:
 
                 res = requests.post(url, data=querystring)
                 if res.status_code == 200:
-                    return res.json()["points"]
+                    points = res.json()["points"]
+                    return points
                 else:
                     raise ValueError(f'Error while setting points. Request: {res.content}')
             elif self.currency_system == 'stream_elements':
@@ -224,7 +223,8 @@ class API:
                 res = requests.put(url, headers=headers)
                 # print(res.json())
                 if res.status_code == 200:
-                    return res.json()["newAmount"]
+                    points = res.json()["newAmount"]
+                    return points
                 raise ValueError(
                     f"Error encountered while adding points with stream_elements system. HTTP Code {res.status_code}. "
                     "Please tell Razbi about it.")
@@ -247,6 +247,9 @@ class API:
             user.gain += amount
         elif amount < 0:
             user.lost -= amount
+        # old_last_points = user.last_points_checked
+        user.last_worth_checked += amount
+        # print(user.last_points_checked, old_last_points)
         session.commit()
         await self.add_points(user.name, amount)
 
@@ -354,9 +357,9 @@ class API:
     def stream_elements_key(self):
         return self.token_manager.currency_system_manager.token
 
-    async def announce(self, message):
+    async def announce(self, message: str = '', embed: discord.Embed = None):
         """Announces a message on the pre-specified text channel on discord"""
-        await self.discord_manager.announce(message)
+        await self.discord_manager.announce(message, embed=embed)
 
 
 if __name__ == '__main__':

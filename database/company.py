@@ -7,6 +7,7 @@ import random
 from sqlalchemy import Column, select, func
 from sqlalchemy.sql import sqltypes as t
 
+from utils import create_embed
 from .db import Base
 from .shares import Shares
 
@@ -82,7 +83,7 @@ class Company(Base):
         return session.query(cls).filter_by(abbv=abbreviation).first()
 
     @hybrid_property
-    def stocks_bought(self):
+    def stocks_bought(self) -> int:
         # noinspection PyTypeChecker
         return sum(share.amount for share in self.shares)
 
@@ -97,14 +98,14 @@ class Company(Base):
         return f"{self.abbv.upper()}[{self.price_and_price_diff}]"
 
     @property
-    def price_and_price_diff(self):
-        return f"{self.stock_price:,.1f}{-(self.price_diff/(self.stock_price+self.price_diff)*100):+.1f}%"
+    def price_and_price_diff(self) -> str:
+        return f"{self.stock_price:,.1f}{self.price_diff_percent:+.1f}%"
 
     def __str__(self):
-        years = int(self.months / 12)
+        years = self.years
         months = self.months % 12
         return f"Name: '{self.abbv}' aka '{self.full_name}' | stock_price: {self.stock_price:,.2f} | " \
-               f"price change: {-(self.price_diff/(self.stock_price+self.price_diff)*100):+.1f}% | " \
+               f"price change: {self.price_diff_percent:+.1f}% | " \
                f"lifespan: {years} {'years' if not years == 1 else 'year'} " \
                f"and {months} {'months' if not months == 1 else 'month'} | Stocks Bought: {self.stocks_bought}"
 
@@ -112,3 +113,26 @@ class Company(Base):
         return self._repr(
             **self._getattrs("id", "abbv", "stocks_bought", "stock_price"),
         )
+
+    @property
+    def years(self):
+        return self.months // 12 if self.months else 0
+
+    @property
+    def price_diff_percent(self) -> int:
+        return -(self.price_diff / (self.stock_price + self.price_diff) * 100)
+
+    @property
+    def embed(self):
+        content = self.content_for_embed
+        return create_embed(self.full_name, content=content)
+
+    @property
+    def content_for_embed(self) -> dict:
+        return {
+            'Name': f"{self.abbv} aka {self.full_name}",
+            'Stock Price': f'{self.stock_price:.2f}',
+            'Price Change': f'{-(self.price_diff / (self.stock_price + self.price_diff) * 100):+.1f}%',
+            'Lifespan': f"{f'{self.years} years │ ' if self.years else ''}{self.months % 12} months",
+            'Stocks Bought': f'{self.stocks_bought}'
+        }

@@ -6,11 +6,13 @@ from API import API
 
 from database import Company
 import database as db
-from discord_manager import create_embed
+from utils import create_embed
 from multi_arg import IntOrStrAll, CompanyOrIntOrAll
 import commands as commands_
 import time
 from typing import Union
+from discord_slash.utils.manage_components import create_button, create_actionrow
+from discord_slash.model import ButtonStyle
 
 from utils import EmbedColor
 
@@ -170,7 +172,11 @@ def register_commands(api: API):
 
     @api.command(usage="<company>")
     async def company(ctx, company: Company):
-        await ctx.send_message(company)
+        if ctx.discord_message:
+            embed = company.embed
+            await ctx.send_message(embed=embed)
+        else:
+            await ctx.send_message(company)
 
     @api.command()
     async def companies(ctx):
@@ -212,14 +218,30 @@ def register_commands(api: API):
         await ctx.send_message(ctx.api.get_and_format(ctx, 'introduction'))
 
     @api.command()
-    async def leaderboard(ctx):
-        users = ctx.session.query(db.User).order_by(db.User.last_worth_checked.desc()).limit(20).all()
+    async def leaderboard(ctx):  # TODO make it appear discord name instead of twitch name
+        await show_top(ctx, amount=5)
+
+    @api.command()
+    async def top(ctx, amount):
+        await show_top(ctx, amount)
+
+    async def show_top(ctx, amount):
+        amount = min(abs(amount), 20)
+        if amount == 0:
+            # await ctx.send_message("")
+            return
+        users = ctx.session.query(db.User).order_by(db.User.last_worth_checked.desc()).limit(amount).all()
         embed = create_embed(title="Leaderboard Net Worth", color=EmbedColor.BLUE)
         for user in users:
-            embed.add_field(name=user.name, value=await user.total_worth(ctx.api, ctx.session), inline=False)
+            # embed.add_field(name=user.name, value=await user.total_worth(ctx.api, ctx.session), inline=False)
+            embed.add_field(name=user.name, value=user.last_worth_checked, inline=False)
 
         # content = {user.name: await user.total_worth(ctx.api, ctx.session) for user in users}
-        await ctx.send_message(embed=embed)
+        msg = await ctx.send_message(embed=embed)
+        buttons = [
+            create_button(style=ButtonStyle.green, label="Net Worth"),
+
+        ]
 
     @my.command()
     async def points(ctx):
@@ -310,7 +332,7 @@ def register_commands(api: API):
             else:
                 embed.add_field(name='⠀', value="Doesn't have any shares", inline=True)
 
-            raw_profit, percentage_profit = ctx.user.profit_str(ctx.api, session=ctx.session)
+            raw_profit, percentage_profit = await ctx.user.profit_str(ctx.api, session=ctx.session)
             embed.add_field(name=f"{'Profit':=^30}", value=f'{raw_profit} points', inline=False)
             embed.add_field(name='Profit Percentage',
                             value=f'{percentage_profit.format(currency_name=ctx.api.overlord.currency_name)}')
@@ -352,7 +374,7 @@ def register_commands(api: API):
                 total_income = f'{total_income}'
 
             # !my profit
-            profit_str = ctx.user.profit_str(ctx.api, ctx.session)
+            profit_str = await ctx.user.profit_str(ctx.api, ctx.session)
             # profit = f"Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1].format(currency_name=ctx.api.overlord.currency_name)}"
             # final_final_res.append(profit)
 
@@ -394,12 +416,12 @@ def register_commands(api: API):
             ).order_by(func.random()).first()
 
             if chosen_company:
-                stocks_to_buy = math.floor(budget / chosen_company.stock_price)
-                if stocks_to_buy <= 0:
-                    # await ctx.send_message(f"@{ctx.user.name} too small budget. No stocks bought.")
-                    await ctx.send_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_companies'))
-                    return
-                await buy.run(ctx, stocks_to_buy, chosen_company)
+                # stocks_to_buy = math.floor(budget / chosen_company.stock_price)
+                # if stocks_to_buy <= 0:
+                #     # await ctx.send_message(f"@{ctx.user.name} too small budget. No stocks bought.")
+                #     await ctx.send_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_companies'))
+                #     return
+                await buy.run(ctx, budget, chosen_company)
             else:
                 # await ctx.send_message(f"@{ctx.user.name} too small budget. No stocks bought.")
                 total_shares = 0
@@ -431,6 +453,6 @@ if __name__ == '__main__':
     # buy_stocks(1, "reee")
     # api = API()
     # buy_stocks(1, '1')
-    # ctx = Contdext(api, user)
+    # ctx = Context(api, user)
     # prepared_args = prepare_args(ctx, command, args)
     # command(ctx, *args)

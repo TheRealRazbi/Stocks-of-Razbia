@@ -161,3 +161,7 @@ class User(Base):
 
     def refresh(self, session: database.Session):
         return session.query(User).get(self.id)
+
+    @property
+    def discord_mention(self) -> str:
+        return f'<@{self.discord_id}>'

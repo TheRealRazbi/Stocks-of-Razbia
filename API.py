@@ -357,9 +357,9 @@ class API:
     def stream_elements_key(self):
         return self.token_manager.currency_system_manager.token
 
-    async def announce(self, message: str = '', embed: discord.Embed = None):
+    async def announce(self, message: str = '', embed: discord.Embed = None, buttons=()):
         """Announces a message on the pre-specified text channel on discord"""
-        await self.discord_manager.announce(message, embed=embed)
+        return await self.discord_manager.announce(message, embed=embed, buttons=buttons)
 
 
 if __name__ == '__main__':

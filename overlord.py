@@ -7,6 +7,7 @@ import random
 import time
 import webbrowser
 
+import calendar
 import alembic.config
 from sqlalchemy import inspect
 from termcolor import colored
@@ -14,7 +15,7 @@ from termcolor import colored
 import config_server
 import config_server.forms
 import database
-from discord_manager import create_embed
+from utils import create_embed
 from scheduler import AsyncScheduler, AsyncTask
 from API import API
 from announcements import Announcement, AnnouncementDict
@@ -40,7 +41,6 @@ class Overlord:
         alembic.config.main(argv=alembic_extra_args + ['upgrade', 'head'])
 
         session = database.Session()
-        self.last_check = time.time()
         self.loop = loop
         if loop is None:
             self.loop = asyncio.get_event_loop()
@@ -65,6 +65,7 @@ class Overlord:
 
         self.stock_increase = []
         self.bankrupt_companies = []
+        self.event_companies = []
         self.owners_of_bankrupt_companies = set()
 
         self.names = {}
@@ -83,6 +84,9 @@ class Overlord:
 
         if self.iterate_right_away:
             self.last_check = 0
+        else:
+            self.last_check = time.time() - time.time() % 600
+
         self.started = asyncio.Event()
         if self.autostart:
             self.started.set()
@@ -151,14 +155,8 @@ class Overlord:
                 shares = session.query(database.Shares).filter_by(company_id=company.id)
                 for share in shares:
                     user = session.query(User).get(share.user_id)
-                    cost = user.passive_income(company=company, session=session)
-                    # cost = math.ceil(share.amount*company.stock_price)
-                    # user = session.query(User).get(share.user_id)
-                    # income_percent = 0.10
-                    # total_shares = sum(share.amount for share in user.shares if share.company_id == company.id)*company.stock_price
-                    # income_percent -= (total_shares/5_000)/100
-                    # cost = math.ceil(cost * max(income_percent, 0.01))
-                    await self.api.upgraded_add_points(user, cost, session)
+                    income = user.passive_income(company=company, session=session)
+                    await self.api.upgraded_add_points(user, income, session)
 
                 session.commit()
             else:
@@ -253,17 +251,33 @@ class Overlord:
             content = {company.abbv: company.price_and_price_diff for company in companies}
             embed = create_embed(title=f'{self.year_and_month}', content=content, footer=footer, color=EmbedColor.GREEN)
 
+            for company in self.event_companies:
+                embed.add_field(name=company.abbv,
+                                value=self.messages['company_released_product'].format(currency_name=self.currency_name,
+                                                                                       company_full_name=company.full_name,
+                                                                                       company_summary=company.announcement_description),
+                                inline=False)
+
             await self.api.announce(embed=embed)
 
+            self.event_companies.clear()
             self.stock_increase = False
         # self.api.send_chat_message(f"Companies: {session.query(Company).count()}/{self.max_companies} Rich: {self.rich}"
         #                            f", Poor: {self.poor}, Most Expensive Company: {self.most_expensive_company(session)}")
         if self.bankrupt_companies:
             random_comment = random.choice(self.bankrupt_companies_messages).format(currency_name=self.currency_name)
-            content = {company.abbv: company for company in self.bankrupt_companies}
-            embed = create_embed("The following companies bankrupt:", content=content, footer=random_comment, color=EmbedColor.RED)
+            footer = random_comment
+            mentions = "".join([user for user in self.owners_of_bankrupt_companies])
+            # footer = f'{random_comment} {mentions}'
+            # content = {company.abbv: company for company in self.bankrupt_companies}
+            # content = {company.abbv: company for company in self.bankrupt_companies}
+            embed = create_embed("The following companies bankrupt:", footer=footer,
+                                 color=EmbedColor.RED)
+            for company in self.bankrupt_companies:
+                for name, value in company.content_for_embed.items():
+                    embed.add_field(name=name, value=value)
 
-            await self.api.announce(embed=embed)
+            await self.api.announce(message=mentions, embed=embed)
             # await self.api.announce(f'The following companies bankrupt: {", ".join(self.bankrupt_companies)} '
             #                         f'{" ".join(self.owners_of_bankrupt_companies)} {random_comment if self.owners_of_bankrupt_companies else ""}')
             self.bankrupt_companies = []
@@ -308,10 +322,7 @@ class Overlord:
                     session = database.Session()
                     session.query(database.Settings).get('messages').value = json.dumps(self.messages)
                     session.commit()
-                await self.api.announce(
-                    self.messages['company_released_product'].format(currency_name=self.currency_name,
-                                                                     company_full_name=company.full_name,
-                                                                     company_summary=company.announcement_description))
+                self.event_companies.append(company)
 
     @staticmethod
     def get_companies_for_updates(session: database.Session):
@@ -362,9 +373,9 @@ class Overlord:
     @property
     def year_and_month(self):
         year = self.months // 12
-        month = self.months % 12
+        month = calendar.month_name[self.months % 12 + 1]
 
-        return f"{f'Year: {year}  ' if year else ''}Month: {month}"
+        return f"{f'Year: {year} │ ' if year else ''}Month: {month}"
 
     @staticmethod
     def display_credits():

@@ -1,10 +1,11 @@
 import discord
 from discord import Message
+from discord_slash.utils.manage_components import create_actionrow
 from termcolor import colored
 
 
 def create_discord_messenger(og_message: Message):
-    async def send_message(message: str = None, embed: discord.Embed = None, no_reply=True):
+    async def send_message(message: str = None, embed: discord.Embed = None, buttons=None, no_reply=True):
         if message is None and embed is None:
             return
         if message:
@@ -17,10 +18,15 @@ def create_discord_messenger(og_message: Message):
             print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
         if embed:
             print(f"{colored('Embed sent:', 'cyan')} {colored(embed.title, 'yellow')}")
+
+        kwargs = {}
+        if buttons:
+            kwargs['components'] = [create_actionrow(*buttons)]
         if no_reply:
-            await og_message.channel.send(message, embed=embed)
+            msg = await og_message.channel.send(message, embed=embed, **kwargs)
         else:
-            await og_message.reply(message, embed=embed)
+            msg = await og_message.reply(message, embed=embed, **kwargs)
+        return msg
 
     return send_message
 

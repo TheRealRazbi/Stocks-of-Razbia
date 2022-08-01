@@ -1,6 +1,7 @@
 import datetime
 from enum import Enum
 
+import discord
 from termcolor import colored
 
 
@@ -48,3 +49,18 @@ def wrap_time(message: str, milliseconds=True):
 
 def print_with_time(message: str, color: str = None, milliseconds=True):
     print(f"{wrap_time(colored(message, color) if color else message, milliseconds=milliseconds)}")
+
+
+def create_embed(title: str, content: dict = None, footer: str = None, author: str = None,
+                 color: EmbedColor = EmbedColor.GRAY):
+    embed = discord.Embed(title=title, color=color.value)
+    if author:
+        embed.set_author(name=author)
+
+    if content:
+        for key, value in content.items():
+            embed.add_field(name=f"{key}", value=f"{value}", inline=True)
+    if footer:
+        embed.set_footer(
+            text=footer)
+    return embed

@@ -4,6 +4,7 @@ from typing import Optional
 
 import aiohttp
 import discord
+from discord_slash.utils.manage_components import create_actionrow
 from termcolor import colored
 
 from database import User, AsyncSession, select, get_object_by_kwargs
@@ -25,17 +26,20 @@ class DiscordManager(discord.Client):
     async def on_ready(self):
         self.announce_channel = self.api.discord_manager.get_channel(1001891464621592668)
         print_with_time(f'Discord Bot connected as {green(self.user)}')
-        await self.change_presence(activity=discord.Game(name="!stocks"))
+        await self.change_presence(activity=discord.Game(name="!stocks for commands"))
         self.ready.set()
 
-    async def announce(self, message, embed: discord.Embed = None):
+    async def announce(self, message, embed: discord.Embed = None, buttons=()):
         await self.ready.wait()
         message = message.replace("|", "┇")
-        await self.announce_channel.send(message, embed=embed)
+        kwargs = {}
+        if buttons:
+            kwargs['components'] = [create_actionrow(*buttons)]
         if message:
             print(f"{colored('Message sent:', 'cyan')} {colored(message, 'yellow')}")
         if embed:
             print(f"{colored('Embed sent:', 'cyan')} {colored(embed.title, 'yellow')}")
+        return await self.announce_channel.send(message, embed=embed, **kwargs)
 
     async def on_message(self, message: discord.Message):
         if not message.content.startswith(self.prefix) or message.author == self.user:
@@ -93,22 +97,6 @@ class DiscordManager(discord.Client):
     async def start(self, *args, **kwargs):
         await self.api.started.wait()
         return await super(DiscordManager, self).start(*args, **kwargs)
-
-
-
-def create_embed(title: str, content: dict = None, footer: str = None, author: str = None,
-                 color: EmbedColor = EmbedColor.GRAY):
-    embed = discord.Embed(title=title, color=color.value)
-    if author:
-        embed.set_author(name=author)
-
-    if content:
-        for key, value in content.items():
-            embed.add_field(name=f"{key}", value=f"{value}", inline=True)
-    if footer:
-        embed.set_footer(
-            text=footer)
-    return embed
 
 
 if __name__ == '__main__':

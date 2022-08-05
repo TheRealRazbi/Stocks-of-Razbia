@@ -26,7 +26,12 @@ class User(Base):
     gain = Column(t.Integer, default=1)
     lost = Column(t.Integer, default=1)
     new = Column(t.Boolean, default=True)
+    local_points = Column(t.Integer, default=1000)
+    last_most_stocks_worth_checked = Column(t.Integer, default=0)
+    last_most_stocks_owned_checked = Column(t.Integer, default=0)
+    last_balance_checked = Column(t.Integer, default=0)
     last_worth_checked = Column(t.Integer, default=0)
+    last_income_checked = Column(t.Integer, default=0)
 
     shares = relationship("Shares", backref="user", passive_deletes=True)
 
@@ -41,15 +46,21 @@ class User(Base):
     def stocks_worth(self, session: database.Session) -> int:
         worth = 0
         shares = self.get_all_owned_stocks(session=session)
+        how_many = 0
         for share in shares:
             company = session.query(Company).get(share.company_id)
-            worth += math.ceil(share.amount*company.stock_price)
+            worth += math.ceil(share.amount * company.stock_price)
+            how_many += share.amount
+        self.last_most_stocks_worth_checked = worth
+        self.last_most_stocks_owned_checked = how_many
+        session.commit()
         return worth
 
     async def total_worth(self, api, session: database.Session) -> int:
         points = await self.points(api=api, session=session)
         worth = points + self.stocks_worth(session=session)
-
+        self.last_worth_checked = worth
+        session.commit()
         return worth
 
     async def points(self, api, session: database.Session) -> int:
@@ -57,24 +68,14 @@ class User(Base):
         if hasattr(api, 'fake_points'):
             return api.fake_points
         if api.use_local_points_instead:
-            with open("points.json", "r") as f:
-                points_db = json.load(f)
+            if self.local_points is None:
+                self.local_points = 1000
 
-            if self.name not in points_db:
-                points_db[self.name] = 1_000
-
-                # testers_without_twitch = ('swavyL',)
-                # testers_discord_ids = ('757834005390426222', '916526447521308712', '779363710505582654', '534388740966187038')
-                with open("points.json", "w") as f:
-                    json.dump(points_db, f)
-
-            points = points_db[self.name]
+            points = user.local_points
+            user.last_balance_checked = points
             user.last_worth_checked = points + user.stocks_worth(session=session)
             session.commit()
             return points
-
-            # if self.name in testers_without_twitch or self.discord_id in testers_discord_ids:
-            #     return 1_000_000
 
         if await api.tokens_ready:
             if api.currency_system == 'streamlabs':
@@ -86,6 +87,7 @@ class User(Base):
                 res = requests.get(url, params=querystring)
                 if res.status_code == 200:
                     points = res.json()["points"]
+                    user.last_balance_checked = points
                     user.last_worth_checked = points + user.stocks_worth(session=session)
                     session.commit()
                     return points
@@ -107,6 +109,7 @@ class User(Base):
                 res = requests.get(url, headers=headers)
                 if res.status_code == 200:
                     points = res.json()['points']
+                    user.last_balance_checked = points
                     user.last_worth_checked = points + user.stocks_worth(session=session)
                     session.commit()
                     return points
@@ -136,27 +139,38 @@ class User(Base):
         query = session.execute(query)
         return query.scalars().all()
 
-    async def profit_str(self, api, session: Session):
+    async def profit_str(self, api, session: Session) -> str:
         gain, lost = self.gain, self.lost
         gain += await self.total_worth(api=api, session=session)
-        profit = f'{gain - lost:+}'
-        symbol = '+'
-        try:
-            if lost > gain:
-                symbol = '-'
-                # gain, lost = lost, gain
-
-            gain, lost = abs(gain), abs(lost)
-            percentage_profit = f'{symbol}{abs((gain / lost) * 100 - 100):.0f}% ''of {currency_name} invested.'
-        except ZeroDivisionError:
-            percentage_profit = f'0%'
-        return profit, percentage_profit
+        profit = f'{gain - lost:+,}'
+        return profit
+        # symbol = '+'
+        # try:
+        #     if lost > gain:
+        #         symbol = '-'
+        #         # gain, lost = lost, gain
+        #
+        #     gain, lost = abs(gain), abs(lost)
+        #     percentage_profit = f'{symbol}{abs((gain / lost) * 100 - 100):.0f}% ''of {currency_name} invested.'
+        # except ZeroDivisionError:
+        #     percentage_profit = f'0%'
 
     def passive_income(self, company: Company, session: Session) -> int:
         if share := session.query(Shares).get((self.id, company.id)):
             value_of_stocks = math.ceil(share.amount * company.stock_price)
-            income_percent = 0.10 - (value_of_stocks / 5_000) / 100
-            return math.ceil(value_of_stocks * max(income_percent, 0.01))
+            income = 0
+            stacks_of_5k = value_of_stocks // 5000
+            left_overs = value_of_stocks % 5000
+            for cycle in range(stacks_of_5k):
+                income_percent = max(((10 - cycle) / 100), 0.01)
+                income += 5000 * income_percent
+
+            income += left_overs * max(((10 - stacks_of_5k) / 100), 0.01)
+
+            return math.ceil(income)
+
+            # income_percent = 0.10 - (value_of_stocks / 5_000) / 100
+            # return math.ceil(value_of_stocks * max(income_percent, 0.01))
         return 0
 
     def refresh(self, session: database.Session):
@@ -165,3 +179,14 @@ class User(Base):
     @property
     def discord_mention(self) -> str:
         return f'<@{self.discord_id}>'
+
+    def update_last_checked_income(self, session) -> None:
+        user = self.refresh(session=session)
+        total_income = 0
+        shares = user.get_all_owned_stocks(session)
+        for share in shares:
+            company = session.query(Company).get(share.company_id)
+            specific_income = user.passive_income(company, session)
+            total_income += specific_income
+        user.last_income_checked = total_income
+        session.commit()

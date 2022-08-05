@@ -1,8 +1,10 @@
 __all__ = ["StreamElementsTokenManager"]
 
+import asyncio
+
 import aiohttp
 
-from .abstract_token_manager import AbstractTokenManager
+from .abstract_token_manager import AbstractTokenManager, ServersDownException
 
 from datetime import timedelta
 
@@ -23,7 +25,7 @@ class StreamElementsTokenManager(AbstractTokenManager):
             await self.validate_token()
         return self.user_id
 
-    async def get_channel_name(self):
+    async def get_channel_name(self, attempt=5):
         if self.display_name:
             return self.display_name
 
@@ -35,6 +37,11 @@ class StreamElementsTokenManager(AbstractTokenManager):
                     self.display_name = (await res.json()).get('username')
                     return self.display_name
                 elif res.status == 500:
-                    raise ValueError("Streamelements servers are down. The program cannot recover from this state")
+                    if attempt > 0:
+                        attempt -= 1
+                        await asyncio.sleep(.2)
+                        return await self.get_channel_name(attempt=attempt)
+
+                    raise ServersDownException("Streamelements servers are down. The program cannot recover from this state")
                 else:
                     raise ValueError(f"Unhandled status code: {res.status} | {res.content}")

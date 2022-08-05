@@ -12,30 +12,44 @@ def _long_name(name, parent):
 
 
 class Command:
-    __slots__ = ("name", "long_name", "run", "args", "usage")
+    __slots__ = (
+        "name", "long_name", "run", "args", "usage", "available_on_twitch", "mandatory_arg_count", "unordered_args",
+        "arg_names",
+        "sequence_arg", "specific_arg_usage")
 
-    def __init__(self, func, name=None, usage="", parent=None):
+    def __init__(self, func, name=None, usage="", parent=None, available_on_twitch=False, unordered_args: bool = False,
+                 sequence_arg: str = None, specific_arg_usage: dict = None):
         name = name or func.__name__
         long_name = _long_name(name, parent)
         self.name = name
+        self.available_on_twitch = available_on_twitch
+        self.unordered_args = unordered_args
+        self.sequence_arg = sequence_arg
+        self.specific_arg_usage = {} if specific_arg_usage is None else specific_arg_usage
 
         self.long_name = long_name
         self.usage = f"{{name}} {usage}"
 
         self.run = func
         self.args = handle_annotations_args(func)
+        self.mandatory_arg_count = handle_mandatory_arg_count(self.args)
+        self.arg_names = handle_arg_names(func)
 
     def __call__(self, ctx, *args: str):
-        prepared_args = prepare_args(ctx, self, args)
+        prepared_args = prepare_args(ctx, self, args, self.mandatory_arg_count, self.unordered_args, self.arg_names,
+                                     self.sequence_arg)
+        if self.unordered_args:
+            return self.run(ctx, **prepared_args)
         return self.run(ctx, *prepared_args)
 
 
 class Group:
-    __slots__ = ("name", "long_name", "sub_commands")
+    __slots__ = ("name", "long_name", "sub_commands", "available_on_twitch")
 
-    def __init__(self, name=None, parent=None):
+    def __init__(self, name=None, parent=None, available_on_twitch=False):
         self.name = name
         self.long_name = _long_name(name, parent)
+        self.available_on_twitch = available_on_twitch
         self.sub_commands = {}
 
     async def __call__(self, ctx, *args):

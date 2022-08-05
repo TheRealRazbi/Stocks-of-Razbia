@@ -1,19 +1,20 @@
 import math
+from enum import Enum
 
+import discord
+from discord import ui
 from sqlalchemy import func
 
+import database
 from API import API
 
-from database import Company
+from database import Company, User
 import database as db
 from utils import create_embed
-from multi_arg import IntOrStrAll, CompanyOrIntOrAll
+from multi_arg import AllStr, Percent, StocksStr
 import commands as commands_
 import time
-from typing import Union
-from discord_slash.utils.manage_components import create_button, create_actionrow
-from discord_slash.model import ButtonStyle
-
+from typing import Optional
 from utils import EmbedColor
 
 
@@ -33,122 +34,146 @@ def register_commands(api: API):
 
         await ctx.send_message(f"All minigame-related chat commands: {', '.join(thing_to_display)}")
 
-    @api.command(usage="<company> <budget>")
-    async def buy(ctx, company: CompanyOrIntOrAll, amount: CompanyOrIntOrAll):
-        amount: Union[Company, int, 'all']
-        company: Union[Company, int, 'all']
-        if isinstance(company, Company) and not isinstance(amount, Company):
-            pass
-        elif not isinstance(company, Company) and isinstance(amount, Company):
-            company, amount = amount, company
-        elif isinstance(company, Company) and isinstance(amount, Company):
-            # await ctx.send_message(f"@{ctx.user.name} inputted 2 companies. You need to input a number and a company.")
-            await ctx.send_message(ctx.api.get_and_format(ctx, 'buy_or_sell_2_companies'))
-            return
-        elif not isinstance(company, Company) and not isinstance(amount, Company):
-            # await ctx.send_message(f"@{ctx.user.name} didn't input any company. You need to input a number and a company.")
-            await ctx.send_message(ctx.api.get_and_format(ctx, 'buy_or_sell_0_companies'))
-            return
+    @api.command(usage="<company> <budget>", unordered_args=True, sequence_arg='companies',
+                 specific_arg_usage={'amount': "Budget has to be either an integer, 'all' or a percentage like '50%'",
+                                     'companies': "Company has to exist and has to be a valid abbreviation like 'rzbi'"})
+    async def buy(ctx, companies: [Company], amount: [AllStr, int, Percent], shares: Optional[StocksStr] = None):
+        unsent_messages = []
+        old_send_message = ctx.send_message
+
+        async def buy_send_message(message):
+            unsent_messages.append(message)
+
+        async def send_everything():
+            await old_send_message('\n'.join(unsent_messages))
+
+        ctx.send_message = buy_send_message
 
         points = await ctx.user.points(ctx.api, ctx.session)
+
         if amount == 'all':
-            amount = math.floor(points / company.stock_price)
+            amount = math.floor(points)
             if amount == 0:
-                await ctx.send_message(f"{ctx.user.name} doesn't have enough points to buy even 1 stock.")
-        else:
-            amount = math.floor(amount / company.stock_price)
-
-        if share := ctx.session.query(db.Shares).get((ctx.user.id, company.id)):
-            stocks_till_100k = 100_000 - share.amount
-            if stocks_till_100k == 0:
-                await ctx.send_message(ctx.api.get_and_format(ctx, 'reached_stocks_limit', company_abbv=company.abbv))
+                message = f"@{ctx.user.name} doesn't have enough points to buy even 1 share. They have {points} points. "
+                one_share_is = f"1 share is {companies[0].stock_price:.0f} points" if len(companies) == 1 else ''
+                await ctx.send_message(message + one_share_is)
+                await send_everything()
                 return
-            amount = min(amount, stocks_till_100k)
-        else:
-            amount = min(amount, 100_000)
+        elif isinstance(amount, float) and 1 >= amount > 0:
+            amount = math.floor(points * amount)
 
-        if amount <= 0:
-            await ctx.send_message(ctx.api.get_and_format(ctx, 'budget_too_small', points=f'{points}',
-                                                          company_price=f'{company.stock_price:.1f}'))
-            return
+        amount_before_iteration = amount
+        for company in companies:
+            points = await ctx.user.points(ctx.api, ctx.session)
+            amount = amount_before_iteration / len(companies)
+            if not shares:
+                amount = math.floor(amount / company.stock_price)
 
-        cost = math.ceil(amount * company.stock_price)
-        if points >= cost:
-            if share:
-                share.amount += amount
+            if share := ctx.session.query(db.Shares).get((ctx.user.id, company.id)):
+                stocks_till_100k = 100_000 - share.amount
+                if stocks_till_100k == 0:
+                    await ctx.send_message(
+                        ctx.api.get_and_format(ctx, 'reached_stocks_limit', company_abbv=company.abbv))
+                    await send_everything()
+                    return
+                amount = min(amount, stocks_till_100k)
             else:
-                share = db.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount)
-                ctx.session.add(share)
-            company.increase_chance = max(50 - .001 * company.stocks_bought, 45)
-            ctx.session.commit()
-            await ctx.api.upgraded_add_points(ctx.user, -cost, ctx.session)
-            # await ctx.send_message(f"@{ctx.user.name} just bought {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}. "
-            #                           f"Now they gain {math.ceil(share.amount*company.stock_price*.1)} {ctx.api.overlord.currency_name} from {company.abbv} each 10 mins. ")
-            await ctx.send_message(ctx.api.get_and_format(ctx, 'buy_successful',
-                                                          amount=f'{amount:,}',
-                                                          company_abbv=company.abbv,
-                                                          company_full_name=company.full_name,
-                                                          cost=f'{cost:,}',
-                                                          passive_income=f'{ctx.user.passive_income(company, ctx.session):,}'))
+                amount = min(amount, 100_000)
 
-        else:
-            # await ctx.send_message(f"@{ctx.user.name} has {points:,} {ctx.api.overlord.currency_name} and requires {cost} aka {cost-points} more.")
-            await ctx.send_message(ctx.api.get_and_format(ctx, 'buy_not_enough_points',
-                                                          points=f'{points:,}',
-                                                          cost=f'{cost:,}',
-                                                          cost_minus_points=f'{cost - points:,}'))
-
-    @api.command(usage="<company> <amount>")
-    async def sell(ctx, company: CompanyOrIntOrAll, amount: CompanyOrIntOrAll):
-        if isinstance(company, Company) and not isinstance(amount, Company):
-            pass
-        elif not isinstance(company, Company) and isinstance(amount, Company):
-            company, amount = amount, company
-        elif isinstance(company, Company) and isinstance(amount, Company):
-            await ctx.send_message(f"@{ctx.user.name} You input 2 companies. you need to input a value and a company")
-            return
-        elif not isinstance(company, Company) and not isinstance(amount, Company):
-            await ctx.send_message(
-                f"@{ctx.user.name} You didn't input any company. you need to input a value and a company")
-            return
-
-        if amount != 'all':
-            amount = math.ceil(amount / company.stock_price)
-
-        share = ctx.session.query(db.Shares).get((ctx.user.id, company.id))
-        if amount == 'all' and share or share and share.amount >= amount:
-            if amount == 'all':
-                amount = share.amount
             if amount <= 0:
-                await ctx.send_message(ctx.api.get_and_format(ctx, 'number_too_small'))
+                if shares:
+                    await ctx.send_message(ctx.api.get_and_format(ctx, 'number_too_small', points=f'{points}',
+                                                                  company_price=f'{company.stock_price:.1f}'))
+                else:
+                    await ctx.send_message(ctx.api.get_and_format(ctx, 'budget_too_small', points=f'{points}',
+                                                                  company_price=f'{company.stock_price:.1f}'))
+                await send_everything()
                 return
-            cost = math.ceil(amount * company.stock_price)
 
-            await ctx.api.upgraded_add_points(ctx.user, cost, ctx.session)
-            share.amount -= amount
-            if share.amount == 0:
-                ctx.session.delete(share)
-            company.increase_chance = max(50 - .01 * company.stocks_bought, 45)
-            ctx.session.commit()
-            # await ctx.send_message(f"@{ctx.user.name} has sold {amount} stocks from [{company.abbv}] '{company.full_name}' for {cost} {ctx.api.overlord.currency_name}.")
-            await ctx.send_message(ctx.api.get_and_format(ctx, 'sell_successful',
-                                                          amount=f'{amount:,}',
-                                                          company_abbv=company.abbv,
-                                                          company_full_name=company.full_name,
-                                                          cost=f'{cost:,}'))
-        else:
-            if not share:
-                # message = f"@{ctx.user.name} doesn't have any stocks at company {company.abbv}."
-                message = ctx.api.get_and_format(ctx, 'sell_no_shares',
-                                                 company_abbv=company.abbv)
+            cost = math.ceil(amount * company.stock_price)
+            if points < cost:
+                amount = math.floor(points / company.stock_price)
+                if amount > 0:
+                    cost = math.ceil(amount * company.stock_price)
+
+            if points >= cost:
+                if share:
+                    share.amount += amount
+                else:
+                    share = db.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount)
+                    ctx.session.add(share)
+                company.increase_chance = max(50 - .0001 * company.stocks_bought, 45)
+                ctx.session.commit()
+                await ctx.api.upgraded_add_points(ctx.user, -cost, ctx.session)
+                await ctx.send_message(ctx.api.get_and_format(ctx, 'buy_successful',
+                                                              amount=f'{amount:,}',
+                                                              company_abbv=company.abbv,
+                                                              company_full_name=company.full_name,
+                                                              cost=f'{cost:,}',
+                                                              passive_income=f'{ctx.user.passive_income(company, ctx.session):,}'))
+
             else:
-                # message = f"@{ctx.user.name} doesn't have {amount} stocks at company {company.abbv} to sell them. "\
-                #           f"They have only {share.amount} stock{'s' if share.amount != 1 else ''}."
-                message = ctx.api.get_and_format(ctx, 'sell_not_enough_shares',
-                                                 company_abbv=company.abbv,
-                                                 needed_amount=f'{math.floor(share.amount * company.stock_price):,}',
-                                                 amount=f'{amount:,}')
-            await ctx.send_message(message)
+                await ctx.send_message(ctx.api.get_and_format(ctx, 'buy_not_enough_points',
+                                                              points=f'{points:,}',
+                                                              cost=f'{cost:,}',
+                                                              cost_minus_points=f'{cost - points:,}'))
+        await send_everything()
+
+    @api.command(usage="<company> <budget>", unordered_args=True, sequence_arg='companies',
+                 specific_arg_usage={'amount': "Budget has to be either an integer, 'all' or a percentage like '50%'",
+                                     'companies': "Company has to exist and has to be a valid abbreviation like 'rzbi'"})
+    async def sell(ctx, companies: [Company], amount: [int, AllStr, Percent], use_shares: Optional[StocksStr] = None):
+        amount_before_iteration = amount
+        unsent_messages = []
+        old_send_message = ctx.send_message
+
+        async def buy_send_message(message):
+            unsent_messages.append(message)
+
+        async def send_everything():
+            await old_send_message('\n'.join(unsent_messages))
+
+        ctx.send_message = buy_send_message
+        for company in companies:
+            amount = amount_before_iteration
+
+            if isinstance(amount, int) and not use_shares:
+                amount = math.ceil(amount / company.stock_price)
+
+            share = ctx.session.query(db.Shares).get((ctx.user.id, company.id))
+            if isinstance(amount, float):
+                amount = math.floor(share.amount * amount)
+            if amount == 'all' and share or share:
+                if amount == 'all' or amount >= share.amount:
+                    amount = share.amount
+                if amount <= 0:
+                    await ctx.send_message(ctx.api.get_and_format(ctx, 'number_too_small'))
+                    await send_everything()
+                    return
+                cost = math.ceil(amount * company.stock_price)
+
+                await ctx.api.upgraded_add_points(ctx.user, cost, ctx.session)
+                share.amount -= amount
+                if share.amount == 0:
+                    ctx.session.delete(share)
+                company.increase_chance = max(50 - .0001 * company.stocks_bought, 45)
+                ctx.session.commit()
+                await ctx.send_message(ctx.api.get_and_format(ctx, 'sell_successful',
+                                                              amount=f'{amount:,.0f}',
+                                                              company_abbv=company.abbv,
+                                                              company_full_name=company.full_name,
+                                                              cost=f'{cost:,}'))
+            else:
+                if not share:
+                    message = ctx.api.get_and_format(ctx, 'sell_no_shares',
+                                                     company_abbv=company.abbv)
+                else:
+                    message = ctx.api.get_and_format(ctx, 'sell_not_enough_shares',
+                                                     company_abbv=company.abbv,
+                                                     needed_amount=f'{math.floor(share.amount * company.stock_price):,}',
+                                                     amount=f'{amount:,}')
+                await ctx.send_message(message)
+        await send_everything()
 
     @api.command()
     async def sellall(ctx):
@@ -163,6 +188,7 @@ def register_commands(api: API):
             total_outcome += math.ceil(share.amount * company_.stock_price)
             list_of_all_sells.append(f'{company_.abbv}: {share.amount:,}')
             ctx.session.delete(share)
+            company_.increase_chance = max(50 - .001 * company_.stocks_bought, 45)
         await ctx.api.upgraded_add_points(ctx.user, total_outcome, ctx.session)
         ctx.session.commit()
         list_of_all_sells = ", ".join(list_of_all_sells)
@@ -219,36 +245,143 @@ def register_commands(api: API):
 
     @api.command()
     async def leaderboard(ctx):  # TODO make it appear discord name instead of twitch name
-        await show_top(ctx, amount=5)
+        if ctx.discord_message:
+            await show_top(ctx, amount=5)
 
     @api.command()
-    async def top(ctx, amount):
-        await show_top(ctx, amount)
+    async def refresh_leaderboard(ctx):
+        if ctx.user.discord_id == '241244277382971399':
+            ctx.api.discord_manager.cached_usernames.clear()
+            users = ctx.session.query(database.User).all()
+            for user in users:
+                await user.points(ctx.api, ctx.session)
+                user.update_last_checked_income(ctx.session)
+            await ctx.send_message("Refreshed leaderboard")
+        else:
+            await ctx.send_message("Only Razbi can use this command")
 
-    async def show_top(ctx, amount):
+    @api.command()
+    async def top(ctx, amount: int):
+        if ctx.discord_message:
+            await show_top(ctx, amount=amount)
+
+    class PossibleLeaderboards(Enum):
+        NET_WORTH = {"order_by": 'last_worth_checked', "color": EmbedColor.RED, 'title': "Leaderboard Net Worth",
+                     "message_after_value": 'net worth'}
+        BALANCE = {"order_by": 'last_balance_checked', "color": EmbedColor.GREEN, 'title': "Leaderboard Balance",
+                   "message_after_value": 'points'}
+        MOST_STOCKS_OWNED = {"order_by": 'last_most_stocks_owned_checked', "color": EmbedColor.BLUE,
+                             'title': "Leaderboard Most Stocks Owned", "message_after_value": 'stocks owned'}
+        MOST_STOCKS_WORTH = {"order_by": 'last_most_stocks_worth_checked', "color": EmbedColor.GRAY,
+                             'title': "Leaderboard Most Stocks Worth", "message_after_value": 'stocks worth'}
+        INCOME = {"order_by": "last_income_checked", "color": EmbedColor.GRAY, "title": "Leaderboard Income",
+                  "message_after_value": "income"}
+
+    async def get_leaderboard_embed(ctx, amount,
+                                    leaderboard_type: PossibleLeaderboards = PossibleLeaderboards.NET_WORTH):
         amount = min(abs(amount), 20)
         if amount == 0:
             # await ctx.send_message("")
             return
-        users = ctx.session.query(db.User).order_by(db.User.last_worth_checked.desc()).limit(amount).all()
-        embed = create_embed(title="Leaderboard Net Worth", color=EmbedColor.BLUE)
+        users = ctx.session.query(db.User).order_by(getattr(db.User, leaderboard_type.value['order_by']).desc()).limit(
+            amount).all()
+        usernames = {}
         for user in users:
+            usernames[user.name] = ctx.api.discord_manager.get_user(int(user.discord_id))
+
+        embed = create_embed(title=leaderboard_type.value['title'], color=leaderboard_type.value['color'])
+        # print("Embed before adding fields")
+        for index, user in enumerate(users):
             # embed.add_field(name=user.name, value=await user.total_worth(ctx.api, ctx.session), inline=False)
-            embed.add_field(name=user.name, value=user.last_worth_checked, inline=False)
+            value = getattr(user, leaderboard_type.value['order_by'])
+            if isinstance(value, int):
+                value = f'{value:,} {leaderboard_type.value["message_after_value"]}'
+                name = f'{usernames[user.name]} {"🥇" if index == 0 else ""}'
 
+                embed.add_field(name=name, value=value, inline=False)
+
+        # print("Embed for leaderboard ready")
         # content = {user.name: await user.total_worth(ctx.api, ctx.session) for user in users}
-        msg = await ctx.send_message(embed=embed)
-        buttons = [
-            create_button(style=ButtonStyle.green, label="Net Worth"),
+        return embed
 
-        ]
+    class LeaderboardView(ui.View):
+        def __init__(self, ctx, amount):
+            super(LeaderboardView, self).__init__()
+            self.last_button_pressed = None
+            self.amount = amount
+            self.ctx = ctx
+
+        async def update_embed(self, button_instance, interaction, leaderboard_type: PossibleLeaderboards):
+            for button in self.children:
+                if button.disabled:
+                    button.disabled = False
+            button_instance.disabled = True
+            self.last_button_pressed = button_instance
+            embed_ = await get_leaderboard_embed(self.ctx, self.amount, leaderboard_type=leaderboard_type)
+            await interaction.response.edit_message(embed=embed_, view=self)
+
+        @ui.button(label="Net Worth", style=discord.ButtonStyle.red, disabled=True)
+        async def net_worth(self, interaction, button):
+            await self.update_embed(button_instance=button, interaction=interaction,
+                                    leaderboard_type=PossibleLeaderboards.NET_WORTH)
+
+        @ui.button(label='Balance', style=discord.ButtonStyle.green)
+        async def balance(self, interaction, button):
+            await self.update_embed(button_instance=button, interaction=interaction,
+                                    leaderboard_type=PossibleLeaderboards.BALANCE)
+
+        @ui.button(label="Most Stocks Owned", style=discord.ButtonStyle.blurple)
+        async def most_stocks_owned(self, interaction, button):
+            await self.update_embed(button_instance=button, interaction=interaction,
+                                    leaderboard_type=PossibleLeaderboards.MOST_STOCKS_OWNED)
+
+        @ui.button(label="Most Stocks Worth", style=discord.ButtonStyle.gray)
+        async def most_stocks_worth(self, interaction, button):
+            await self.update_embed(button_instance=button, interaction=interaction,
+                                    leaderboard_type=PossibleLeaderboards.MOST_STOCKS_WORTH)
+
+        @ui.button(label="Income", style=discord.ButtonStyle.gray)
+        async def income(self, interaction, button):
+            await self.update_embed(button_instance=button, interaction=interaction,
+                                    leaderboard_type=PossibleLeaderboards.INCOME)
+
+        # @ui.button(label=' ', disabled=True)
+        # async def anti_ocd_button(self, interaction, button):
+        #     pass
+
+        @ui.button(label='', style=discord.ButtonStyle.gray, emoji='➕')
+        async def plus_one(self, interaction, button):
+            if self.amount < 10:
+                self.amount += 1
+                if self.last_button_pressed is None:
+                    await self.net_worth.callback(interaction)
+                else:
+                    await self.last_button_pressed.callback(interaction)
+            else:
+                await interaction.response.edit_message()
+
+        @ui.button(label='', style=discord.ButtonStyle.gray, emoji='➖')
+        async def minus_one(self, interaction, button):
+            if self.amount > 1:
+                self.amount -= 1
+                if self.last_button_pressed is None:
+                    await self.net_worth.callback(interaction)
+                else:
+                    await self.last_button_pressed.callback(interaction)
+            else:
+                await interaction.response.edit_message()
+
+    async def show_top(ctx, amount: int):
+        embed = await get_leaderboard_embed(ctx, amount=amount)
+        view = LeaderboardView(ctx=ctx, amount=amount)
+        await ctx.send_message(embed=embed, view=view)
 
     @my.command()
     async def points(ctx):
         stocks_worth = ctx.user.stocks_worth(session=ctx.session)
         points_ = await ctx.user.points(api=ctx.api, session=ctx.session)
-        message = f"@{ctx.user.name} currently has {points_} ""{currency_name} and owns "f"stocks worth {stocks_worth} ""{currency_name}. " \
-                  f"Total: {points_ + stocks_worth}"
+        message = f"@{ctx.user.name} currently has {points_:,} ""{currency_name} and owns "f"stocks worth {stocks_worth:,} ""{currency_name}. " \
+                  f"Total: {points_ + stocks_worth:,}"" {currency_name}"
         await ctx.send_message(message.format(currency_name=ctx.api.overlord.currency_name))
 
     @my.command()
@@ -284,7 +417,8 @@ def register_commands(api: API):
     @my.command()
     async def profit(ctx):
         profit_str = await ctx.user.profit_str(ctx.api, ctx.session)
-        profit_ = f"@{ctx.user.name} Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1].format(currency_name=ctx.api.overlord.currency_name)}"
+        # profit_ = f"@{ctx.user.name} Profit: {profit_str[0]} {ctx.api.overlord.currency_name} | Profit Percentage: {profit_str[1].format(currency_name=ctx.api.overlord.currency_name)}"
+        profit_ = f"@{ctx.user.name} Profit: {profit_str} {ctx.api.overlord.currency_name}"
         await ctx.send_message(profit_)
 
     @my.command()
@@ -299,43 +433,67 @@ def register_commands(api: API):
                 total_income += specific_income
                 res.append(f"{company.abbv}: {math.ceil(specific_income):,}")
 
+            ctx.user.last_income_checked = total_income
+            ctx.session.commit()
             await ctx.send_message(
                 f'@{ctx.user.name} {", ".join(res)} | Total: {total_income:,} {ctx.api.overlord.currency_name} per 10 mins.')
         else:
+            ctx.user.last_income_checked = 0
+            ctx.session.commit()
             # await ctx.send_message(f"@{ctx.user.name} doesn't own any shares. Use '!buy' to buy some.")
             await ctx.send_message(ctx.api.get_and_format(ctx, 'no_shares'))
 
     @my.command()
-    async def stats(ctx):
+    async def stats(ctx, user: Optional[User] = None):
         if ctx.discord_message:
+            if user is None:
+                user = ctx.user
+                author_name = ctx.discord_message.author.name
+            else:
+                user = user.refresh(session=ctx.session)
+                author_name = ctx.api.discord_manager.get_user(int(user.discord_id)).name
+
             footer = None
-            if ctx.user.discord_id == '299225310556061696':
+            if user.discord_id == '299225310556061696':
                 footer = 'No refunding kidneys'
-            embed = create_embed(f"{ctx.discord_message.author.name}'s Stats", footer=footer)
-            embed.add_field(name=f'{"Shares":=^30}', value='⠀', inline=False)
-            shares = ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id).all()
+            embed = create_embed(f"{author_name}'s Stats", footer=footer)
+            embed.add_field(name=f'{" Shares ":=^30}', value='⠀', inline=False)
+            shares = ctx.session.query(db.Shares).filter_by(user_id=user.id).all()
             total_income = 0
+            total_shares = 0
+            stocks_worth = 0
             if shares:
                 for share in shares:
                     company = ctx.session.query(Company).get(share.company_id)
                     embed.add_field(name=f'{company.announcement_description}',
-                                    value=f'{share.amount} shares │ {company.stock_price:.0f} points per share',
+                                    value=f'{share.amount:,} shares │ {company.stock_price:.0f} points per share',
                                     inline=True)
+                    total_shares += share.amount
+                stocks_worth = ctx.user.stocks_worth(session=ctx.session)
+                embed.add_field(name="Total Shares",
+                                value=f'{total_shares:,} shares worth {stocks_worth:,} points')
 
-                embed.add_field(name=f"{'Income':=^30}", value='⠀', inline=False)
+                embed.add_field(name=f"{' Income ':=^30}", value='⠀', inline=False)
                 for share in shares:
                     company = ctx.session.query(Company).get(share.company_id)
-                    specific_income = ctx.user.passive_income(company, ctx.session)
+                    specific_income = user.passive_income(company, ctx.session)
                     total_income += specific_income
                     embed.add_field(name=f"{company.abbv}", value=f"{math.ceil(specific_income):,}")
-
+                embed.add_field(name="Total Income", value=f'{total_income:,} points per 10 mins')
+                points = await ctx.user.points(api=ctx.api, session=ctx.session)
+                user.last_income_checked = total_income
+                ctx.session.commit()
             else:
+                ctx.user.last_income_checked = 0
+                ctx.session.commit()
                 embed.add_field(name='⠀', value="Doesn't have any shares", inline=True)
 
-            raw_profit, percentage_profit = await ctx.user.profit_str(ctx.api, session=ctx.session)
-            embed.add_field(name=f"{'Profit':=^30}", value=f'{raw_profit} points', inline=False)
-            embed.add_field(name='Profit Percentage',
-                            value=f'{percentage_profit.format(currency_name=ctx.api.overlord.currency_name)}')
+            embed.add_field(name="Balance", value=f'{points:,} points')
+            embed.add_field(name="Net Worth", value=f'{points + stocks_worth:,} points')
+            raw_profit = await user.profit_str(ctx.api, session=ctx.session)
+            embed.add_field(name=f"Profit", value=f'{raw_profit} points', inline=False)
+            # embed.add_field(name='Profit Percentage',
+            #                 value=f'{percentage_profit.format(currency_name=ctx.api.overlord.currency_name)}')
             # 'Profit: {raw_profit} {currency_name} | Profit Percentage: {percentage_profit}'
             await ctx.send_message(embed=embed)
 
@@ -383,9 +541,10 @@ def register_commands(api: API):
                                                           list_of_shares=list_of_shares,
                                                           list_of_income=list_of_income,
                                                           total_income=total_income,
-                                                          raw_profit=profit_str[0],
-                                                          percentage_profit=profit_str[1].format(
-                                                              currency_name=ctx.api.overlord.currency_name)))
+                                                          raw_profit=profit_str,
+                                                          # percentage_profit=profit_str[1].format(
+                                                          #     currency_name=ctx.api.overlord.currency_name))
+                                                          ))
 
     @next.command()
     async def month(ctx):
@@ -398,11 +557,11 @@ def register_commands(api: API):
         time_since_last_run = time.time() - ctx.api.overlord.last_check
         time_till_next_run = ctx.api.overlord.iterate_cooldown - time_since_last_run
         time_till_next_event = time_till_next_run + \
-                               (4 - ctx.api.overlord.months % 4) * ctx.api.overlord.iterate_cooldown
+                               ((4 - ctx.api.overlord.months % 4) - 1) * ctx.api.overlord.iterate_cooldown
         await ctx.send_message(f'The next event starts in {time_till_next_event // 60:.0f} minutes')
 
     @api.command(usage='<budget>')
-    async def autoinvest(ctx, budget: IntOrStrAll):
+    async def autoinvest(ctx, budget: [int, AllStr]):
         user_points = await ctx.user.points(ctx.api, ctx.session)
         if budget == 'all':
             budget = user_points
@@ -416,14 +575,8 @@ def register_commands(api: API):
             ).order_by(func.random()).first()
 
             if chosen_company:
-                # stocks_to_buy = math.floor(budget / chosen_company.stock_price)
-                # if stocks_to_buy <= 0:
-                #     # await ctx.send_message(f"@{ctx.user.name} too small budget. No stocks bought.")
-                #     await ctx.send_message(ctx.api.get_and_format(ctx, 'autoinvest_budget_too_small_for_companies'))
-                #     return
-                await buy.run(ctx, budget, chosen_company)
+                await buy.run(ctx, companies=[chosen_company], amount=budget)
             else:
-                # await ctx.send_message(f"@{ctx.user.name} too small budget. No stocks bought.")
                 total_shares = 0
                 for share in ctx.user.shares:
                     total_shares += share.amount
@@ -442,6 +595,12 @@ def register_commands(api: API):
         # await ctx.send_message(f"@{ctx.user.name} This minigame is open-source and it was made by Razbi and Nesami. Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia")
         await ctx.send_message(f'@{ctx.user.name} This minigame is open-source and it was made by Razbi and Nesami. '
                                'Github link: https://github.com/TheRealRazbi/Stocks-of-Razbia')
+
+    @api.command()
+    async def test(ctx):
+        if ctx.discord_message.author.id != 241244277382971399:
+            return
+        await ctx.send_message("Running")
 
 
 if __name__ == '__main__':

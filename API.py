@@ -1,5 +1,4 @@
 import ast
-import json
 from typing import Union, Dict
 import requests
 import pickle
@@ -100,6 +99,7 @@ class API:
 
     async def run_command(self, text_without_prefix, user_id: str = None, username: str = None,
                           discord_message: discord.Message = None):
+        text_without_prefix = text_without_prefix.lower()
         old_command_name, *args = text_without_prefix.split()
         command_name = self.command_names.get((old_command_name, None), old_command_name)
         command_name, _, group_name = command_name.partition(" ")
@@ -109,11 +109,19 @@ class API:
             session = database.Session()
             ctx = await self.create_context(session, user_id=user_id, username=username,
                                             discord_message=discord_message)
+            command = self.commands[command_name]
             try:
+                if not command.available_on_twitch and not ctx.discord_message:
+                    print_with_time(f"Command {command} not available on twitch chat")
+                    return
+                await command(ctx, *args)
                 # noinspection PyTypeChecker
-                await self.commands[command_name](ctx, *args)
             except commands.BadArgumentCount as e:
                 await ctx.send_message(f'@{ctx.user.name} Usage: {self.prefix}{e.usage(name=old_command_name)}')
+            except commands.ProperArgumentNotProvided as e:
+                if e.arg_name in command.specific_arg_usage:
+                    await ctx.send_message(command.specific_arg_usage[e.arg_name])
+
             except commands.CommandError as e:
                 await ctx.send_message(e.msg)
             session.close()
@@ -186,20 +194,6 @@ class API:
 
     async def add_points(self, user: str, amount: int):
         await self.tokens_ready
-        if self.use_local_points_instead:
-            with open("points.json", "r") as f:
-                points_db = json.load(f)
-
-            if user not in points_db:
-                points_db[user] = 10_000
-
-            points_db[user] += amount
-            # testers_without_twitch = ('swavyL',)
-            # testers_discord_ids = ('757834005390426222', '916526447521308712', '779363710505582654', '534388740966187038')
-            with open("points.json", "w") as f:
-                json.dump(points_db, f)
-            points = points_db[user]
-            return points
 
         if await self.tokens_ready:
             if self.currency_system == 'streamlabs':
@@ -248,10 +242,16 @@ class API:
         elif amount < 0:
             user.lost -= amount
         # old_last_points = user.last_points_checked
-        user.last_worth_checked += amount
+        if self.use_local_points_instead:
+            points = await user.points(api=self, session=session)
+            user.local_points = points + amount
+            session.commit()
+        else:
+            await self.add_points(user.name, amount)
+        user.update_last_checked_income(session=session)
+        await user.total_worth(self, session=session)  # update total worth by checking it
         # print(user.last_points_checked, old_last_points)
         session.commit()
-        await self.add_points(user.name, amount)
 
     def command(self, **kwargs):
         return commands.command(registry=self.commands, **kwargs)
@@ -357,9 +357,9 @@ class API:
     def stream_elements_key(self):
         return self.token_manager.currency_system_manager.token
 
-    async def announce(self, message: str = '', embed: discord.Embed = None, buttons=()):
+    async def announce(self, message: str = '', embed: discord.Embed = None, **kwargs):
         """Announces a message on the pre-specified text channel on discord"""
-        return await self.discord_manager.announce(message, embed=embed, buttons=buttons)
+        return await self.discord_manager.announce(message, embed=embed, **kwargs)
 
 
 if __name__ == '__main__':

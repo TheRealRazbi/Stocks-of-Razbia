@@ -1,11 +1,11 @@
 __all__ = ["Converter", "registered_converters",
            "register_converter", "create_basic_converter"]
 
-from typing import runtime_checkable, Protocol, Type, Optional, Sequence
+from typing import runtime_checkable, Protocol, Type, Optional
 
 from . import exc
-from database import Company
-from multi_arg import IntOrStrAll, CompanyOrIntOrAll, CompanyOrInt
+from database import Company, User
+from multi_arg import IntOrStrAll, CompanyOrIntOrAll, CompanyOrInt, Percent, StocksStr, AllStr
 
 registered_converters = {}
 
@@ -69,9 +69,28 @@ class IntOrAllConverter(Converter):
             ) from e
         return arg
 
-        # if company is None:
-        #     raise exc.CompanyNotFound(arg.lower())
-        # return company
+
+class SpecificStringConverter(Converter):
+    strings_to_check = ()
+
+    @classmethod
+    def convert(cls, ctx, arg: str):
+        arg = arg.lower()
+        for string in cls.strings_to_check:
+            if arg == string:
+                return arg
+        raise exc.ConversionError(
+            arg,
+            msg_format='{value} needs to be'f" one of these {(f'{thing}' for thing in cls.strings_to_check)}"
+        )
+
+
+class AllConverter(SpecificStringConverter):
+    strings_to_check = ('all', )
+
+
+class StocksConverter(SpecificStringConverter):
+    strings_to_check = ('stocks', 'shares', 'stonks')
 
 
 class CompanyOrAllStr(Converter):
@@ -108,6 +127,44 @@ class CompanyOrIntConverter(Converter):
         return company
 
 
+class PercentConverter(Converter):
+    @classmethod
+    def convert(cls, ctx, arg: str):
+        res = None
+        if arg.endswith('%'):
+            number_str, _, _ = arg.partition('%')
+            try:
+                raw_number = float(number_str)
+            except ValueError:
+                pass
+            else:
+                if raw_number <= 0:
+                    raise exc.ConversionError(f"{arg} is lower or equal to 0")
+                elif raw_number > 100:
+                    raise exc.ConversionError(f"{arg} is above 100")
+                res = raw_number / 100
+
+        if res is None:
+            raise exc.ConversionError(f"{arg} is not a valid percent, like '40%'")
+        return res
+
+
+class UserConverter(Converter):
+    @classmethod
+    def convert(cls, ctx, arg: str):
+        if ctx.discord_message is None:
+            raise exc.ConversionError("Command works only on discord.")
+        user = None
+        mentions = ctx.discord_message.mentions
+        if len(mentions):
+            user_id = mentions[0].id
+            user = ctx.session.query(User).filter_by(discord_id=user_id).first()
+
+        if user is None:
+            raise exc.ConversionError(f"User '{arg}' not found.")
+        return user
+
+
 IntConverter = create_basic_converter(
     "IntConverter", int,
     msg="{value} is not a valid integer"
@@ -120,3 +177,7 @@ register_converter(CompanyConverter, Company)
 register_converter(IntOrAllConverter, IntOrStrAll)
 register_converter(CompanyOrAllStr, CompanyOrIntOrAll)
 register_converter(CompanyOrIntConverter, CompanyOrInt)
+register_converter(PercentConverter, Percent)
+register_converter(UserConverter, User)
+register_converter(StocksConverter, StocksStr)
+register_converter(AllConverter, AllStr)

@@ -15,13 +15,13 @@ from termcolor import colored
 import config_server
 import config_server.forms
 import database
-from utils import create_embed
+from utils import create_embed, print_with_time
 from scheduler import AsyncScheduler, AsyncTask
 from API import API
 from announcements import Announcement, AnnouncementDict
 from bot_commands import register_commands
 from company_names import load_default_names
-from customizable_stuff import load_message_templates, load_announcements
+from customizable_stuff import load_message_templates, load_announcements, load_hints
 from database import User, Company
 from more_tools import CachedProperty
 from utils import EmbedColor
@@ -54,6 +54,7 @@ class Overlord:
                                        "Glory to Arstotzka, wait..., wrong game", "buy buy buy"]
         self.bankrupt_companies_messages = ['Feelsbadman', 'just invest better Kappa',
                                             'imagine losing {currency_name} to those Kappa', 'this is fine monkaS']
+        self.hints = load_hints()
         self.max_companies = 7
         self.max_companies_at_a_time = 2
         self.spawn_ranges = {
@@ -157,7 +158,6 @@ class Overlord:
                     user = session.query(User).get(share.user_id)
                     income = user.passive_income(company=company, session=session)
                     await self.api.upgraded_add_points(user, income, session)
-
                 session.commit()
             else:
                 if not company.abbv == 'DFLT':
@@ -248,10 +248,13 @@ class Overlord:
 
             time_send_at = datetime.datetime.now().strftime('%H:%M')
             footer = f'Sent at {time_send_at}'
+            if random.randint(1, 10) == 1:
+                footer = random.choice(self.hints)
             content = {company.abbv: company.price_and_price_diff for company in companies}
             embed = create_embed(title=f'{self.year_and_month}', content=content, footer=footer, color=EmbedColor.GREEN)
 
             for company in self.event_companies:
+                print_with_time(f"New Company Event: {company.abbv}")
                 embed.add_field(name=company.abbv,
                                 value=self.messages['company_released_product'].format(currency_name=self.currency_name,
                                                                                        company_full_name=company.full_name,
@@ -275,7 +278,7 @@ class Overlord:
                                  color=EmbedColor.RED)
             for company in self.bankrupt_companies:
                 for name, value in company.content_for_embed.items():
-                    embed.add_field(name=name, value=value)
+                    embed.add_field(name=name, value=value, inline=False if name == 'Name' else True)
 
             await self.api.announce(message=mentions, embed=embed)
             # await self.api.announce(f'The following companies bankrupt: {", ".join(self.bankrupt_companies)} '
@@ -299,9 +302,10 @@ class Overlord:
             for company in companies:
                 if company.event_months_remaining is None:
                     company.event_months_remaining = 0
-                if company.stock_price > 10000 and company.event_months_remaining <= 0:
+                if company.stock_price > 10_000 and company.event_months_remaining <= 0:
                     company.event_increase = random.randint(-25, -10)
                     company.event_months_remaining = 3
+                    company.max_increase = .5
                 if len(company_candidates) < 2 and company.stock_price < 1000:
                     company_candidates.append(company)
                 else:
@@ -312,8 +316,8 @@ class Overlord:
 
             if company_candidates:
                 company = random.choice(company_candidates)
-                company.event_increase = random.randint(5, 20)
-                company.event_months_remaining = random.randint(2, 3)
+                company.event_increase = 30
+                company.event_months_remaining = 3
                 session.commit()
                 # tip = random.choice([f"{self.messages['stocks_alias']} price it's likely to increase", "Buy Buy Buy", "Time to invest"])
                 # self.api.send_chat_message(f"{company.full_name} just released a new product. {tip}.")

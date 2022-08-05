@@ -9,6 +9,7 @@ class CurrencySystem(Enum):
     STREAMLABS = 'streamlabs'
     STREAM_ELEMENTS = 'stream_elements'
     STREAMLABS_LOCAL = 'streamlabs_local'
+    # LOCAL_POINTS =
 
 
 class EmbedColor(Enum):
@@ -16,6 +17,7 @@ class EmbedColor(Enum):
     RED = 0xba3b4e
     GRAY = 0x404040
     BLUE = 0x6791e4
+    PURPLE = 0x894eb1
 
 
 def generate_colored_function(color):
@@ -64,3 +66,35 @@ def create_embed(title: str, content: dict = None, footer: str = None, author: s
         embed.set_footer(
             text=footer)
     return embed
+
+
+if __name__ == '__main__':
+    import math
+
+
+    def income(value_of_stocks):
+        income = 0
+        stacks_of_5k = value_of_stocks // 5000
+        left_overs = value_of_stocks % 5000
+        for cycle in range(stacks_of_5k):
+            income_percent = max(((10 - cycle) / 100), 0.01)
+            income += 5000 * income_percent
+
+        income += left_overs * max(((10 - stacks_of_5k) / 100), 0.01)
+
+        return math.ceil(income)
+
+
+    def main():
+        # for value_of_stocks in range(1_000_000, 101_000_000, 1_000_000):
+        while True:
+            try:
+                value_of_stocks = int(input("Value Of Stocks: "))
+            except ValueError:
+                print("Quit")
+                break
+            else:
+                print(f'{value_of_stocks:,} worth = {income(value_of_stocks):,} points')
+
+
+    main()

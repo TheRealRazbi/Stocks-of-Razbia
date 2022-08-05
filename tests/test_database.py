@@ -1,14 +1,8 @@
 import aiounittest
-from sqlalchemy import create_engine
 
-import database
+from tests.test_utils import create_test_database
 
 
 class AbstractAsyncTestDatabase(aiounittest.AsyncTestCase):
     def setUp(self) -> None:
-        engine = create_engine('sqlite:///:memory:')
-        database.Session.configure(bind=engine)
-        database.Base.metadata.bind = engine
-        database.Base.metadata.create_all()
-        self.session = database.Session()
-
+        self.session = create_test_database()

@@ -30,7 +30,7 @@ message_templates = {
     'my_stats': '@{user_name} '
                 'Shares: {list_of_shares} ||| '
                 'Income: {list_of_income} | Total Income: {total_income} {currency_name} per 10 mins ||| '
-                'Profit: {raw_profit} {currency_name} | Profit Percentage: {percentage_profit}',
+                'Profit: {raw_profit} {currency_name}',
     'autoinvest_budget_too_small_for_companies': '@{user_name} too small budget. No {stocks_alias} bought.',
     'autoinvest_budget_too_small_for_available_points': '@{user_name} you need {budget} {currency_name}, '
                                                         'aka you need {budget_points_difference} more.',
@@ -84,7 +84,7 @@ announcements = \
                 },
                 {
                     'name': 'help_tip',
-                    'contents': "Here are some commands to help you do that | " 
+                    'contents': "Here are some commands to help you do that | "
                                 "Maybe through these? | "
                                 "I wonder what are these for | Commands | Turtles",
                     'randomize_from': True
@@ -110,10 +110,25 @@ announcements = \
                     'randomize_from': True
                 },
 
-
             ],
         'result': '{one_of_the_2_variations}'
     }
+
+hints = [
+    "Passive Income goes down by 1% for each 5k you own at a company, so vary your investments",
+    "Investing in multiple companies carries less risk than going all-in on one company",
+    "When a company you won stocks at, goes bankrupt, it auto-sells your stocks at the price it bankrupts at",
+    "Companies bankrupt when their stock price reaches 0.5 or lower",
+    "Use !autoinvest <budget> if you don't know at which company to buy stocks at",
+    "When writing big numbers, you can put underscore every 3 digits for readability. E.g.: '!buy wrtr 1_000_000'",
+    "You can specify multiple companies in the !buy and !sell commands",
+    "When you buy from multiple companies at once, the amount you specify is split equally among them",
+    "You can specify a percentage of your own points when buying such as 50%"
+]
+
+
+def load_hints():
+    return hints
 
 
 def load_message_templates():
@@ -126,6 +141,3 @@ def load_command_names():
 
 def load_announcements():
     return announcements
-
-
-

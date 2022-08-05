@@ -10,11 +10,12 @@ company_names = [
     {"company_name": "Bogdahoh's Carbonated Water", "abbv": "AQUA"},
     {"company_name": "Snaketooth1337's Snake Farm", "abbv": "SNAK"},
     {"company_name": "EvilStarRomania's Game Dev Company", "abbv": "GAME"},
-    {"company_name": "Croan's Police Department", "abbv": "PD"},
+    {"company_name": "Croan's Police Department", "abbv": "CRPD"},
     {"company_name": "Codrin_gg_hs's DJs", "abbv": "DJ"},
     {"company_name": "Hoppolino's Voice Acting Company", "abbv": "VOIC"},
     {"company_name": "Frog's Gold Mine", "abbv": "GOLD"},
     {"company_name": "SenarisK's Coffee Company", "abbv": "COFE"},
+    {"company_name": "Moobot's hoodlum Extermination Ltd.", "abbv": "MOO"}
 ]
 
 

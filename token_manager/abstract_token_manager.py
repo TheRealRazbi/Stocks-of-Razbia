@@ -1,4 +1,4 @@
-__all__ = ["AbstractTokenManager"]
+__all__ = ["AbstractTokenManager", "ServersDownException"]
 
 import json
 import time
@@ -10,6 +10,10 @@ import database
 from utils import print_with_time
 from datetime import timedelta
 import gettext
+
+
+class ServersDownException(Exception):
+    pass
 
 
 class AbstractTokenManager(ABC):
@@ -128,7 +132,8 @@ class AbstractTokenManager(ABC):
                         try:
                             error_code = json.loads(error_message).get('code')
                         except json.decoder.JSONDecodeError:
-                            raise ValueError(f"Error message while refreshing the {self.token_name} token {error_message}")
+                            raise ValueError(
+                                f"Error message while refreshing the {self.token_name} token {error_message}")
                         else:
                             if error_code == 'invalid token':
                                 print_with_time(

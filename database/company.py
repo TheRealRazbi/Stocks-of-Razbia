@@ -54,6 +54,7 @@ class Company(Base):
             self.event_months_remaining -= 1
             if self.event_months_remaining <= 0:
                 self.event_increase = 0
+                self.max_increase = 0.3
 
         initial_price = self.stock_price
         self.stock_price = self.stock_price * amount
@@ -68,7 +69,7 @@ class Company(Base):
         return self.price_diff
 
     @classmethod
-    def create(cls, starting_price, name=None, **kwargs):
+    def create(cls, starting_price, name: tuple = None, **kwargs):
         if name is None:
             name = ["dflt", "default"]
         return cls(
@@ -134,5 +135,5 @@ class Company(Base):
             'Stock Price': f'{self.stock_price:.2f}',
             'Price Change': f'{-(self.price_diff / (self.stock_price + self.price_diff) * 100):+.1f}%',
             'Lifespan': f"{f'{self.years} years │ ' if self.years else ''}{self.months % 12} months",
-            'Stocks Bought': f'{self.stocks_bought}'
+            'Stocks Bought': f'{self.stocks_bought:,}'
         }

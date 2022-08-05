@@ -9,7 +9,8 @@ from database import User
 class UserContext:
     __slots__ = ("user", "api", "session", "discord_message", "send_message")
 
-    def __init__(self, user: User, api, session: SessionType, send_message: Callable, discord_message: discord.Message = None):
+    def __init__(self, user: User, api, session: SessionType, send_message: Callable,
+                 discord_message: discord.Message = None):
         self.user = user
         self.api = api
         self.session = session
@@ -20,5 +21,8 @@ class UserContext:
         return f"{self.user}"
 
 
+class BasicDatabaseContext:
+    __slots__ = ('session',)
 
-
+    def __init__(self, session: SessionType):
+        self.session = session

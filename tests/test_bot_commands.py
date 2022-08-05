@@ -22,14 +22,21 @@ class TestCommands(AbstractAsyncTestDatabase):
         self.overlord = FakeOverlord()
 
     async def test_passive_income(self):
+        self.company.stock_price = 1
+        self.share.amount = 500
+        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 50)
         self.share.amount = 1_000
-        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 490)
+        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 100)
         self.share.amount = 5_000
-        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 2_251)
+        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 500)
+        self.share.amount = 10_000
+        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 950)
+        self.share.amount = 15_000
+        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 1350)
         self.share.amount = 50_000
-        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 2_500)
+        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 2750)
         self.share.amount = 500_000
-        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 25_000)
+        self.assertEqual(self.user.passive_income(company=self.company, session=self.session), 7250)
         self.assertEqual(self.user.passive_income(company=self.second_company, session=self.session), 0)
 
     async def test_buy_command(self):

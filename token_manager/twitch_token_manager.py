@@ -1,8 +1,10 @@
 __all__ = ["TwitchTokenManager"]
 
+from typing import List
+
 import aiohttp
 
-from .abstract_token_manager import AbstractTokenManager
+from .abstract_token_manager import AbstractTokenManager, ServersDownException
 
 from datetime import timedelta
 
@@ -31,18 +33,27 @@ class TwitchTokenManager(AbstractTokenManager):
                     res_json = await res.json()
                     return res_json["data"][0].get("display_name", None)
                 elif res.status == 500:
-                    print("Streamelements servers are down. The program cannot recover from this state")
+                    raise ServersDownException("Twitch servers are down. The program cannot recover from this state")
                 else:
-                    print(f"Unhandled status code: {res.status} | {res.content}")
+                    raise ValueError(f"Unhandled status code: {res.status} | {res.content}")
 
-    async def username_to_id(self, username: str):
+    async def username_to_id(self, username: str) -> int:
+        return (await self.usernames_to_id([username])).get('username')
+
+    async def usernames_to_id(self, usernames: List[str]) -> dict:
         headers = {'Authorization': f'Bearer {self.token}', 'Client-Id': self.client_id}
+        params = {'login': usernames}
         async with aiohttp.ClientSession() as session:
-            async with session.get(url=f'{self.get_user_url_endpoint}?login={username}', headers=headers) as res:
+            async with session.get(url=f'{self.get_user_url_endpoint}', headers=headers, params=params) as res:
                 if res.status == 200:
                     res_json = await res.json()
-                    return res_json["data"][0].get("id", None)
+                    data = res_json["data"]
+                    id_dict = {}
+                    for item in data:
+                        id_dict[item['login']] = item['id']
+
+                    return id_dict
                 elif res.status == 500:
-                    print("Streamelements servers are down. The program cannot recover from this state")
+                    raise ServersDownException("Twitch servers are down. The program cannot recover from this state")
                 else:
-                    print(f"Unhandled status code: {res.status} | {res.content}")
+                    raise ValueError(f"Unhandled status code: {res.status} | {res.content}")

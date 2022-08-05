@@ -1,4 +1,3 @@
-
 class IntOrStrAll:
     pass
 
@@ -11,5 +10,13 @@ class CompanyOrInt:
     pass
 
 
+class Percent:
+    pass
 
 
+class AllStr:
+    pass
+
+
+class StocksStr:
+    pass

@@ -23,7 +23,6 @@ markdown2~=2.3.9
 aiohttp~=3.7.4.post0
 aioresponses~=0.7.2
 WTForms-Components
-discord.py~=1.7.3
 aiounittest~=1.4.0
 matplotlib~=3.5.2
 aiosqlite==0.17.0

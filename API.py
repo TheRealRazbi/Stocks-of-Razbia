@@ -44,7 +44,7 @@ class API:
         self.loop = loop
         self.started = asyncio.Event()
         self.console_buffer = ['placeholder']
-        self.use_local_points_instead = False  # only use local points for offline testing and nothing else TODO remove on deploy
+        self.use_local_points_instead = True  # only use local points for offline testing and nothing else TODO remove on deploy
 
         # self.command_names = {('acquire', None): 'buy', ('my', None): 'my', ('income', 'my'): 'income'}
         self.command_names = {}
@@ -111,9 +111,10 @@ class API:
                                             discord_message=discord_message)
             command = self.commands[command_name]
             try:
-                if not command.available_on_twitch and not ctx.discord_message:
-                    print_with_time(f"Command {command} not available on twitch chat")
-                    return
+                # if not command.available_on_twitch and not ctx.discord_message:
+                #     await ctx.send_message("This command can only be ran in Discord. discord.gg/swavy")  # this is the discord of the person I am updating the bot for
+                #     print_with_time(f"Command {command} not available on twitch chat")
+                #     return
                 await command(ctx, *args)
                 # noinspection PyTypeChecker
             except commands.BadArgumentCount as e:
@@ -147,6 +148,8 @@ class API:
         if user is None:
             if user_id and not name:
                 name = await self.token_manager.twitch_token_manager.id_to_username(user_id=user_id)
+            if name and not user_id:
+                user_id = await self.token_manager.twitch_token_manager.username_to_id(username=name)
             user = User(id=user_id, name=name)
             session.add(user)
         if discord_id:
@@ -164,6 +167,8 @@ class API:
         self.conn = IrcProtocol(server, nick=self.name, loop=self.loop)
         self.conn.register('PRIVMSG', self.handler)
         await self.conn.connect()
+        if not self.conn.connected:
+            raise ConnectionError("Could not connect to twitch IRC")
         self.conn.send(f"JOIN #{self.channel_name}")
         print(f"{colored('Ready to read chat commands', 'green')}. "
               f"To see all basic commands type {colored('!stocks', 'magenta')} in the twitch chat")

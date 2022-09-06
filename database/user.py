@@ -2,18 +2,16 @@ __all__ = ["User"]
 
 import math
 
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy import Column, select
-from sqlalchemy.sql import sqltypes as t
-from sqlalchemy.orm import relationship
-
 import requests
+from sqlalchemy import Column, select
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import sqltypes as t
 
 import database
-from .db import Base, Session
 from .company import Company
+from .db import Base, Session
 from .shares import Shares
-import json
 
 
 class User(Base):

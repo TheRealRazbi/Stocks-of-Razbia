@@ -31,7 +31,7 @@ class AbstractTokenManagerTestCase(AbstractAsyncTestDatabase):
 
 class TwitchTokenManagerTestCase(AbstractTokenManagerTestCase):
     TWITCH_VALIDATE_URL_ENDPOINT = 'https://id.twitch.tv/oauth2/validate'
-    TWITCH_REFRESH_URL_ENDPOINT = 'https://razbi.funcity.org/stocks-chat-minigame/twitch/refresh_token'
+    TWITCH_REFRESH_URL_ENDPOINT = 'https://razbi.vineyard.haus/stocks-chat-minigame/twitch/refresh_token'
     token_name = 'twitch_key'
 
     @staticmethod
@@ -94,7 +94,7 @@ class TwitchTokenManagerTestCase(AbstractTokenManagerTestCase):
 
 class StreamElementsTokenManagerTestCase(AbstractTokenManagerTestCase):
     STREAM_ELEMENTS_VALIDATE_URL_ENDPOINT = 'https://api.streamelements.com/oauth2/validate'
-    STREAM_ELEMENTS_REFRESH_URL_ENDPOINT = 'https://razbi.funcity.org/stocks-chat-minigame/stream_elements/refresh_token'
+    STREAM_ELEMENTS_REFRESH_URL_ENDPOINT = 'https://razbi.vineyard.haus/stocks-chat-minigame/stream_elements/refresh_token'
     token_name = 'stream_elements_key'
 
     @staticmethod

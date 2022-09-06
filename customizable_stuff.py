@@ -5,8 +5,8 @@ message_templates = {
     'stocks': '@{user_name} Minigame basic commands: !autoinvest, !introduction, !buy, !companies, !all commands, !my stats',
     'stocks_alias': 'stocks',
     'company_alias': 'company',
-    'buy_successful': "@{user_name} just bought {amount} {stocks_alias} from [{company_abbv}] '{company_full_name}' for {cost} {currency_name}. "
-                      "Now they gain {passive_income} {currency_name} from {company_abbv} each 10 mins. ",
+    'buy_successful': "@{user_name} has bought {amount} {stocks_alias} of [{company_abbv}] '{company_full_name}' for {cost} {currency_name}. "
+                      "Now they gain {passive_income} {currency_name} of {company_abbv} each 10 mins. ",
     'buy_not_enough_points': '@{user_name} has {points} {currency_name} and requires {cost} aka {cost_minus_points} more.',
     # 'buy_0_stocks_remaining': '@{user_name} no {stocks_alias} left to buy at {company_abbv}.',
     # 'buy_not_enough_stocks_remaining': '@{user_name} tried buying {amount} {stocks_alias}, but only {remaining_shares} are remaining',
@@ -30,7 +30,7 @@ message_templates = {
     'my_stats': '@{user_name} '
                 'Shares: {list_of_shares} ||| '
                 'Income: {list_of_income} | Total Income: {total_income} {currency_name} per 10 mins ||| '
-                'Profit: {raw_profit} {currency_name}',
+                'Profit: {raw_profit} {currency_name} | Balance: {points} {currency_name}',
     'autoinvest_budget_too_small_for_companies': '@{user_name} too small budget. No {stocks_alias} bought.',
     'autoinvest_budget_too_small_for_available_points': '@{user_name} you need {budget} {currency_name}, '
                                                         'aka you need {budget_points_difference} more.',
@@ -51,6 +51,7 @@ command_names = BidirectionalMap({
     ('stonks', None): 'stocks',
     ('points', 'my'): 'points',
     ('points', None): 'my points',
+    ('balance', None): 'my points',
     # ('mypoints', None): 'my points',
     ('profit', 'my'): 'profit',
     ('profit', None): 'my profit',

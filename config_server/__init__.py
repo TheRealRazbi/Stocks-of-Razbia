@@ -51,12 +51,12 @@ async def home():
     if app.overlord.api.twitch_key_requires_refreshing:
         app.overlord.api.twitch_key_requires_refreshing = False
         app.overlord.api.twitch_key_just_refreshed = True
-        return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
+        return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/twitch_login")
 
     if app.overlord.api.stream_elements_key_requires_refreshing:
         app.overlord.api.stream_elements_key_requires_refreshing = False
         app.overlord.api.stream_elements_key_just_refreshed = True
-        return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamelements_login")
+        return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/streamelements_login")
 
     if not await app.overlord.api.tokens_ready:
         return redirect(url_for('setup'))
@@ -248,17 +248,17 @@ async def load_stream_elements_token():
 
 @app.route('/settings/api/streamlabs_token/generate_token/')
 async def generate_streamlabs_token():
-    return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamlabs_login")
+    return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/streamlabs_login")
 
 
 @app.route('/settings/api/twitch_token/generate_token/')
 async def generate_twitch_token():
-    return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
+    return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/twitch_login")
 
 
 @app.route('/settings/api/stream_elements_token/generate_token/')
 async def generate_stream_elements_token():
-    return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamelements_login")
+    return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/streamelements_login")
 
 
 @app.route('/web_sockets_stuff')

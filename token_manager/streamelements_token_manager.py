@@ -11,7 +11,7 @@ from datetime import timedelta
 
 class StreamElementsTokenManager(AbstractTokenManager):
     validate_url_endpoint = 'https://api.streamelements.com/oauth2/validate'
-    refresh_url_endpoint = 'https://razbi.funcity.org/stocks-chat-minigame/stream_elements/refresh_token'
+    refresh_url_endpoint = 'https://razbi.vineyard.haus/stocks-chat-minigame/stream_elements/refresh_token'
     user_info_endpoint = 'https://api.streamelements.com/kappa/v2/channels/'
 
     token_db_name = 'stream_elements_key'

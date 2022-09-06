@@ -15,7 +15,10 @@ company_names = [
     {"company_name": "Hoppolino's Voice Acting Company", "abbv": "VOIC"},
     {"company_name": "Frog's Gold Mine", "abbv": "GOLD"},
     {"company_name": "SenarisK's Coffee Company", "abbv": "COFE"},
-    {"company_name": "Moobot's hoodlum Extermination Ltd.", "abbv": "MOO"}
+    {"company_name": "Moobot's hoodlum Extermination Ltd.", "abbv": "MOO"},
+    {"company_name": "ratJAM Coalition Inc.", "abbv": "RTJM"},
+    {"company_name": "Taylor Swift Fan Club", "abbv": "FROG"},
+    # {"company_name": "Ligma begged for this name", "abbv": "LGMA"},
 ]
 
 

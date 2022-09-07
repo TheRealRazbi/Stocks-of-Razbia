@@ -14,7 +14,7 @@ class TwitchTokenManager(AbstractTokenManager):
     token_name = 'Twitch'
     client_id = 'q4nn0g7b07xfo6g1lwhp911spgutps'
     validate_url_endpoint = 'https://id.twitch.tv/oauth2/validate'
-    refresh_url_endpoint = 'https://razbi.funcity.org/stocks-chat-minigame/twitch/refresh_token'
+    refresh_url_endpoint = 'https://razbi.vineyard.haus/stocks-chat-minigame/twitch/refresh_token'
     get_user_url_endpoint = 'https://api.twitch.tv/helix/users'
     attrs_to_save_from_validate = {'display_name': 'login', 'user_id': 'user_id'}
     refresh_before_expires = timedelta(minutes=30)
@@ -38,7 +38,7 @@ class TwitchTokenManager(AbstractTokenManager):
                     raise ValueError(f"Unhandled status code: {res.status} | {res.content}")
 
     async def username_to_id(self, username: str) -> int:
-        return (await self.usernames_to_id([username])).get('username')
+        return (await self.usernames_to_id([username])).get(username)
 
     async def usernames_to_id(self, usernames: List[str]) -> dict:
         headers = {'Authorization': f'Bearer {self.token}', 'Client-Id': self.client_id}

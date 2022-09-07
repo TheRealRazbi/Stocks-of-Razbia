@@ -19,7 +19,7 @@ from utils import EmbedColor
 
 
 def register_commands(api: API):
-    my = api.group(name="my")
+    my = api.group(name="my", available_on_twitch=True)
     all = api.group(name='all')
     next = api.group(name='next')
 
@@ -34,7 +34,7 @@ def register_commands(api: API):
 
         await ctx.send_message(f"All minigame-related chat commands: {', '.join(thing_to_display)}")
 
-    @api.command(usage="<company> <budget>", unordered_args=True, sequence_arg='companies',
+    @api.command(usage="<company> <budget>", unordered_args=True, sequence_arg='companies', available_on_twitch=True,
                  specific_arg_usage={'amount': "Budget has to be either an integer, 'all' or a percentage like '50%'",
                                      'companies': "Company has to exist and has to be a valid abbreviation like 'rzbi'"})
     async def buy(ctx, companies: [Company], amount: [AllStr, int, Percent], shares: Optional[StocksStr] = None):
@@ -45,7 +45,10 @@ def register_commands(api: API):
             unsent_messages.append(message)
 
         async def send_everything():
-            await old_send_message('\n'.join(unsent_messages))
+            if ctx.discord_message:
+                await old_send_message('\n'.join(unsent_messages))
+            else:
+                await old_send_message(' | '.join(unsent_messages))
 
         ctx.send_message = buy_send_message
 
@@ -74,8 +77,7 @@ def register_commands(api: API):
                 if stocks_till_100k == 0:
                     await ctx.send_message(
                         ctx.api.get_and_format(ctx, 'reached_stocks_limit', company_abbv=company.abbv))
-                    await send_everything()
-                    return
+                    continue
                 amount = min(amount, stocks_till_100k)
             else:
                 amount = min(amount, 100_000)
@@ -119,7 +121,7 @@ def register_commands(api: API):
                                                               cost_minus_points=f'{cost - points:,}'))
         await send_everything()
 
-    @api.command(usage="<company> <budget>", unordered_args=True, sequence_arg='companies',
+    @api.command(usage="<company> <budget>", unordered_args=True, sequence_arg='companies', available_on_twitch=True,
                  specific_arg_usage={'amount': "Budget has to be either an integer, 'all' or a percentage like '50%'",
                                      'companies': "Company has to exist and has to be a valid abbreviation like 'rzbi'"})
     async def sell(ctx, companies: [Company], amount: [int, AllStr, Percent], use_shares: Optional[StocksStr] = None):
@@ -175,7 +177,7 @@ def register_commands(api: API):
                 await ctx.send_message(message)
         await send_everything()
 
-    @api.command()
+    @api.command(available_on_twitch=True)
     async def sellall(ctx):
         total_outcome = 0
         list_of_all_sells = []
@@ -204,11 +206,11 @@ def register_commands(api: API):
         else:
             await ctx.send_message(company)
 
-    @api.command()
+    @api.command(available_on_twitch=True)
     async def companies(ctx):
         if ctx.discord_message:
             companies_ = ctx.session.query(db.Company).order_by(Company.stock_price.desc()).all()
-            embed_content = {company_.abbv: company_.price_and_price_diff for company_ in companies_}
+            embed_content = {f'[{company_.abbv}]': company_.price_and_price_diff for company_ in companies_}
             footer = "Tip: The number on the left is the 'current price'. The one on the right is the 'price change'."
             embed = create_embed(title='!companies', content=embed_content, footer=footer)
 
@@ -222,14 +224,14 @@ def register_commands(api: API):
                 # message = f"{company.abbv.upper()}[{company.stock_price:.1f}{company.price_diff/company.stock_price*100:+.1f}%]"
                 message = company.announcement_description
                 res.append(message)
-            if ctx.user.new:
-                # await ctx.send_message(f"@{ctx.user.name} Tip: The number on the left is the 'current price'. The one on the right is the 'price change'")
-                await ctx.send_message(ctx.api.get_and_format(ctx, 'company_first_time_tip'))
-                ctx.user = ctx.user.refresh(session=ctx.session)
-                ctx.user.new = False
-                ctx.session.commit()
+            # if ctx.user.new:
+            #     # await ctx.send_message(f"@{ctx.user.name} Tip: The number on the left is the 'current price'. The one on the right is the 'price change'")
+            #     await ctx.send_message(ctx.api.get_and_format(ctx, 'company_first_time_tip'))
+            #     ctx.user = ctx.user.refresh(session=ctx.session)
+            #     ctx.user.new = False
+            #     ctx.session.commit()
 
-                await ctx.send_message(f"@{ctx.user.name} {', '.join(res)} ")
+            await ctx.send_message(f"@{ctx.user.name} {', '.join(res)} ")
 
     @api.command()
     async def stocks(ctx):
@@ -244,9 +246,11 @@ def register_commands(api: API):
         await ctx.send_message(ctx.api.get_and_format(ctx, 'introduction'))
 
     @api.command()
-    async def leaderboard(ctx):  # TODO make it appear discord name instead of twitch name
+    async def leaderboard(ctx):
         if ctx.discord_message:
             await show_top(ctx, amount=5)
+        else:
+            pass  # TODO: add a top for twitch as well
 
     @api.command()
     async def refresh_leaderboard(ctx):
@@ -266,15 +270,15 @@ def register_commands(api: API):
             await show_top(ctx, amount=amount)
 
     class PossibleLeaderboards(Enum):
-        NET_WORTH = {"order_by": 'last_worth_checked', "color": EmbedColor.RED, 'title': "Leaderboard Net Worth",
+        NET_WORTH = {"order_by": 'last_worth_checked', "color": EmbedColor.GREEN, 'title': "Leaderboard Net Worth",
                      "message_after_value": 'net worth'}
         BALANCE = {"order_by": 'last_balance_checked', "color": EmbedColor.GREEN, 'title': "Leaderboard Balance",
                    "message_after_value": 'points'}
-        MOST_STOCKS_OWNED = {"order_by": 'last_most_stocks_owned_checked', "color": EmbedColor.BLUE,
+        MOST_STOCKS_OWNED = {"order_by": 'last_most_stocks_owned_checked', "color": EmbedColor.GREEN,
                              'title': "Leaderboard Most Stocks Owned", "message_after_value": 'stocks owned'}
-        MOST_STOCKS_WORTH = {"order_by": 'last_most_stocks_worth_checked', "color": EmbedColor.GRAY,
+        MOST_STOCKS_WORTH = {"order_by": 'last_most_stocks_worth_checked', "color": EmbedColor.GREEN,
                              'title': "Leaderboard Most Stocks Worth", "message_after_value": 'stocks worth'}
-        INCOME = {"order_by": "last_income_checked", "color": EmbedColor.GRAY, "title": "Leaderboard Income",
+        INCOME = {"order_by": "last_income_checked", "color": EmbedColor.GREEN, "title": "Leaderboard Income",
                   "message_after_value": "income"}
 
     async def get_leaderboard_embed(ctx, amount,
@@ -320,17 +324,17 @@ def register_commands(api: API):
             embed_ = await get_leaderboard_embed(self.ctx, self.amount, leaderboard_type=leaderboard_type)
             await interaction.response.edit_message(embed=embed_, view=self)
 
-        @ui.button(label="Net Worth", style=discord.ButtonStyle.red, disabled=True)
+        @ui.button(label="Net Worth", style=discord.ButtonStyle.gray, disabled=True)
         async def net_worth(self, interaction, button):
             await self.update_embed(button_instance=button, interaction=interaction,
                                     leaderboard_type=PossibleLeaderboards.NET_WORTH)
 
-        @ui.button(label='Balance', style=discord.ButtonStyle.green)
+        @ui.button(label='Balance', style=discord.ButtonStyle.gray)
         async def balance(self, interaction, button):
             await self.update_embed(button_instance=button, interaction=interaction,
                                     leaderboard_type=PossibleLeaderboards.BALANCE)
 
-        @ui.button(label="Most Stocks Owned", style=discord.ButtonStyle.blurple)
+        @ui.button(label="Most Stocks Owned", style=discord.ButtonStyle.gray)
         async def most_stocks_owned(self, interaction, button):
             await self.update_embed(button_instance=button, interaction=interaction,
                                     leaderboard_type=PossibleLeaderboards.MOST_STOCKS_OWNED)
@@ -349,7 +353,7 @@ def register_commands(api: API):
         # async def anti_ocd_button(self, interaction, button):
         #     pass
 
-        @ui.button(label='', style=discord.ButtonStyle.gray, emoji='➕')
+        @ui.button(label='', style=discord.ButtonStyle.green, emoji='➕')
         async def plus_one(self, interaction, button):
             if self.amount < 10:
                 self.amount += 1
@@ -360,7 +364,7 @@ def register_commands(api: API):
             else:
                 await interaction.response.edit_message()
 
-        @ui.button(label='', style=discord.ButtonStyle.gray, emoji='➖')
+        @ui.button(label='', style=discord.ButtonStyle.red, emoji='➖')
         async def minus_one(self, interaction, button):
             if self.amount > 1:
                 self.amount -= 1
@@ -386,24 +390,20 @@ def register_commands(api: API):
 
     @my.command()
     async def shares(ctx):
-        res = []
-        shares = ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id).all()
-        if shares:
-            for share in shares:
-                company = ctx.session.query(Company).get(share.company_id).announcement_description
-                res.append(f"{company}: {share.amount}")
-
-            await ctx.send_message(f'@{ctx.user.name} has {", ".join(res)}')
+        if not ctx.discord_message:  # TODO: add an embed here
+            pass
         else:
-            # await ctx.send_message(f"@{ctx.user.name} doesn't own any shares. Use '!buy' to buy some.")
-            await ctx.send_message(ctx.api.get_and_format(ctx, 'no_shares'))
+            res = []
+            shares = ctx.session.query(db.Shares).filter_by(user_id=ctx.user.id).all()
+            if shares:
+                for share in shares:
+                    company = ctx.session.query(Company).get(share.company_id).announcement_description
+                    res.append(f"{company}: {share.amount}")
 
-    # @my.command()
-    # async def old_points(ctx):
-    #     # await ctx.send_message(f"@{ctx.user.name} currently has {await ctx.user.points(ctx.api)} {ctx.api.overlord.currency_name}")
-    #     await ctx.send_message(ctx.api.get_and_format(ctx, 'my_points',
-    #                                                   user_points=f'{await ctx.user.points(ctx.api, ctx.session):,}'
-    #                                                   ))
+                await ctx.send_message(f'@{ctx.user.name} has {", ".join(res)}')
+            else:
+                # await ctx.send_message(f"@{ctx.user.name} doesn't own any shares. Use '!buy' to buy some.")
+                await ctx.send_message(ctx.api.get_and_format(ctx, 'no_shares'))
 
     @api.command()
     async def fastforward(ctx, minutes: int):
@@ -443,9 +443,19 @@ def register_commands(api: API):
             # await ctx.send_message(f"@{ctx.user.name} doesn't own any shares. Use '!buy' to buy some.")
             await ctx.send_message(ctx.api.get_and_format(ctx, 'no_shares'))
 
-    @my.command()
+    @api.command()
+    async def states(ctx):
+        await ctx.send_message("Alabama, Alaska, Arizona, Arkansas, California, Colorado, Connecticut, Delaware, Florida "
+                               "Georgia, Hawaii, Idaho, Illinois, Indiana, Iowa, Kansas, Kentucky, Louisiana, Maine, Maryland, "
+                               "Massachusetts, Michigan, Minnesota, Mississippi, Missouri, Montana, Nebraska, Nevada, New Hampshire, "
+                               "New Jersey, New Mexico, New York, North Carolina, North Dakota, Ohio, Oklahoma, Oregon, Pennsylvania, "
+                               "Rhode Island, South Carolina, South Dakota, Tennessee, Texas, Utah, Vermont, Virginia, Washington, "
+                               "West Virginia, Wisconsin, Wyoming")
+
+    @my.command(available_on_twitch=True)
     async def stats(ctx, user: Optional[User] = None):
         if ctx.discord_message:
+
             if user is None:
                 user = ctx.user
                 author_name = ctx.discord_message.author.name
@@ -465,12 +475,14 @@ def register_commands(api: API):
             if shares:
                 for share in shares:
                     company = ctx.session.query(Company).get(share.company_id)
-                    embed.add_field(name=f'{company.announcement_description}',
-                                    value=f'{share.amount:,} shares │ {company.stock_price:.0f} points per share',
+                    embed.add_field(name=f'[{company.abbv.upper()}]',
+                                    value=f'Total: {share.amount:,} shares\n'
+                                          f'Value: {company.stock_price:.0f} points\n'
+                                          f'Change: {-company.price_diff:+.1f} points ({company.price_diff_percent:.1f}%)',
                                     inline=True)
                     total_shares += share.amount
-                stocks_worth = ctx.user.stocks_worth(session=ctx.session)
-                embed.add_field(name="Total Shares",
+                stocks_worth = user.stocks_worth(session=ctx.session)
+                embed.add_field(name="Shares",
                                 value=f'{total_shares:,} shares worth {stocks_worth:,} points')
 
                 embed.add_field(name=f"{' Income ':=^30}", value='⠀', inline=False)
@@ -478,9 +490,8 @@ def register_commands(api: API):
                     company = ctx.session.query(Company).get(share.company_id)
                     specific_income = user.passive_income(company, ctx.session)
                     total_income += specific_income
-                    embed.add_field(name=f"{company.abbv}", value=f"{math.ceil(specific_income):,}")
-                embed.add_field(name="Total Income", value=f'{total_income:,} points per 10 mins')
-                points = await ctx.user.points(api=ctx.api, session=ctx.session)
+                    embed.add_field(name=f"[{company.abbv}]", value=f"{math.ceil(specific_income):,} points (10min)")
+                embed.add_field(name="Total Income", value=f'{total_income:,} points (10min)', inline=False)
                 user.last_income_checked = total_income
                 ctx.session.commit()
             else:
@@ -488,10 +499,11 @@ def register_commands(api: API):
                 ctx.session.commit()
                 embed.add_field(name='⠀', value="Doesn't have any shares", inline=True)
 
+            points = await user.points(api=ctx.api, session=ctx.session)
             embed.add_field(name="Balance", value=f'{points:,} points')
             embed.add_field(name="Net Worth", value=f'{points + stocks_worth:,} points')
             raw_profit = await user.profit_str(ctx.api, session=ctx.session)
-            embed.add_field(name=f"Profit", value=f'{raw_profit} points', inline=False)
+            embed.add_field(name=f"Profit", value=f'{raw_profit} points')
             # embed.add_field(name='Profit Percentage',
             #                 value=f'{percentage_profit.format(currency_name=ctx.api.overlord.currency_name)}')
             # 'Profit: {raw_profit} {currency_name} | Profit Percentage: {percentage_profit}'
@@ -542,6 +554,7 @@ def register_commands(api: API):
                                                           list_of_income=list_of_income,
                                                           total_income=total_income,
                                                           raw_profit=profit_str,
+                                                          points=await ctx.user.points(api=ctx.api, session=ctx.session)
                                                           # percentage_profit=profit_str[1].format(
                                                           #     currency_name=ctx.api.overlord.currency_name))
                                                           ))
@@ -560,7 +573,7 @@ def register_commands(api: API):
                                ((4 - ctx.api.overlord.months % 4) - 1) * ctx.api.overlord.iterate_cooldown
         await ctx.send_message(f'The next event starts in {time_till_next_event // 60:.0f} minutes')
 
-    @api.command(usage='<budget>')
+    @api.command(usage='<budget>', available_on_twitch=True)
     async def autoinvest(ctx, budget: [int, AllStr]):
         user_points = await ctx.user.points(ctx.api, ctx.session)
         if budget == 'all':

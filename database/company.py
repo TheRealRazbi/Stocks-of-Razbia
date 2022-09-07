@@ -19,7 +19,6 @@ class Company(Base):
     full_name = Column(t.String, nullable=False)
     abbv = Column(t.String(4), nullable=False)
 
-    # rich = Column(t.Boolean, default=False)
     stock_price = Column(t.Float)
     price_diff = Column(t.Float, default=0)
     months = Column(t.Integer, default=0)  # age
@@ -34,6 +33,8 @@ class Company(Base):
     bankrupt = Column(t.Boolean, default=False)
 
     shares = relationship("Shares", backref="company", passive_deletes=True)
+    # shares = relationship("Shares", backref=backref("company", cascade="all, delete-orphan", single_parent=True), passive_deletes=True)
+    # shares = relationship("Shares", backref=backref("company", cascade="save-update, merge, delete, delete-orphan", single_parent=True), passive_deletes=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -100,7 +101,7 @@ class Company(Base):
 
     @property
     def price_and_price_diff(self) -> str:
-        return f"{self.stock_price:,.1f}{self.price_diff_percent:+.1f}%"
+        return f"{self.stock_price:,.1f} ({self.price_diff_percent:+.1f}%)"
 
     def __str__(self):
         years = self.years
@@ -135,5 +136,5 @@ class Company(Base):
             'Stock Price': f'{self.stock_price:.2f}',
             'Price Change': f'{-(self.price_diff / (self.stock_price + self.price_diff) * 100):+.1f}%',
             'Lifespan': f"{f'{self.years} years │ ' if self.years else ''}{self.months % 12} months",
-            'Stocks Bought': f'{self.stocks_bought:,}'
+            'Stocks Bought': f'{self.stocks_bought:,} shares'
         }

@@ -26,3 +26,4 @@ WTForms-Components
 aiounittest~=1.4.0
 matplotlib~=3.5.2
 aiosqlite==0.17.0
+loguru~=0.6.0

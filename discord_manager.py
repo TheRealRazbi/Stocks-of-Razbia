@@ -21,8 +21,8 @@ class DiscordManager(discord.Client):
         api: API
         self.api = api
         self.prefix = '!'
-        self.CHECK_TWITCH_URL = 'https://razbi.funcity.org/stocks-chat-minigame/discord_user'
-        self.TWITCH_LINK_ACCOUNT_URL = 'https://razbi.funcity.org/stocks-chat-minigame/discord_login'
+        self.CHECK_TWITCH_URL = 'https://razbi.vineyard.haus/stocks-chat-minigame/discord_user'
+        self.TWITCH_LINK_ACCOUNT_URL = 'https://razbi.vineyard.haus/stocks-chat-minigame/discord_login'
         self.announce_channel: [discord.TextChannel, Optional[None]] = None
         self.cached_usernames: Dict[int: discord.User] = {}
         self.ready = asyncio.Event()

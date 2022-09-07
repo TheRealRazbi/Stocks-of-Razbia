@@ -80,7 +80,7 @@ class Overlord:
 
         self.months = 0
         self.load_age(session=session)
-        self.autostart = False  # JUST FOR DEBUGGING TODO REMOVE ON DEPLOY
+        self.autostart = True  # JUST FOR DEBUGGING TODO REMOVE ON DEPLOY
         self.iterate_right_away = False
 
         if self.iterate_right_away:
@@ -120,7 +120,7 @@ class Overlord:
         companies_to_spawn = min(self.max_companies - companies_count, self.max_companies_at_a_time)
 
         if companies_count == 0:
-            print(colored("hint: you can type the commands only in your twitch chat", "green"))
+            # print(colored("hint: you can type the commands only in your twitch chat", "green"))
             self.api.send_chat_message(f"Welcome to Stocks of Razbia. "
                                        "Naming Convention: company[10.5+9.5%] Number on the left is current price. Number on the right is the price change from last month. "
                                        "tip: you don't have to type company names in caps. ")
@@ -178,6 +178,7 @@ class Overlord:
                 # else:
                 #     self.owners_of_bankrupt_companies.add(f'@{user.name}')
                 # print(f"Refunded {share.amount} points to @{user.name}")
+            # TODO: fix AssertionError: Dependency rule tried to blank-out primary key column 'shares.company_id' on instance '<Shares at 0x1db391059d0>'
             session.delete(company)
             session.commit()
 
@@ -249,7 +250,7 @@ class Overlord:
             time_send_at = datetime.datetime.now().strftime('%H:%M')
             footer = f'Sent at {time_send_at}'
             if random.randint(1, 10) == 1:
-                footer = random.choice(self.hints)
+                footer = f'Tip: {random.choice(self.hints)}'
             content = {company.abbv: company.price_and_price_diff for company in companies}
             embed = create_embed(title=f'{self.year_and_month}', content=content, footer=footer, color=EmbedColor.GREEN)
 
@@ -274,7 +275,7 @@ class Overlord:
             # footer = f'{random_comment} {mentions}'
             # content = {company.abbv: company for company in self.bankrupt_companies}
             # content = {company.abbv: company for company in self.bankrupt_companies}
-            embed = create_embed("The following companies bankrupt:", footer=footer,
+            embed = create_embed("The following companies have gone bankrupt:", footer=footer,
                                  color=EmbedColor.RED)
             for company in self.bankrupt_companies:
                 for name, value in company.content_for_embed.items():
@@ -310,14 +311,14 @@ class Overlord:
                     company_candidates.append(company)
                 else:
                     for index, company_candidate in enumerate(company_candidates):
-                        if company.stocks_bought < company_candidate.stocks_bought and company.stock_price < 1000 and company.event_months_remaining <= 0:
+                        if company.stocks_bought < company_candidate.stocks_bought and company.stock_price < 20 and company.event_months_remaining <= 0:
                             company_candidates[index] = company
                             break
 
             if company_candidates:
                 company = random.choice(company_candidates)
                 company.event_increase = 30
-                company.event_months_remaining = 3
+                company.event_months_remaining = random.randint(1, 2)
                 session.commit()
                 # tip = random.choice([f"{self.messages['stocks_alias']} price it's likely to increase", "Buy Buy Buy", "Time to invest"])
                 # self.api.send_chat_message(f"{company.full_name} just released a new product. {tip}.")

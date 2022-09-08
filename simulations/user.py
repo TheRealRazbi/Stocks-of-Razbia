@@ -5,7 +5,7 @@ __all__ = (
 import abc
 import random
 
-from database import User, Company
+from database import User, Company, AsyncSession
 from loguru import logger
 
 
@@ -59,8 +59,8 @@ class BaseUser(abc.ABC):
     def is_active(self):
         return self.irl_hour < self.HOURS_A_DAY + 0.0001
 
-    def get_all_companies(self):
-        return self.s.session.query(Company).all()
+    def get_all_companies(self, session: AsyncSession):
+        return Company.get_all_companies(session=session)
 
 
 class IdleUser(BaseUser):
@@ -95,7 +95,9 @@ class PerfectionistEventSeekerUser(BaseUser):
     async def action_per_month(self) -> None:
         if not self.is_active:
             return
-        companies_this_month = self.s.session.query(Company).filter(Company.event_months_remaining != 0)
+        # companies_this_month = self.s.session.query(Company).filter(Company.event_months_remaining != 0)
+        companies_this_month = await Company.get_all_companies(session=self.s.session,
+                                                               filter_=Company.event_months_remaining != 0)
         if self.companies_last_month:
             for company in companies_this_month:
                 if company not in self.companies_last_month:
@@ -120,7 +122,7 @@ class InvestOnlyInNewCompanies(BaseUser):
         if not self.is_active:
             return
 
-        companies_this_month = self.get_all_companies()
+        companies_this_month = await self.get_all_companies(self.s.session)
         if self.companies_last_month:
             for company in companies_this_month:
                 if company not in self.companies_last_month:

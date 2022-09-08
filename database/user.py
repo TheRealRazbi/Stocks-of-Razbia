@@ -41,28 +41,28 @@ class User(Base):
             **self._getattrs("id", "name", "discord_id", "shares", "gain", "lost"),
         )
 
-    def stocks_worth(self, session: AsyncSession) -> int:
+    async def stocks_worth(self, session: AsyncSession) -> int:
         worth = 0
-        shares = self.get_all_owned_stocks(session=session)
+        shares = await self.get_all_owned_stocks(session=session)
         how_many = 0
         for share in shares:
-            company = session.query(Company).get(share.company_id)
-            worth += math.ceil(share.amount * company.stock_price)
-            how_many += share.amount
+            if company := await session.get(Company, share.company_id):
+                worth += math.ceil(share.amount * company.stock_price)
+                how_many += share.amount
         self.last_most_stocks_worth_checked = worth
         self.last_most_stocks_owned_checked = how_many
-        session.commit()
+        await session.commit()
         return worth
 
     async def total_worth(self, api, session: database.AsyncSession) -> int:
         points = await self.points(api=api, session=session)
-        worth = points + self.stocks_worth(session=session)
+        worth = points + await self.stocks_worth(session=session)
         self.last_worth_checked = worth
-        session.commit()
+        await session.commit()
         return worth
 
     async def points(self, api, session: database.AsyncSession) -> int:
-        user = session.query(User).get(self.id)
+        user = await session.get(User, self.id)
         if hasattr(api, 'fake_points'):
             return api.fake_points
         if api.use_local_points_instead:
@@ -71,8 +71,8 @@ class User(Base):
 
             points = user.local_points
             user.last_balance_checked = points
-            user.last_worth_checked = points + user.stocks_worth(session=session)
-            session.commit()
+            user.last_worth_checked = points + await user.stocks_worth(session=session)
+            await session.commit()
             return points
 
         if await api.tokens_ready:
@@ -87,7 +87,7 @@ class User(Base):
                     points = res.json()["points"]
                     user.last_balance_checked = points
                     user.last_worth_checked = points + user.stocks_worth(session=session)
-                    session.commit()
+                    await session.commit()
                     return points
                 elif res.status_code == 404:
                     return 0
@@ -109,7 +109,7 @@ class User(Base):
                     points = res.json()['points']
                     user.last_balance_checked = points
                     user.last_worth_checked = points + user.stocks_worth(session=session)
-                    session.commit()
+                    await session.commit()
                     return points
                 elif res.status_code == 400:
                     return 0
@@ -134,8 +134,8 @@ class User(Base):
 
     async def get_all_owned_stocks(self, session: AsyncSession):
         query = select(database.Shares).where(database.Shares.user_id == self.id)
-        query = session.execute(query)
-        return query.scalars().all()
+        scalars = await session.scalars(query)
+        return scalars.all()
 
     async def profit_str(self, api, session: AsyncSession) -> str:
         gain, lost = self.gain, self.lost
@@ -154,7 +154,7 @@ class User(Base):
         #     percentage_profit = f'0%'
 
     async def passive_income(self, company: Company, session: AsyncSession) -> int:
-        if share := session.query(Shares).get((self.id, company.id)):
+        if share := await session.get(Shares, (self.id, company.id)):
             value_of_stocks = math.ceil(share.amount * company.stock_price)
             income = 0
             stacks_of_5k = value_of_stocks // 5000
@@ -172,19 +172,19 @@ class User(Base):
         return 0
 
     async def refresh(self, session: database.AsyncSession):
-        return session.query(User).get(self.id)
+        return await session.get(User, self.id)
 
     @property
     def discord_mention(self) -> str:
         return f'<@{self.discord_id}>'
 
-    def update_last_checked_income(self, session) -> None:
-        user = self.refresh(session=session)
+    async def update_last_checked_income(self, session) -> None:
+        user = await self.refresh(session=session)
         total_income = 0
-        shares = user.get_all_owned_stocks(session)
+        shares = await user.get_all_owned_stocks(session)
         for share in shares:
-            company = session.query(Company).get(share.company_id)
-            specific_income = user.passive_income(company, session)
-            total_income += specific_income
+            if company := await session.get(Company, share.company_id):
+                specific_income = await user.passive_income(company, session)
+                total_income += specific_income
         user.last_income_checked = total_income
-        session.commit()
+        await session.commit()

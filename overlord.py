@@ -15,6 +15,7 @@ from termcolor import colored
 import config_server
 import config_server.forms
 import database
+from database.db import get_all_objects_by_kwargs
 from utils import create_embed, print_with_time
 from scheduler import AsyncScheduler, AsyncTask
 from API import API
@@ -22,7 +23,7 @@ from announcements import Announcement, AnnouncementDict
 from bot_commands import register_commands
 from company_names import load_default_names
 from customizable_stuff import load_message_templates, load_announcements, load_hints
-from database import User, Company
+from database import User, Company, count_from_table, Shares
 from more_tools import CachedProperty
 from utils import EmbedColor
 
@@ -109,14 +110,14 @@ class Overlord:
             await self.display_update(session)
             self.months += 1
             self.update_age(session)
-            session.close()
+            await session.close()
         else:
             await asyncio.sleep(3)
             # time.sleep(self.iterate_cooldown-time_since_last_run)
 
     async def spawn_companies(self, session: database.AsyncSession):
         spawned_companies = {}
-        companies_count = session.query(Company).count()
+        companies_count = await count_from_table(Company, session=session)
         companies_to_spawn = min(self.max_companies - companies_count, self.max_companies_at_a_time)
 
         if companies_count == 0:
@@ -146,32 +147,33 @@ class Overlord:
             await self.api.announce(embed=embed)
             # await self.api.announce(f"Newly spawned companies: {' | '.join(spawned_companies)}, {tip}")
 
-        session.commit()
+        await session.commit()
 
     async def iterate_companies(self, session: database.AsyncSession):
-        for index_company, company in enumerate(session.query(Company).all()):
+        for index_company, company in enumerate(await Company.get_all_companies(session=session)):
             res = company.iterate()
             if res:
                 self.stock_increase = True
-                shares = session.query(database.Shares).filter_by(company_id=company.id)
+                # shares = session.query(database.Shares).filter_by(company_id=company.id)
+                shares = await get_all_objects_by_kwargs(Shares, company_id=company.id, session=session)
                 for share in shares:
-                    user = session.query(User).get(share.user_id)
-                    income = user.passive_income(company=company, session=session)
+                    user = await session.get(User, share.user_id)
+                    income = await user.passive_income(company=company, session=session)
                     await self.api.upgraded_add_points(user, income, session)
-                session.commit()
+                await session.commit()
             else:
                 if not company.abbv == 'DFLT':
                     company.bankrupt = True
                     self.names[company.abbv] = company.full_name
-                    session.commit()
+                    await session.commit()
         await self.handle_company_events(session)
 
     async def clear_bankrupt(self, session: database.Session):
-        for index_company, company in enumerate(session.query(Company).filter_by(bankrupt=True)):
+        for index_company, company in enumerate(await Company.get_all_companies(bankrupt=True, session=session)):
             self.bankrupt_companies.append(company)
-            shares = session.query(database.Shares).filter_by(company_id=company.id).all()
+            shares = await get_all_objects_by_kwargs(Shares, company_id=company.id, session=session)
             for share in shares:
-                user = session.query(database.User).get(share.user_id)
+                user = await session.get(database.User, share.user_id)
                 await self.api.upgraded_add_points(user, share.amount, session)
                 if user.discord_id:
                     self.owners_of_bankrupt_companies.add(f'<@{user.discord_id}>')
@@ -179,8 +181,8 @@ class Overlord:
                 #     self.owners_of_bankrupt_companies.add(f'@{user.name}')
                 # print(f"Refunded {share.amount} points to @{user.name}")
             # TODO: fix AssertionError: Dependency rule tried to blank-out primary key column 'shares.company_id' on instance '<Shares at 0x1db391059d0>'
-            session.delete(company)
-            session.commit()
+            await session.delete(company)
+            await session.commit()
 
     def load_names(self, session: database.Session = None):
         if session is None:
@@ -298,7 +300,7 @@ class Overlord:
 
     async def handle_company_events(self, session: database.AsyncSession):
         if self.months % 4 == 0:
-            companies = session.query(database.Company).filter_by(bankrupt=False).all()
+            companies = await Company.get_all_companies(session=session, bankrupt=False)
             company_candidates = []
             for company in companies:
                 if company.event_months_remaining is None:
@@ -311,7 +313,8 @@ class Overlord:
                     company_candidates.append(company)
                 else:
                     for index, company_candidate in enumerate(company_candidates):
-                        if company.stocks_bought < company_candidate.stocks_bought and company.stock_price < 20 and company.event_months_remaining <= 0:
+                        if await company.stocks_bought(session=session) < await company_candidate.stocks_bought(session=session)\
+                                and company.stock_price < 20 and company.event_months_remaining <= 0:
                             company_candidates[index] = company
                             break
 
@@ -319,14 +322,14 @@ class Overlord:
                 company = random.choice(company_candidates)
                 company.event_increase = 30
                 company.event_months_remaining = random.randint(1, 2)
-                session.commit()
+                await session.commit()
                 # tip = random.choice([f"{self.messages['stocks_alias']} price it's likely to increase", "Buy Buy Buy", "Time to invest"])
                 # self.api.send_chat_message(f"{company.full_name} just released a new product. {tip}.")
                 if 'company_released_product' not in self.messages:
                     self.messages['company_released_product'] = load_message_templates()['company_released_product']
                     session = database.AsyncSession()
                     session.query(database.Settings).get('messages').value = json.dumps(self.messages)
-                    session.commit()
+                    await session.commit()
                 self.event_companies.append(company)
 
     @staticmethod

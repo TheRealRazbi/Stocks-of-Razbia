@@ -46,9 +46,9 @@ class BasicConverter:
 
 class CompanyConverter(Converter):
     @classmethod
-    def convert(cls, ctx, arg: str):
+    async def convert(cls, ctx, arg: str):
         arg = arg.upper()
-        company = Company.find_by_abbreviation(arg, ctx.session)
+        company = await Company.find_by_abbreviation(arg, ctx.session)
         if company is None:
             raise exc.CompanyNotFound(arg.lower())
         return company

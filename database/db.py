@@ -1,6 +1,6 @@
-__all__ = ["engine", "Session", "Base", "AsyncSession", "select", "get_object_by_kwargs"]
+__all__ = ["engine", "Session", "Base", "AsyncSession", "select", "get_object_by_kwargs", "count_from_table"]
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, func
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession as AsyncSession_
 from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import sessionmaker, exc
@@ -51,8 +51,13 @@ class Base:
 
 
 async def get_object_by_kwargs(table, session: AsyncSession, **kwargs):
-    return (await session.execute(select(table).filter_by(**kwargs))).scalars().first()
+    return (await session.scalars(select(table).filter_by(**kwargs))).first()
 
 
-async def get_all_objects_by_kwargs(table, session: AsyncSession, **kwargs):  # broken
-    return (await session.execute(select(table).filter_by(**kwargs))).fetch_one()
+async def get_all_objects_by_kwargs(table, session: AsyncSession, **kwargs):
+    return (await session.scalars(select(table).filter_by(**kwargs))).all()
+
+
+async def count_from_table(table, session: AsyncSession) -> int:
+    return await session.scalar(select(func.count()).select_from(table))
+

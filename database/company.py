@@ -9,7 +9,7 @@ from sqlalchemy import Column, select, func
 from sqlalchemy.sql import sqltypes as t
 
 from utils import create_embed
-from .db import Base, AsyncSession
+from .db import Base, AsyncSession, get_object_by_kwargs
 from .shares import Shares
 
 
@@ -83,8 +83,8 @@ class Company(Base):
         )
 
     @classmethod
-    def find_by_abbreviation(cls, abbreviation: str, session):
-        return session.query(cls).filter_by(abbv=abbreviation).first()
+    async def find_by_abbreviation(cls, abbreviation: str, session: AsyncSession):
+        return await get_object_by_kwargs(Company, abbv=abbreviation, session=session)
 
     async def stocks_bought(self, session: AsyncSession):
         query = select([func.sum(Shares.amount)]).where(
@@ -124,7 +124,7 @@ class Company(Base):
         return -(self.price_diff / (self.stock_price + self.price_diff) * 100)
 
     async def embed(self, session: AsyncSession):
-        content = self.content_for_embed(session=session)
+        content = await self.content_for_embed(session=session)
         return create_embed(self.full_name, content=content)
 
     async def content_for_embed(self, session: AsyncSession) -> dict:
@@ -133,5 +133,13 @@ class Company(Base):
             'Stock Price': f'{self.stock_price:.2f}',
             'Price Change': f'{-(self.price_diff / (self.stock_price + self.price_diff) * 100):+.1f}%',
             'Lifespan': f"{f'{self.years} years │ ' if self.years else ''}{self.months % 12} months",
-            'Stocks Bought': f'{self.stocks_bought(session=session):,} shares'
+            'Stocks Bought': f'{await self.stocks_bought(session=session):,} shares'
         }
+
+    @staticmethod
+    async def get_all_companies(session: AsyncSession, filter_=None, **kwargs):
+        query = select(Company).filter_by(**kwargs)
+        if filter_:
+            query = query.filter(filter_)
+        res = await session.execute(query)
+        return res.scalars().all()

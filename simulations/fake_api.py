@@ -93,7 +93,7 @@ class FakeAPI:
         return commands.group(registry=self.commands, **kwargs)
 
     async def upgraded_add_points(self, user: User, amount: int, session: database.AsyncSession):
-        user = user.refresh(session)
+        user = await user.refresh(session)
         if amount > 0:
             user.gain += amount
         elif amount < 0:
@@ -101,12 +101,12 @@ class FakeAPI:
         # old_last_points = user.last_points_checked
         points = await user.points(api=self, session=session)
         user.local_points = points + amount
-        session.commit()
+        await session.commit()
 
-        user.update_last_checked_income(session=session)
+        await user.update_last_checked_income(session=session)
         await user.total_worth(self, session=session)  # update total worth by checking it
         # print(user.last_points_checked, old_last_points)
-        session.commit()
+        await session.commit()
 
     def get_and_format(self, ctx: contexts.UserContext, message_name: str, **formats):
         if message_name not in self.overlord.messages:

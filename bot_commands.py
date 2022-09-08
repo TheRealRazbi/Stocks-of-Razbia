@@ -1,9 +1,11 @@
 import math
 from enum import Enum
+import random
 
 import discord
 from discord import ui
 from sqlalchemy import func
+from sqlalchemy.future import select
 
 import database
 from API import API
@@ -72,7 +74,8 @@ def register_commands(api: API):
             if not shares:
                 amount = math.floor(amount / company.stock_price)
 
-            if share := ctx.session.query(db.Shares).get((ctx.user.id, company.id)):
+            # if share := ctx.session.query(db.Shares).get((ctx.user.id, company.id)):
+            if share := await ctx.session.get(db.Shares, (ctx.user.id, company.id)):
                 stocks_till_100k = 100_000 - share.amount
                 if stocks_till_100k == 0:
                     await ctx.send_message(
@@ -104,15 +107,15 @@ def register_commands(api: API):
                 else:
                     share = db.Shares(user_id=ctx.user.id, company_id=company.id, amount=amount)
                     ctx.session.add(share)
-                company.increase_chance = max(50 - .0001 * company.stocks_bought, 45)
-                ctx.session.commit()
+                company.increase_chance = max(50 - .0001 * await company.stocks_bought(session=ctx.session), 45)
+                await ctx.session.commit()
                 await ctx.api.upgraded_add_points(ctx.user, -cost, ctx.session)
                 await ctx.send_message(ctx.api.get_and_format(ctx, 'buy_successful',
                                                               amount=f'{amount:,}',
                                                               company_abbv=company.abbv,
                                                               company_full_name=company.full_name,
                                                               cost=f'{cost:,}',
-                                                              passive_income=f'{ctx.user.passive_income(company, ctx.session):,}'))
+                                                              passive_income=f'{await ctx.user.passive_income(company, ctx.session):,}'))
 
             else:
                 await ctx.send_message(ctx.api.get_and_format(ctx, 'buy_not_enough_points',
@@ -445,12 +448,13 @@ def register_commands(api: API):
 
     @api.command()
     async def states(ctx):
-        await ctx.send_message("Alabama, Alaska, Arizona, Arkansas, California, Colorado, Connecticut, Delaware, Florida "
-                               "Georgia, Hawaii, Idaho, Illinois, Indiana, Iowa, Kansas, Kentucky, Louisiana, Maine, Maryland, "
-                               "Massachusetts, Michigan, Minnesota, Mississippi, Missouri, Montana, Nebraska, Nevada, New Hampshire, "
-                               "New Jersey, New Mexico, New York, North Carolina, North Dakota, Ohio, Oklahoma, Oregon, Pennsylvania, "
-                               "Rhode Island, South Carolina, South Dakota, Tennessee, Texas, Utah, Vermont, Virginia, Washington, "
-                               "West Virginia, Wisconsin, Wyoming")
+        await ctx.send_message(
+            "Alabama, Alaska, Arizona, Arkansas, California, Colorado, Connecticut, Delaware, Florida "
+            "Georgia, Hawaii, Idaho, Illinois, Indiana, Iowa, Kansas, Kentucky, Louisiana, Maine, Maryland, "
+            "Massachusetts, Michigan, Minnesota, Mississippi, Missouri, Montana, Nebraska, Nevada, New Hampshire, "
+            "New Jersey, New Mexico, New York, North Carolina, North Dakota, Ohio, Oklahoma, Oregon, Pennsylvania, "
+            "Rhode Island, South Carolina, South Dakota, Tennessee, Texas, Utah, Vermont, Virginia, Washington, "
+            "West Virginia, Wisconsin, Wyoming")
 
     @my.command(available_on_twitch=True)
     async def stats(ctx, user: Optional[User] = None):
@@ -579,13 +583,16 @@ def register_commands(api: API):
         if budget == 'all':
             budget = user_points
         if budget <= user_points:
-            chosen_company = ctx.session.query(db.Company).outerjoin(db.Shares,
-                                                                     (db.Shares.user_id == ctx.user.id) & (
-                                                                             db.Shares.company_id == Company.id)
-                                                                     ).filter(
-                db.Company.stock_price.between(3, budget) & (
-                        func.coalesce(db.Shares.amount, 0) < ctx.api.overlord.max_stocks_owned)
-            ).order_by(func.random()).first()
+            # chosen_company = ctx.session.query(db.Company).outerjoin(db.Shares,
+            #                                                          (db.Shares.user_id == ctx.user.id) & (
+            #                                                                  db.Shares.company_id == Company.id)
+            #                                                          ).filter(
+            #     db.Company.stock_price.between(3, budget) & (
+            #             func.coalesce(db.Shares.amount, 0) < ctx.api.overlord.max_stocks_owned)
+            # ).order_by(func.random()).first()
+            # TODO: make this choose companies like before, using the new query system
+            query = select(Company)
+            chosen_company = random.choice((await ctx.session.scalars(query)).all())
 
             if chosen_company:
                 await buy.run(ctx, companies=[chosen_company], amount=budget)

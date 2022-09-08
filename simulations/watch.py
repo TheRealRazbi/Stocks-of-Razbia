@@ -11,11 +11,11 @@ from .user import *
 
 class Watch:
     """
-    Let's you monitor the simulator
+    Lets you monitor the simulator
     """
 
     def __init__(self):
-        self.s: Simulator = Simulator()
+        self.s: [Simulator, None] = None
         self.IRL_DAYS_TO_SIMULATE = 7
         self.YEARS_TO_SIMULATE = self.IRL_DAYS_TO_SIMULATE * 12
         self.SIMULATE_N_TIMES = 3
@@ -24,7 +24,12 @@ class Watch:
         self.constant_buy_user: [BuyRandomlyWithAllPointsUser, None] = None
         self.user_performances = {}
 
+    async def setup_simulator(self) -> None:
+        self.s = Simulator()
+        await self.s.configure_database()
+
     async def run(self):
+        await self.setup_simulator()
         for simulation in range(self.SIMULATE_N_TIMES):
             await self.before_simulation()
             for month in range(self.months_to_simulate):
@@ -35,13 +40,14 @@ class Watch:
 
     async def pass_month(self):
         await self.s.pass_month()
+        await self.s.configure_database()
         for user in self.users:
             await user.action_per_month()
 
     async def before_simulation(self):
-        self.create_user(InvestOnlyInNewCompanies)
-        self.create_user(BuyRandomlyWithAllPointsUser)
-        self.create_user(PerfectionistEventSeekerUser)
+        await self.create_user(InvestOnlyInNewCompanies)
+        await self.create_user(BuyRandomlyWithAllPointsUser)
+        await self.create_user(PerfectionistEventSeekerUser)
 
     async def reset_simulator_and_save_info(self, simulation_count: int):
         self.total_spawned_companies += self.s.spawned_companies_counter
@@ -51,7 +57,7 @@ class Watch:
     async def reset_simulator(self):
         await self.s.clear_database()
         self.users = []
-        self.s = Simulator()
+        await self.setup_simulator()
         logger.debug("Simulator has been reset.")
 
     async def after_simulations_info(self):
@@ -70,7 +76,7 @@ class Watch:
     def months_to_simulate(self):
         return math.floor(self.YEARS_TO_SIMULATE * 12)
 
-    def create_user(self, user_type: BaseUser.__class__):
-        user = self.s.create_user(user_type)
+    async def create_user(self, user_type: BaseUser.__class__):
+        user = await self.s.create_user(user_type)
         self.users.append(user)
         return user

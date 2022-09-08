@@ -1,9 +1,10 @@
 import asyncio
 
 import aiounittest
+from sqlalchemy import event
 from sqlalchemy.sql import select
 
-from database import Company, AsyncSession, User, Shares
+from database import Company, AsyncSession, User, Shares, Settings
 from tests.test_utils import create_test_database, create_async_test_database
 
 
@@ -67,5 +68,34 @@ class AsyncTestDatabaseCompany(AbstractAsyncTestDatabase):
         self.assertEqual(stocks_bought, amount + amount // 2)
 
     async def test_access_all_company_attributes(self):
-        company = await self.add_company()
+        company = await self.add_company(short_name='RZBI', full_name="Razbi's Bot Solutions")
+        self.assertEqual(await company.stocks_bought(self.session), 0)
+        self.assertEqual(company.price_and_price_diff, '5.0 (-0.0%)')
+        self.assertEqual(company.announcement_description, 'RZBI[5.0 (-0.0%)]')
+        self.assertTrue(await company.content_for_embed(session=self.session))
+        self.assertTrue(await company.embed(session=self.session))
+        self.assertEqual(company.months, 0)
+        self.assertEqual(company.years, 0)
 
+    async def test_query_all_companies(self):
+        how_many = 10
+        for _ in range(how_many):
+            await self.add_company()
+        query = select(Company)
+        res = await self.session.execute(query)
+        companies = res.scalars().all()
+        self.assertEqual(len(companies), how_many)
+
+
+class AsyncTestDatabaseSettings(AbstractAsyncTestDatabase):
+    async def test_exists(self):
+        await self.session.execute(select(Settings))
+
+    def test_load_in_sync_function(self):
+        @event.listens_for(self.session.sync_session, "before_commit")
+        def load_thing():
+            connection = self.session.connection()
+
+            return connection.execute(select(Settings))
+
+        print(load_thing())

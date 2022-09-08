@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import database
-from database import Company, User
+from database import Company, User, count_from_table
 from overlord import Overlord
 
 from .user import *
@@ -19,29 +19,43 @@ class Simulator:
         self.async_engine = create_async_engine('sqlite+aiosqlite:///:memory:')
 
         self.session = database.AsyncSession()
-        self.o = Overlord()
-        self.o.api = FakeAPI(overlord=self.o)
+        self.o: [Overlord, None] = None
         self.spawned_companies_counter = 0  # how many times in the simulator's lifetime, companies have been spawned\
         self.ready = False
 
     async def configure_database(self):
+        """
+        Call this after instantiating Simulator
+        It creates 2 in-memory databases. One sync, one async. Shouldn't matter unless playing with the settings database
+        """
         database.Session.configure(bind=self.engine)
         database.AsyncSession.configure(bind=self.async_engine)
-        database.Base.metadata.bind = self.async_engine
+        database.Base.metadata.bind = self.engine  # used for the overlord initialization
+        database.Base.metadata.create_all()
+
         async with self.async_engine.begin() as conn:
             await conn.run_sync(database.Base.metadata.create_all)
 
         self.session = database.AsyncSession()
         self.ready = True
+        self.o = Overlord()
+        database.Base.metadata.bind = self.async_engine
+        self.o.api = FakeAPI(overlord=self.o)
+
+    @classmethod
+    async def create_simulator(cls):
+        s = Simulator()
+        await s.configure_database()
+        return s
 
     async def spawn_companies_until_max(self):
         while self.o.max_companies > self.session.query(Company).count():
             await self.spawn_companies_once()
 
     async def spawn_companies_once(self):
-        companies_before_spawn = self.session.query(Company).count()
+        companies_before_spawn = await count_from_table(Company, session=self.session)
         await self.o.spawn_companies(self.session)
-        companies_after_spawn = self.session.query(Company).count()
+        companies_after_spawn = await count_from_table(Company, session=self.session)
         how_many_spawned = companies_after_spawn - companies_before_spawn
         self.spawned_companies_counter += how_many_spawned
         if how_many_spawned:
@@ -74,9 +88,9 @@ class Simulator:
         database.Base.metadata.create_all()
         self.session = database.AsyncSession()
 
-    def create_user(self, user_type: BaseUser.__class__) -> BaseUser:
+    async def create_user(self, user_type: BaseUser.__class__) -> BaseUser:
         username = generate_random_user_name()
         user_db = User(name=username)
         self.session.add(user_db)
-        self.session.commit()
+        await self.session.commit()
         return user_type(simulator=self, db_user=user_db)

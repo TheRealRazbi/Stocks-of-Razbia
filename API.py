@@ -65,7 +65,7 @@ class API:
 
     def load_key(self, key_name, session=None):
         if session is None:
-            session = database.Session()
+            session = database.AsyncSession()
         key_db = session.query(database.Settings).get(key_name)
         if key_db:
             setattr(self, key_name, key_db.value)
@@ -106,7 +106,7 @@ class API:
         if group_name:
             args.insert(0, group_name)
         if command_name in self.commands:
-            session = database.Session()
+            session = database.AsyncSession()
             ctx = await self.create_context(session, user_id=user_id, username=username,
                                             discord_message=discord_message)
             command = self.commands[command_name]
@@ -240,7 +240,7 @@ class API:
         self.channel_name = await self.token_manager.get_channel_name()
         print_with_time(f"Channel name set to {green(self.channel_name)}")
 
-    async def upgraded_add_points(self, user: User, amount: int, session: database.Session):
+    async def upgraded_add_points(self, user: User, amount: int, session: database.AsyncSession):
         user = user.refresh(session)
         if amount > 0:
             user.gain += amount

@@ -2,6 +2,7 @@ __all__ = ('FakeAPI', 'Simulator')
 
 from loguru import logger
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine
 
 import database
 from database import Company, User
@@ -15,13 +16,23 @@ class Simulator:
     def __init__(self):
         """This module provides an interface for the class Watch to check the results given X parameters"""
         self.engine = create_engine('sqlite:///:memory:')
-        database.Session.configure(bind=self.engine)
-        database.Base.metadata.bind = self.engine
-        database.Base.metadata.create_all()
-        self.session = database.Session()
+        self.async_engine = create_async_engine('sqlite+aiosqlite:///:memory:')
+
+        self.session = database.AsyncSession()
         self.o = Overlord()
         self.o.api = FakeAPI(overlord=self.o)
-        self.spawned_companies_counter = 0  # how many times in the simulator's lifetime, companies have been spawned
+        self.spawned_companies_counter = 0  # how many times in the simulator's lifetime, companies have been spawned\
+        self.ready = False
+
+    async def configure_database(self):
+        database.Session.configure(bind=self.engine)
+        database.AsyncSession.configure(bind=self.async_engine)
+        database.Base.metadata.bind = self.async_engine
+        async with self.async_engine.begin() as conn:
+            await conn.run_sync(database.Base.metadata.create_all)
+
+        self.session = database.AsyncSession()
+        self.ready = True
 
     async def spawn_companies_until_max(self):
         while self.o.max_companies > self.session.query(Company).count():
@@ -37,6 +48,8 @@ class Simulator:
             logger.debug(f"Spawned {how_many_spawned} companies")
 
     async def pass_month(self):
+        if not self.ready:
+            await self.configure_database()
         await self.o.iterate_companies(self.session)
         await self.spawn_companies_once()
         await self.o.clear_bankrupt(self.session)
@@ -59,7 +72,7 @@ class Simulator:
     async def clear_database(self):
         database.Base.metadata.drop_all()
         database.Base.metadata.create_all()
-        self.session = database.Session()
+        self.session = database.AsyncSession()
 
     def create_user(self, user_type: BaseUser.__class__) -> BaseUser:
         username = generate_random_user_name()

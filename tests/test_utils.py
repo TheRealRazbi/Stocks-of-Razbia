@@ -1,6 +1,7 @@
-__all__ = ['create_test_database', 'create_fake_user_context', 'create_fake_discord_message']
+__all__ = ['create_test_database', 'create_fake_user_context', 'create_fake_discord_message', 'create_async_test_database']
 
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import Session as SessionType
 from contexts import UserContext
 
@@ -13,6 +14,18 @@ def create_test_database() -> SessionType:
     database.Base.metadata.bind = engine
     database.Base.metadata.create_all()
     return database.Session()
+
+
+async def create_async_test_database() -> database.AsyncSession:
+    engine = create_engine('sqlite:///:memory:')
+    async_engine = create_async_engine('sqlite+aiosqlite:///:memory:')
+
+    database.Session.configure(bind=engine)
+    database.AsyncSession.configure(bind=async_engine)
+    database.Base.metadata.bind = async_engine
+    async with async_engine.begin() as conn:
+        await conn.run_sync(database.Base.metadata.create_all)
+    return database.AsyncSession()
 
 
 def create_test_send_message():

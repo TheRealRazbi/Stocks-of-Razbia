@@ -3,13 +3,13 @@ import aiounittest
 from aioresponses import aioresponses
 import asyncio
 
-from tests.test_database import AbstractAsyncTestDatabase
+from tests.test_database import AbstractSyncTestDatabase
 from token_manager import TokenManager
 from database import Settings
 from utils import CurrencySystem
 
 
-class AbstractTokenManagerTestCase(AbstractAsyncTestDatabase):
+class AbstractTokenManagerTestCase(AbstractSyncTestDatabase):
     GENERIC_TOKEN = "hfd0mnw1k23mm918w31lxoyr2a6bh2"
     token_name = ''
 

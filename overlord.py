@@ -100,7 +100,7 @@ class Overlord:
         await self.started.wait()
         if time_since_last_run > self.iterate_cooldown:
             self.last_check = time.time()
-            session = database.Session()
+            session = database.AsyncSession()
 
             await self.iterate_companies(session)
             await self.spawn_companies(session)
@@ -114,7 +114,7 @@ class Overlord:
             await asyncio.sleep(3)
             # time.sleep(self.iterate_cooldown-time_since_last_run)
 
-    async def spawn_companies(self, session: database.Session):
+    async def spawn_companies(self, session: database.AsyncSession):
         spawned_companies = {}
         companies_count = session.query(Company).count()
         companies_to_spawn = min(self.max_companies - companies_count, self.max_companies_at_a_time)
@@ -148,7 +148,7 @@ class Overlord:
 
         session.commit()
 
-    async def iterate_companies(self, session: database.Session):
+    async def iterate_companies(self, session: database.AsyncSession):
         for index_company, company in enumerate(session.query(Company).all()):
             res = company.iterate()
             if res:
@@ -243,7 +243,7 @@ class Overlord:
         age.value = str(self.months)
         session.commit()
 
-    async def display_update(self, session: database.Session):
+    async def display_update(self, session: database.AsyncSession):
         if self.stock_increase:
             companies = session.query(Company).order_by(Company.stock_price.desc()).all()
 
@@ -296,7 +296,7 @@ class Overlord:
         # self.api.send_chat_message(final_message)
         # await self.api.discord_manager.announce(final_message)
 
-    async def handle_company_events(self, session: database.Session):
+    async def handle_company_events(self, session: database.AsyncSession):
         if self.months % 4 == 0:
             companies = session.query(database.Company).filter_by(bankrupt=False).all()
             company_candidates = []
@@ -324,13 +324,13 @@ class Overlord:
                 # self.api.send_chat_message(f"{company.full_name} just released a new product. {tip}.")
                 if 'company_released_product' not in self.messages:
                     self.messages['company_released_product'] = load_message_templates()['company_released_product']
-                    session = database.Session()
+                    session = database.AsyncSession()
                     session.query(database.Settings).get('messages').value = json.dumps(self.messages)
                     session.commit()
                 self.event_companies.append(company)
 
     @staticmethod
-    def get_companies_for_updates(session: database.Session):
+    def get_companies_for_updates(session: database.AsyncSession):
         res = []
         owners = session.query(database.User).filter(database.User.shares).all()
         owners = [f'@{user.name}' for user in owners]

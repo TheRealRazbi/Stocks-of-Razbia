@@ -2,13 +2,14 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 __all__ = ["Company"]
+
 import random
 
 from sqlalchemy import Column, select, func
 from sqlalchemy.sql import sqltypes as t
 
 from utils import create_embed
-from .db import Base
+from .db import Base, AsyncSession
 from .shares import Shares
 
 
@@ -19,7 +20,7 @@ class Company(Base):
     full_name = Column(t.String, nullable=False)
     abbv = Column(t.String(4), nullable=False)
 
-    stock_price = Column(t.Float)
+    stock_price = Column(t.Float, nullable=False)
     price_diff = Column(t.Float, default=0)
     months = Column(t.Integer, default=0)  # age
 
@@ -33,6 +34,7 @@ class Company(Base):
     bankrupt = Column(t.Boolean, default=False)
 
     shares = relationship("Shares", backref="company", passive_deletes=True)
+
     # shares = relationship("Shares", backref=backref("company", cascade="all, delete-orphan", single_parent=True), passive_deletes=True)
     # shares = relationship("Shares", backref=backref("company", cascade="save-update, merge, delete, delete-orphan", single_parent=True), passive_deletes=True)
 
@@ -84,16 +86,13 @@ class Company(Base):
     def find_by_abbreviation(cls, abbreviation: str, session):
         return session.query(cls).filter_by(abbv=abbreviation).first()
 
-    @hybrid_property
-    def stocks_bought(self) -> int:
-        # noinspection PyTypeChecker
-        return sum(share.amount for share in self.shares)
-
-    @stocks_bought.expression
-    def stocks_bought(self):
-        return select([func.sum(Shares.amount)]).where(
+    async def stocks_bought(self, session: AsyncSession):
+        query = select([func.sum(Shares.amount)]).where(
             Shares.company_id == self.id
-        ).label("stocks_bought")
+        )
+        res = await session.execute(query)
+        shares = list(filter(None, res.scalars().all()))
+        return sum(shares)
 
     @property
     def announcement_description(self):
@@ -109,11 +108,11 @@ class Company(Base):
         return f"Name: '{self.abbv}' aka '{self.full_name}' | stock_price: {self.stock_price:,.2f} | " \
                f"price change: {self.price_diff_percent:+.1f}% | " \
                f"lifespan: {years} {'years' if not years == 1 else 'year'} " \
-               f"and {months} {'months' if not months == 1 else 'month'} | Stocks Bought: {self.stocks_bought}"
+               f"and {months} {'months' if not months == 1 else 'month'}"
 
     def __repr__(self):
         return self._repr(
-            **self._getattrs("id", "abbv", "stocks_bought", "stock_price"),
+            **self._getattrs("id", "abbv", "stock_price"),
         )
 
     @property
@@ -124,17 +123,15 @@ class Company(Base):
     def price_diff_percent(self) -> int:
         return -(self.price_diff / (self.stock_price + self.price_diff) * 100)
 
-    @property
-    def embed(self):
-        content = self.content_for_embed
+    async def embed(self, session: AsyncSession):
+        content = self.content_for_embed(session=session)
         return create_embed(self.full_name, content=content)
 
-    @property
-    def content_for_embed(self) -> dict:
+    async def content_for_embed(self, session: AsyncSession) -> dict:
         return {
             'Name': f"{self.abbv} aka {self.full_name}",
             'Stock Price': f'{self.stock_price:.2f}',
             'Price Change': f'{-(self.price_diff / (self.stock_price + self.price_diff) * 100):+.1f}%',
             'Lifespan': f"{f'{self.years} years │ ' if self.years else ''}{self.months % 12} months",
-            'Stocks Bought': f'{self.stocks_bought:,} shares'
+            'Stocks Bought': f'{self.stocks_bought(session=session):,} shares'
         }

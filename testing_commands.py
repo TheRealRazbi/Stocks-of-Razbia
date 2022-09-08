@@ -40,7 +40,7 @@ class FakeAPI:
         local_session = False
         if session is None:
             local_session = True
-            session = database.Session()
+            session = database.AsyncSession()
         user = session.query(database.User).filter_by(name=name).first()
         if not user:
             user = database.User(name=name)
@@ -65,7 +65,7 @@ class FakeAPI:
         if group_name:
             args.insert(0, group_name)
         if command_name in self.commands:
-            with contextlib.closing(database.Session()) as session:
+            with contextlib.closing(database.AsyncSession()) as session:
                 ctx = await self.create_context(session)
                 try:
                     # noinspection PyTypeChecker

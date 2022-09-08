@@ -10,7 +10,7 @@ from sqlalchemy.sql import sqltypes as t
 
 import database
 from .company import Company
-from .db import Base, Session
+from .db import Base, Session, AsyncSession
 from .shares import Shares
 
 
@@ -41,7 +41,7 @@ class User(Base):
             **self._getattrs("id", "name", "discord_id", "shares", "gain", "lost"),
         )
 
-    def stocks_worth(self, session: database.Session) -> int:
+    def stocks_worth(self, session: AsyncSession) -> int:
         worth = 0
         shares = self.get_all_owned_stocks(session=session)
         how_many = 0
@@ -54,14 +54,14 @@ class User(Base):
         session.commit()
         return worth
 
-    async def total_worth(self, api, session: database.Session) -> int:
+    async def total_worth(self, api, session: database.AsyncSession) -> int:
         points = await self.points(api=api, session=session)
         worth = points + self.stocks_worth(session=session)
         self.last_worth_checked = worth
         session.commit()
         return worth
 
-    async def points(self, api, session: database.Session) -> int:
+    async def points(self, api, session: database.AsyncSession) -> int:
         user = session.query(User).get(self.id)
         if hasattr(api, 'fake_points'):
             return api.fake_points
@@ -132,12 +132,12 @@ class User(Base):
     def profit(self):
         return self.gain - self.lost
 
-    def get_all_owned_stocks(self, session: Session):
+    async def get_all_owned_stocks(self, session: AsyncSession):
         query = select(database.Shares).where(database.Shares.user_id == self.id)
         query = session.execute(query)
         return query.scalars().all()
 
-    async def profit_str(self, api, session: Session) -> str:
+    async def profit_str(self, api, session: AsyncSession) -> str:
         gain, lost = self.gain, self.lost
         gain += await self.total_worth(api=api, session=session)
         profit = f'{gain - lost:+,}'
@@ -153,7 +153,7 @@ class User(Base):
         # except ZeroDivisionError:
         #     percentage_profit = f'0%'
 
-    def passive_income(self, company: Company, session: Session) -> int:
+    async def passive_income(self, company: Company, session: AsyncSession) -> int:
         if share := session.query(Shares).get((self.id, company.id)):
             value_of_stocks = math.ceil(share.amount * company.stock_price)
             income = 0
@@ -171,7 +171,7 @@ class User(Base):
             # return math.ceil(value_of_stocks * max(income_percent, 0.01))
         return 0
 
-    def refresh(self, session: database.Session):
+    async def refresh(self, session: database.AsyncSession):
         return session.query(User).get(self.id)
 
     @property

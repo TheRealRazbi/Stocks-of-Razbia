@@ -2,10 +2,10 @@ import aiounittest
 from database import Company, User, Shares
 from testing_commands import FakeOverlord
 
-from tests.test_database import AbstractAsyncTestDatabase
+from tests.test_database import AbstractSyncTestDatabase
 
 
-class TestCommands(AbstractAsyncTestDatabase):
+class TestCommands(AbstractSyncTestDatabase):
     def setUp(self) -> None:
         super(TestCommands, self).setUp()
         self.user = User(name='razbi')

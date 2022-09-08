@@ -92,7 +92,7 @@ class FakeAPI:
     def group(self, **kwargs):
         return commands.group(registry=self.commands, **kwargs)
 
-    async def upgraded_add_points(self, user: User, amount: int, session: database.Session):
+    async def upgraded_add_points(self, user: User, amount: int, session: database.AsyncSession):
         user = user.refresh(session)
         if amount > 0:
             user.gain += amount

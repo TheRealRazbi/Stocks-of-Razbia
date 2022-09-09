@@ -35,14 +35,23 @@ class Command:
         self.mandatory_arg_count = handle_mandatory_arg_count(self.args)
         self.arg_names = handle_arg_names(func)
 
-    def __call__(self, ctx, *args: str):
+    # def __call__(self, ctx, *args: str):
+    #     if not self.available_on_twitch and not ctx.discord_message:
+    #         raise exc.CommandError("This command can only be ran in Discord. discord.gg/swavy")
+    #     prepared_args = prepare_args(ctx, self, args, self.mandatory_arg_count, self.unordered_args, self.arg_names,
+    #                                  self.sequence_arg)
+    #     if self.unordered_args:
+    #         return self.run(ctx, **prepared_args)
+    #     return self.run(ctx, *prepared_args)
+
+    async def run_command(self, ctx, *args):
         if not self.available_on_twitch and not ctx.discord_message:
             raise exc.CommandError("This command can only be ran in Discord. discord.gg/swavy")
-        prepared_args = prepare_args(ctx, self, args, self.mandatory_arg_count, self.unordered_args, self.arg_names,
-                                     self.sequence_arg)
+        prepared_args = await prepare_args(ctx, self, args, self.mandatory_arg_count, self.unordered_args,
+                                           self.arg_names, self.sequence_arg)
         if self.unordered_args:
-            return self.run(ctx, **prepared_args)
-        return self.run(ctx, *prepared_args)
+            return await self.run(ctx, **prepared_args)
+        return await self.run(ctx, *prepared_args)
 
 
 class Group:
@@ -85,6 +94,7 @@ def command(*, name=None, cls=Command, registry: t.Dict[str, t.Callable] = None,
         if registry is not None:
             registry[cmd.name] = cmd
         return cmd
+
     return decorator
 
 

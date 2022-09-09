@@ -14,3 +14,4 @@ __pycache__
 venv
 /config_server/static/static/scss/
 /selenium_stuff/
+/simulation-data/*

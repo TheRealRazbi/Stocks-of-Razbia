@@ -13,7 +13,7 @@ registered_converters = {}
 @runtime_checkable
 class Converter(Protocol):
     @classmethod
-    def convert(cls, ctx, arg: str):
+    async def convert(cls, ctx, arg: str):
         ...
 
 
@@ -34,7 +34,7 @@ class BasicConverter:
     msg: Optional[str] = None
 
     @classmethod
-    def convert(cls, _, arg):
+    async def convert(cls, _, arg):
         try:
             return cls.type(arg)
         except ValueError as e:
@@ -56,7 +56,7 @@ class CompanyConverter(Converter):
 
 class IntOrAllConverter(Converter):
     @classmethod
-    def convert(cls, ctx, arg: str):
+    async def convert(cls, ctx, arg: str):
         arg = arg.lower()
         if arg == 'all':
             return arg
@@ -74,7 +74,7 @@ class SpecificStringConverter(Converter):
     strings_to_check = ()
 
     @classmethod
-    def convert(cls, ctx, arg: str):
+    async def convert(cls, ctx, arg: str):
         arg = arg.lower()
         for string in cls.strings_to_check:
             if arg == string:
@@ -95,7 +95,7 @@ class StocksConverter(SpecificStringConverter):
 
 class CompanyOrAllStr(Converter):
     @classmethod
-    def convert(cls, ctx, arg: str):
+    async def convert(cls, ctx, arg: str):
         arg = arg.lower()
         if arg == 'all':
             return arg
@@ -113,7 +113,7 @@ class CompanyOrAllStr(Converter):
 
 class CompanyOrIntConverter(Converter):
     @classmethod
-    def convert(cls, ctx, arg: str):
+    async def convert(cls, ctx, arg: str):
         arg = arg.lower()
         try:
             arg = int(arg)
@@ -121,7 +121,7 @@ class CompanyOrIntConverter(Converter):
         except ValueError:
             pass
         arg = arg.upper()
-        company = Company.find_by_abbreviation(arg, ctx.session)
+        company = await Company.find_by_abbreviation(arg, ctx.session)
         if company is None:
             raise exc.ConversionError(f"'{arg}' is not a number, nor a Company so it's")
         return company
@@ -129,7 +129,7 @@ class CompanyOrIntConverter(Converter):
 
 class PercentConverter(Converter):
     @classmethod
-    def convert(cls, ctx, arg: str):
+    async def convert(cls, ctx, arg: str):
         res = None
         if arg.endswith('%'):
             number_str, _, _ = arg.partition('%')
@@ -151,7 +151,7 @@ class PercentConverter(Converter):
 
 class UserConverter(Converter):
     @classmethod
-    def convert(cls, ctx, arg: str):
+    async def convert(cls, ctx, arg: str):
         if ctx.discord_message is None:
             raise exc.ConversionError("Command works only on discord.")
         user = None

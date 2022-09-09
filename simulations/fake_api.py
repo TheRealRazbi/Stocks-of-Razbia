@@ -65,7 +65,7 @@ class FakeAPI:
                 #     await ctx.send_message("This command can only be ran in Discord. discord.gg/swavy")  # this is the discord of the person I am updating the bot for
                 #     print_with_time(f"Command {command} not available on twitch chat")
                 #     return
-                await command(ctx, *args)
+                await command.run_command(ctx, *args)
                 # noinspection PyTypeChecker
             except commands.BadArgumentCount as e:
                 await ctx.send_message(f'@{ctx.user.name} Usage: {e.usage(name=old_command_name)}')

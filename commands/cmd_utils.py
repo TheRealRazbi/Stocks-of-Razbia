@@ -1,4 +1,5 @@
-__all__ = ["convert", "prepare_args", "handle_annotations_args", "handle_mandatory_arg_count", "handle_arg_names", "order_and_convert_args"]
+__all__ = ["convert", "prepare_args", "handle_annotations_args", "handle_mandatory_arg_count", "handle_arg_names",
+           "order_and_convert_args"]
 
 import inspect
 
@@ -13,47 +14,49 @@ def is_optional(field):
            type(None) in t.get_args(field)
 
 
-def convert(ctx, annotation, arg):
+async def convert(ctx, annotation, arg):
     if is_optional(annotation):
         annotation = t.get_args(annotation)[0]
 
     if isinstance(annotation, Converter):
-        return annotation.convert(ctx, arg)
+        return await annotation.convert(ctx, arg)
     elif isinstance(annotation, list):
         for converter in annotation:
             try:
-                return registered_converters[converter].convert(ctx, arg)
+                return await registered_converters[converter].convert(ctx, arg)
             except exc.ConversionError:
                 pass
         raise exc.ProperArgumentNotProvided(arg_name=arg)
     elif annotation in registered_converters:
-        return registered_converters[annotation].convert(ctx, arg)
+        return await registered_converters[annotation].convert(ctx, arg)
     raise exc.ConverterNotFound("No converter found ...")
 
 
-def prepare_args(ctx, command: "Command", args: t.Sequence[str], mandatory_arg_count: int, unordered_args: bool,
-                 arg_names: t.Sequence[str], sequence_arg: str):
+async def prepare_args(ctx, command: "Command", args: t.Sequence[str], mandatory_arg_count: int, unordered_args: bool,
+                       arg_names: t.Sequence[str], sequence_arg: str):
     len_diff = len(args) - len(command.args)
     if len_diff < 0:
         if mandatory_arg_count > len(args):
             raise exc.BadArgumentCount("I have no idea what is this | mandatory_arg_count > args", func=command)
     if unordered_args:
         assert len(arg_names) == len(command.args)
-        return order_and_convert_args(ctx,
-                                      needed_args={name: annotation for name, annotation in zip(arg_names, command.args)},
+        return await order_and_convert_args(ctx,
+                                      needed_args={name: annotation for name, annotation in
+                                                   zip(arg_names, command.args)},
                                       raw_args=args,
                                       mandatory_arg_count=mandatory_arg_count,
                                       sequence_arg=sequence_arg
                                       )
     else:
         return [
-            convert(ctx, annotation, arg)
+            await convert(ctx, annotation, arg)
             for annotation, arg
             in zip(command.args, args)
         ]
 
 
-def order_and_convert_args(ctx, needed_args: t.Dict[str, any], raw_args: t.Sequence, mandatory_arg_count: int, sequence_arg='') -> dict:
+async def order_and_convert_args(ctx, needed_args: t.Dict[str, any], raw_args: t.Sequence, mandatory_arg_count: int,
+                           sequence_arg='') -> dict:
     """
     Orders arguments to allow for users to pass unordered args.
     Make sure to order the converters by specificity, the most specific first, 
@@ -72,7 +75,7 @@ def order_and_convert_args(ctx, needed_args: t.Dict[str, any], raw_args: t.Seque
             if name in converted_values and name != sequence_arg:
                 continue
             try:
-                converted_arg = convert(ctx, annotation, arg)
+                converted_arg = await convert(ctx, annotation, arg)
             except (exc.ProperArgumentNotProvided, exc.ConversionError):
                 continue
             else:

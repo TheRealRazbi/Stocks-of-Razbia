@@ -20,7 +20,7 @@ class Simulator:
 
         self.session = database.AsyncSession()
         self.o: [Overlord, None] = None
-        self.spawned_companies_counter = 0  # how many times in the simulator's lifetime, companies have been spawned\
+        self.spawned_companies_counter = 0  # how many times in the simulator's lifetime, companies have been spawned
         self.ready = False
 
     async def configure_database(self):
@@ -84,8 +84,9 @@ class Simulator:
         # await self.delete_everything()
 
     async def clear_database(self):
-        database.Base.metadata.drop_all()
-        database.Base.metadata.create_all()
+        async with self.async_engine.begin() as conn:
+            await conn.run_sync(database.Base.metadata.drop_all)
+            await conn.run_sync(database.Base.metadata.create_all)
         self.session = database.AsyncSession()
 
     async def create_user(self, user_type: BaseUser.__class__) -> BaseUser:

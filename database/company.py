@@ -11,6 +11,9 @@ from sqlalchemy.sql import sqltypes as t
 from utils import create_embed
 from .db import Base, AsyncSession, get_object_by_kwargs
 from .shares import Shares
+from loguru import logger
+
+cache = {}
 
 
 class Company(Base):
@@ -137,9 +140,24 @@ class Company(Base):
         }
 
     @staticmethod
-    async def get_all_companies(session: AsyncSession, filter_=None, **kwargs):
+    async def get_all_companies(session: AsyncSession, filter_=None, use_cache=True, **kwargs):
+        from . import Settings
+        month = (await session.get(Settings, 'age')).value
+        cache_key = f'{month}{filter_}{kwargs}'
+        if use_cache:
+            if cache_key in cache:
+                return cache[cache_key]
+        # else:
+        #     logger.info(f"{cache_key} not in cache, querying")
+        # logger.info("Querying companies")
         query = select(Company).filter_by(**kwargs)
         if filter_:
             query = query.filter(filter_)
         res = await session.execute(query)
-        return res.scalars().all()
+        companies = res.scalars().all()
+        cache[cache_key] = companies
+        for key in cache.copy():
+            if not key.startswith(month):
+                del cache[key]
+                logger.debug(f'Cleared {key} from companies cache')
+        return companies

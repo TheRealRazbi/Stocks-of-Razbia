@@ -9,6 +9,7 @@ import webbrowser
 
 import calendar
 import alembic.config
+from loguru import logger
 from sqlalchemy import inspect
 from termcolor import colored
 
@@ -109,7 +110,7 @@ class Overlord:
 
             await self.display_update(session)
             self.months += 1
-            self.update_age(session)
+            await self.update_age(session)
             await session.close()
         else:
             await asyncio.sleep(3)
@@ -150,7 +151,7 @@ class Overlord:
         await session.commit()
 
     async def iterate_companies(self, session: database.AsyncSession):
-        for index_company, company in enumerate(await Company.get_all_companies(session=session)):
+        for index_company, company in enumerate(await Company.get_all_companies(session=session, use_cache=False)):
             res = company.iterate()
             if res:
                 self.stock_increase = True
@@ -169,7 +170,7 @@ class Overlord:
         await self.handle_company_events(session)
 
     async def clear_bankrupt(self, session: database.Session):
-        for index_company, company in enumerate(await Company.get_all_companies(bankrupt=True, session=session)):
+        for index_company, company in enumerate(await Company.get_all_companies(bankrupt=True, session=session, use_cache=False)):
             self.bankrupt_companies.append(company)
             shares = await get_all_objects_by_kwargs(Shares, company_id=company.id, session=session)
             for share in shares:
@@ -240,10 +241,14 @@ class Overlord:
 
         self.months = int(age)
 
-    def update_age(self, session: database.Session):
-        age = session.query(database.Settings).get('age')
-        age.value = str(self.months)
-        session.commit()
+    async def update_age(self, session: database.Session):
+        age = await session.get(database.Settings, 'age')
+        if age is None:
+            age = database.Settings(key='age', value=self.months)
+            session.add(age)
+        else:
+            age.value = str(self.months)
+        await session.commit()
 
     async def display_update(self, session: database.AsyncSession):
         if self.stock_increase:
@@ -300,7 +305,7 @@ class Overlord:
 
     async def handle_company_events(self, session: database.AsyncSession):
         if self.months % 4 == 0:
-            companies = await Company.get_all_companies(session=session, bankrupt=False)
+            companies = await Company.get_all_companies(session=session, bankrupt=False, use_cache=False)
             company_candidates = []
             for company in companies:
                 if company.event_months_remaining is None:
@@ -382,7 +387,6 @@ class Overlord:
     def year_and_month(self):
         year = self.months // 12
         month = calendar.month_name[self.months % 12 + 1]
-
         return f"{f'Year: {year} │ ' if year else ''}Month: {month}"
 
     @staticmethod

@@ -1,11 +1,11 @@
 __all__ = ('Watch',)
 
 import math
-import pickle
 from typing import List
 
 from loguru import logger
 
+import database
 from .simulator import Simulator
 from .user import *
 import configparser
@@ -20,16 +20,20 @@ class Watch:
         self.VERSION = 0  # bump this version each balance change
         self.IRL_DAYS_TO_SIMULATE = 7
         self.YEARS_TO_SIMULATE = self.IRL_DAYS_TO_SIMULATE * 12
-        self.SIMULATE_N_TIMES = 5
-        self.USER_ALGORITHMS = (InvestOnlyInNewCompanies, BuyRandomlyWithAllPointsUser, PerfectionistEventSeekerUser)
+        self.SIMULATE_N_TIMES = 999_999_999_999
+        self.USER_ALGORITHMS = (
+            InvestOnlyInNewCompanies, BuyRandomlyWithAllPointsUser, PerfectionistEventSeekerUser, InvestInTop3Companies,
+            InvestInAllCompaniesConstantlyEqually,
+        )
 
         self.s: [Simulator, None] = None
         self.total_spawned_companies = 0
         self.users: List[BaseUser] = []
         self.constant_buy_user: [BuyRandomlyWithAllPointsUser, None] = None
         self.user_performances = {}
-        self.simulations_so_far = 1  # 1 instead of 0 so the save doesn't divide by 0
+        self.simulations_so_far = 1  # 1 instead of 0 so the self.save() doesn't divide by 0
         self.save_load_config = configparser.ConfigParser()
+        # self.user_session = database.AsyncSession()
 
     async def setup_simulator(self) -> None:
         self.s = Simulator()
@@ -37,7 +41,7 @@ class Watch:
 
     @property
     def config_section_name(self):
-        return f'{self.IRL_DAYS_TO_SIMULATE}_{"-".join(user.STRATEGY_NAME for user in self.USER_ALGORITHMS)}'
+        return f'{self.IRL_DAYS_TO_SIMULATE}_{"|".join(user.STRATEGY_NAME for user in self.USER_ALGORITHMS)}'
 
     async def load(self):
         self.save_load_config.read(f'simulation-data/{self.VERSION}.ini')
@@ -51,10 +55,10 @@ class Watch:
         existing = self.save_load_config[self.config_section_name]
         existing['simulations'] = str(1 + existing.getint('simulations', 1))
         for user in self.users:
-            old_net_worth = existing.getfloat(user.STRATEGY_NAME, 0)
+            old_net_worth = existing.getfloat(user.strategy_and_hours, 0)
             net_worth_this_time = self.user_performances[simulation_count][user.name]
-            new_net_worth = old_net_worth + ((net_worth_this_time-old_net_worth)/simulation_count)
-            existing[user.STRATEGY_NAME] = str(new_net_worth)
+            new_net_worth = old_net_worth + ((net_worth_this_time-old_net_worth)//simulation_count)
+            existing[user.strategy_and_hours] = str(new_net_worth)
 
         with open(f'simulation-data/{self.VERSION}.ini', "w") as configfile:
             self.save_load_config.write(configfile)
@@ -76,8 +80,9 @@ class Watch:
             await user.action_per_month()
 
     async def before_simulation(self):
+        # self.user_session = database.AsyncSession()
         for user_algorithm in self.USER_ALGORITHMS:
-            await self.create_user(user_algorithm)
+            await self.create_user(user_algorithm, session=self.s.session)
 
     async def reset_simulator_and_save_info(self, simulation_count: int):
         self.total_spawned_companies += self.s.spawned_companies_counter
@@ -86,6 +91,7 @@ class Watch:
         await self.reset_simulator()
 
     async def reset_simulator(self):
+        await self.user_session.close()
         await self.s.clear_database()
         self.users = []
         await self.setup_simulator()
@@ -115,7 +121,7 @@ class Watch:
     def months_to_simulate(self):
         return math.floor(self.YEARS_TO_SIMULATE * 12)
 
-    async def create_user(self, user_type: BaseUser.__class__):
-        user = await self.s.create_user(user_type)
-        self.users.append(user)
-        return user
+    async def create_user(self, user_type: BaseUser.__class__, session=database.AsyncSession):
+        users = await self.s.create_user(user_type, session=session)
+        self.users += users
+        return users

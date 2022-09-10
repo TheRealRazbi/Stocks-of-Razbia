@@ -1,13 +1,15 @@
 __all__ = (
     'BaseUser', 'IdleUser', 'generate_random_user_name', 'BuyRandomlyWithAllPointsUser', 'InvestOnlyInNewCompanies',
-    'PerfectionistEventSeekerUser')
+    'PerfectionistEventSeekerUser', 'InvestInAllCompaniesConstantlyEqually', 'InvestInTop3Companies')
 
 import abc
 import random
+import time
 
 from loguru import logger
 from sqlalchemy import select
 
+import database
 from database import User, Company, AsyncSession
 
 
@@ -15,46 +17,54 @@ class BaseUser(abc.ABC):
     HOURS_A_DAY = 24
     STRATEGY_NAME = 'Nothing'
 
-    def __init__(self, simulator, db_user: User):
+    def __init__(self, simulator, db_user: User, hours_a_day: int, session: database.AsyncSession):
         self.s = simulator
         self.db_user = db_user
+        self.HOURS_A_DAY = hours_a_day
+        self.session = session
         self.last_checked_points = -1
         self.last_checked_worth = -1
 
     async def action_per_month(self) -> None:
         if not self.is_active:
             return
-        return await self.action()
+        past = time.perf_counter()
+        await self.action()
+        logger.debug(f'{self.name} took {time.perf_counter()-past:,.2f} seconds')
 
     async def action(self) -> None:
         raise NotImplemented
 
     @property
     async def points(self) -> int:
-        points = await self.db_user.points(self.s.o.api, self.s.session)
+        points = await self.db_user.points(self.s.o.api, self.session)
         self.last_checked_points = points
         return points
 
     @property
     async def total_worth(self) -> int:
-        worth = await self.db_user.total_worth(self.s.o.api, self.s.session)
+        worth = await self.db_user.total_worth(self.s.o.api, self.session)
         self.last_checked_worth = worth
         return worth
 
     @property
     def name(self) -> str:
         # return f"{self.db_user.name}[{self.db_user.id}|{self.STRATEGY_NAME}]"
-        return f"[{self.db_user.id}|{self.STRATEGY_NAME}]"
+        return f"[{self.db_user.id}|{self.STRATEGY_NAME}|{self.HOURS_A_DAY}]"
+
+    @property
+    def strategy_and_hours(self):
+        return f"{self.STRATEGY_NAME}|{self.HOURS_A_DAY}"
 
     async def run_command(self, command: str) -> None:
-        await self.s.o.api.run_command(user=self, session=self.s.session, text_without_prefix=command,
+        await self.s.o.api.run_command(user=self, session=self.session, text_without_prefix=command,
                                        discord_message='something')
 
     async def all_in_companies(self, companies, not_in, not_in_message=""):
         for company in companies:
             if company not in not_in:
                 await self.run_command(f'buy {company.abbv} all')
-                logger.info(f"Bought {company.abbv} with all my stocks | user: {self}")
+                logger.debug(f"Bought {company.abbv} with all my stocks | user: {self}")
                 break
             else:
                 if not_in_message:
@@ -83,7 +93,6 @@ class IdleUser(BaseUser):
 
 class BuyRandomlyWithAllPointsUser(BaseUser):
     CHANCE_TO_BUY = 50
-    HOURS_A_DAY = 2
     STRATEGY_NAME = 'Buy all-in randomly'
 
     async def action(self) -> None:
@@ -92,23 +101,23 @@ class BuyRandomlyWithAllPointsUser(BaseUser):
         #     return
 
         if random.randint(1, 100) < self.CHANCE_TO_BUY:
-            logger.info(f"Investing at {self.irl_hour:.2f} | user: {self}")
+            logger.debug(f"Investing at {self.irl_hour:.2f} | user: {self}")
             await self.run_command('autoinvest all')
-        # logger.info(f"{self.name} has {await self.points} points and won't do anything with them")
+        # logger.debug(f"{self.name} has {await self.points} points and won't do anything with them")
 
 
 class PerfectionistEventSeekerUser(BaseUser):
-    HOURS_A_DAY = 4
     STRATEGY_NAME = 'Buy only from events'
 
-    def __init__(self, simulator, db_user: User):
-        super(PerfectionistEventSeekerUser, self).__init__(simulator, db_user)
+    def __init__(self, simulator, db_user: User, hours_a_day, session):
+        super(PerfectionistEventSeekerUser, self).__init__(simulator, db_user, hours_a_day, session)
         self.companies_last_month = []
 
     async def action(self) -> None:
-        # companies_this_month = self.s.session.query(Company).filter(Company.event_months_remaining != 0)
-        companies_this_month = await Company.get_all_companies(session=self.s.session,
+        # companies_this_month = self.session.query(Company).filter(Company.event_months_remaining != 0)
+        companies_this_month = await Company.get_all_companies(session=self.session,
                                                                filter_=Company.event_months_remaining != 0)
+
         if self.companies_last_month:
             await self.all_in_companies(companies=companies_this_month, not_in=self.companies_last_month,
                                         not_in_message="Company {abbv} not on event")
@@ -117,15 +126,14 @@ class PerfectionistEventSeekerUser(BaseUser):
 
 
 class InvestOnlyInNewCompanies(BaseUser):
-    HOURS_A_DAY = 8
     STRATEGY_NAME = 'Invest only in new companies'
 
-    def __init__(self, simulator, db_user: User):
-        super(InvestOnlyInNewCompanies, self).__init__(simulator, db_user)
+    def __init__(self, simulator, db_user: User, hours_a_day, session):
+        super(InvestOnlyInNewCompanies, self).__init__(simulator, db_user, hours_a_day, session)
         self.companies_last_month = []
 
     async def action(self) -> None:
-        companies_this_month = await self.get_all_companies(self.s.session)
+        companies_this_month = await self.get_all_companies(self.session)
         if self.companies_last_month:
             await self.all_in_companies(companies=companies_this_month, not_in=self.companies_last_month,
                                         not_in_message="Company {abbv} not new")
@@ -134,17 +142,16 @@ class InvestOnlyInNewCompanies(BaseUser):
 
 
 class InvestInTop3Companies(BaseUser):
-    HOURS_A_DAY = 3
     STRATEGY_NAME = 'Invest only in top 3 companies'
 
-    def __init__(self, simulator, db_user: User):
-        super(InvestInTop3Companies, self).__init__(simulator, db_user)
+    def __init__(self, simulator, db_user: User, hours_a_day, session):
+        super(InvestInTop3Companies, self).__init__(simulator, db_user, hours_a_day, session)
         self.top_companies_last_month = []
 
     async def action(self) -> None:
         query = select(Company).order_by(Company.stock_price).limit(3)  # get only top 3 companies
 
-        top_companies_this_month = (await self.s.session.scalars(query)).all()
+        top_companies_this_month = (await self.session.scalars(query)).all()
 
         new_top = False
         if self.top_companies_last_month:
@@ -161,7 +168,12 @@ class InvestInTop3Companies(BaseUser):
 
 
 class InvestInAllCompaniesConstantlyEqually(BaseUser):
-    pass
+    STRATEGY_NAME = "Invest in all companies equally"
+
+    async def action(self) -> None:
+        companies = await self.get_all_companies(session=self.session)
+        await self.run_command('sellall')
+        await self.run_command(f'buy all {" ".join(company.abbv for company in companies)}')
 
 
 def generate_random_user_name():

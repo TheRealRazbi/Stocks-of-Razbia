@@ -184,18 +184,18 @@ def register_commands(api: API):
     async def sellall(ctx):
         total_outcome = 0
         list_of_all_sells = []
-        shares_ = ctx.user.get_all_owned_stocks(ctx.session)
+        shares_ = await ctx.user.get_all_owned_stocks(ctx.session)
         if not len(shares_):
             await ctx.send_message(ctx.api.get_and_format(ctx, 'no_shares'))
             return
         for share in shares_:
-            company_ = share.company
-            total_outcome += math.ceil(share.amount * company_.stock_price)
-            list_of_all_sells.append(f'{company_.abbv}: {share.amount:,}')
-            ctx.session.delete(share)
-            company_.increase_chance = max(50 - .001 * company_.stocks_bought, 45)
+            if company_ := await ctx.session.get(Company, share.company_id):
+                total_outcome += math.ceil(share.amount * company_.stock_price)
+                list_of_all_sells.append(f'{company_.abbv}: {share.amount:,}')
+                await ctx.session.delete(share)
+                company_.increase_chance = max(50 - .001 * await company_.stocks_bought(session=ctx.session), 45)
         await ctx.api.upgraded_add_points(ctx.user, total_outcome, ctx.session)
-        ctx.session.commit()
+        await ctx.session.commit()
         list_of_all_sells = ", ".join(list_of_all_sells)
         await ctx.send_message(ctx.api.get_and_format(ctx, 'sell_everything_successful',
                                                       list_of_all_sells=list_of_all_sells,

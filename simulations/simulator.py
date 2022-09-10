@@ -1,11 +1,13 @@
 __all__ = ('FakeAPI', 'Simulator')
 
+from typing import List
+
 from loguru import logger
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import database
-from database import Company, User, count_from_table
+from database import Company, User, count_from_table, Settings
 from overlord import Overlord
 
 from .user import *
@@ -41,6 +43,7 @@ class Simulator:
         self.o = Overlord()
         database.Base.metadata.bind = self.async_engine
         self.o.api = FakeAPI(overlord=self.o)
+        await self.o.update_age(self.session)
 
     @classmethod
     async def create_simulator(cls):
@@ -62,12 +65,17 @@ class Simulator:
             logger.debug(f"Spawned {how_many_spawned} companies")
 
     async def pass_month(self):
+        session = database.AsyncSession()
         if not self.ready:
             await self.configure_database()
-        await self.o.iterate_companies(self.session)
+        await self.o.iterate_companies(session)
         await self.spawn_companies_once()
-        await self.o.clear_bankrupt(self.session)
+        await self.o.clear_bankrupt(session)
+        await self.o.update_age(session)
+
+        await session.close()
         # await self.o.display_update(self.session)
+
         self.o.months += 1
 
     async def run(self):
@@ -89,9 +97,13 @@ class Simulator:
             await conn.run_sync(database.Base.metadata.create_all)
         self.session = database.AsyncSession()
 
-    async def create_user(self, user_type: BaseUser.__class__) -> BaseUser:
-        username = generate_random_user_name()
-        user_db = User(name=username)
-        self.session.add(user_db)
+    async def create_user(self, user_type: BaseUser.__class__, session: database.AsyncSession) -> List[BaseUser]:
+        users = []
+        how_much = (1, 2, 3, 4, 5, 10, 15, 20, 24)
+        for hours_a_day in how_much:
+            username = generate_random_user_name()
+            user_db = User(name=username)
+            self.session.add(user_db)
+            users.append(user_type(simulator=self, db_user=user_db, hours_a_day=hours_a_day, session=session))
         await self.session.commit()
-        return user_type(simulator=self, db_user=user_db)
+        return users

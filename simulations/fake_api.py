@@ -1,5 +1,6 @@
 __all__ = ('FakeAPI',)
 
+import asyncio
 from typing import Dict, Union
 
 import discord
@@ -33,6 +34,7 @@ class FakeAPI:
         self.use_local_points_instead = True
         self.commands: Dict[str, Union[commands.Command, commands.Group]] = {}
         self.command_names = load_command_names()
+        self.command_lock = asyncio.Lock()
         # noinspection PyTypeChecker
         register_commands(self)
 
@@ -49,32 +51,32 @@ class FakeAPI:
 
     async def run_command(self, text_without_prefix, session, user: BaseUser = None,
                           discord_message: discord.Message = None):
+        async with self.command_lock:
+            text_without_prefix = text_without_prefix.lower()
+            old_command_name, *args = text_without_prefix.split()
+            command_name = self.command_names.get((old_command_name, None), old_command_name)
+            command_name, _, group_name = command_name.partition(" ")
+            if group_name:
+                args.insert(0, group_name)
+            if command_name in self.commands:
+                ctx = await self.create_context(session, user=user,
+                                                discord_message=discord_message)
+                command = self.commands[command_name]
+                try:
+                    # if not command.available_on_twitch and not ctx.discord_message:
+                    #     await ctx.send_message("This command can only be ran in Discord. discord.gg/swavy")  # this is the discord of the person I am updating the bot for
+                    #     print_with_time(f"Command {command} not available on twitch chat")
+                    #     return
+                    await command.run_command(ctx, *args)
+                    # noinspection PyTypeChecker
+                except commands.BadArgumentCount as e:
+                    await ctx.send_message(f'@{ctx.user.name} Usage: {e.usage(name=old_command_name)}')
+                except commands.ProperArgumentNotProvided as e:
+                    if e.arg_name in command.specific_arg_usage:
+                        await ctx.send_message(command.specific_arg_usage[e.arg_name])
 
-        text_without_prefix = text_without_prefix.lower()
-        old_command_name, *args = text_without_prefix.split()
-        command_name = self.command_names.get((old_command_name, None), old_command_name)
-        command_name, _, group_name = command_name.partition(" ")
-        if group_name:
-            args.insert(0, group_name)
-        if command_name in self.commands:
-            ctx = await self.create_context(session, user=user,
-                                            discord_message=discord_message)
-            command = self.commands[command_name]
-            try:
-                # if not command.available_on_twitch and not ctx.discord_message:
-                #     await ctx.send_message("This command can only be ran in Discord. discord.gg/swavy")  # this is the discord of the person I am updating the bot for
-                #     print_with_time(f"Command {command} not available on twitch chat")
-                #     return
-                await command.run_command(ctx, *args)
-                # noinspection PyTypeChecker
-            except commands.BadArgumentCount as e:
-                await ctx.send_message(f'@{ctx.user.name} Usage: {e.usage(name=old_command_name)}')
-            except commands.ProperArgumentNotProvided as e:
-                if e.arg_name in command.specific_arg_usage:
-                    await ctx.send_message(command.specific_arg_usage[e.arg_name])
-
-            except commands.CommandError as e:
-                await ctx.send_message(e.msg)
+                except commands.CommandError as e:
+                    await ctx.send_message(e.msg)
 
     async def create_context(self, session, user: BaseUser = None,
                              discord_message: discord.Message = None):

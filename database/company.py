@@ -72,7 +72,7 @@ class Company(Base):
             name = ["dflt", "default"]
         return cls(
             stock_price=starting_price,
-            abbv=name[0],
+            abbv=name[0].upper(),
             full_name=name[1],
             **kwargs,
         )

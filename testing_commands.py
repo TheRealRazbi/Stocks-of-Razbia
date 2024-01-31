@@ -3,16 +3,18 @@ import contextlib
 import commands
 import database
 import contexts
-from customizable_stuff import load_message_templates
+from customizable_stuff import load_message_templates, load_command_names
+from bot_commands import register_commands
+from typing import Dict, Union
 
 
 class FakeAPI:
-    def __init__(self, fake_overlord, name: str, commands: dict, command_names: dict, user_points: int):
+    def __init__(self, fake_overlord, name: str, command_names: dict, user_points: int):
         self.overlord = fake_overlord
         self.message_sent_buffer = []
         self.name = name
         self.prefix = '!'
-        self.commands = commands
+        self.commands: Dict[str, Union[commands.Command, commands.Group]] = {}
         self.command_names = command_names
         self.fake_points = user_points
 
@@ -77,13 +79,27 @@ class FakeAPI:
         # await self.overlord.real_overlord.api.upgraded_add_points(user=user, amount=amount, session=session)
         self.fake_points += amount
 
+    def command(self, **kwargs):
+        return commands.command(registry=self.commands, **kwargs)
+
+    def group(self, **kwargs):
+        return commands.group(registry=self.commands, **kwargs)
+
 
 class FakeOverlord:
-    def __init__(self, messages_dict: dict, command_names: dict, currency_name: str, commands: dict, name: str, real_overlord, user_points: int):
-        self.api = FakeAPI(self, name=name, commands=commands, command_names=command_names, user_points=user_points)
+    def __init__(self, messages_dict: dict = None, command_names: dict = None, name: str = 'razbi', currency_name=None, user_points: int = 10_000):
+        if messages_dict is None:
+            messages_dict = load_message_templates()
+        if command_names is None:
+            command_names = load_command_names()
+        if currency_name is None:
+            currency_name = 'souls'
+
+        self.api = FakeAPI(self, name=name, command_names=command_names, user_points=user_points)
+        # noinspection PyTypeChecker
+        register_commands(self.api)
         self.messages = messages_dict
         self.currency_name = currency_name
-        self.real_overlord = real_overlord
 
     def return_sent_messages(self):
         res = [message for message in self.api.message_sent_buffer]

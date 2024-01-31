@@ -733,8 +733,8 @@ async def testing_commands():
     if command_names == {}:
         command_names = app.overlord.api.command_names
 
-    fake_overlord = FakeOverlord(messages_dict=new_messages, command_names=command_names, commands=app.overlord.api.commands,
-                                 currency_name=app.overlord.currency_name, name=app.overlord.api.name, real_overlord=app.overlord,
+    fake_overlord = FakeOverlord(messages_dict=new_messages, command_names=command_names,
+                                 name=app.overlord.api.name, currency_name=app.overlord.currency_name,
                                  user_points=form.user_points.data)
     # print(form.contents.data)
     await fake_overlord.api.handler(form.contents.data)

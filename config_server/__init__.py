@@ -1,23 +1,24 @@
 import ast
+import asyncio
+import atexit
 import json
 import math
 import time
 from contextlib import suppress
-from typing import Type, List, Optional
+from typing import List, Optional
 
-from quart import Quart, render_template, request, flash, redirect, url_for, websocket, current_app
+import markdown2
+from quart import Quart, render_template, request, flash, redirect, url_for, websocket
+from wtforms import FieldList
+
 import database
-from wtforms import validators, Form, FieldList
-
 from announcements import AnnouncementDict, Announcement
 from config_server.forms import SettingForm, SetupForm, StreamElementsTokenForm, CompaniesNames, CommandNameForm, \
     CommandNamesForm, CommandMessagesForm, CommandMessagesRestoreDefaultForm, AnnouncementForm, TestCommandForm
-import asyncio
-import markdown2
-from testing_commands import FakeOverlord
 from customizable_stuff import load_command_names, load_message_templates, load_announcements
 from more_tools import BidirectionalMap
-import atexit
+from testing_commands import FakeOverlord
+from utils import CurrencySystem
 
 app = Quart(__name__, static_folder="static/static")
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
@@ -28,7 +29,7 @@ def close_web_socket_upon_crash():
     try:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(websocket.close())
-    except:
+    except Exception:
         pass
 
 
@@ -50,14 +51,14 @@ async def home():
     if app.overlord.api.twitch_key_requires_refreshing:
         app.overlord.api.twitch_key_requires_refreshing = False
         app.overlord.api.twitch_key_just_refreshed = True
-        return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
+        return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/twitch_login")
 
     if app.overlord.api.stream_elements_key_requires_refreshing:
         app.overlord.api.stream_elements_key_requires_refreshing = False
         app.overlord.api.stream_elements_key_just_refreshed = True
-        return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamelements_login")
+        return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/streamelements_login")
 
-    if not app.overlord.api.tokens_ready:
+    if not await app.overlord.api.tokens_ready:
         return redirect(url_for('setup'))
 
     app.overlord.api.console_buffer_done = []
@@ -70,7 +71,7 @@ async def home():
             'oldest_company': session.query(database.Company).order_by(database.Company.months.desc()).first()
             }
 
-    return await render_template("home.html", tokens_loaded=app.overlord.api.tokens_ready, started=app.overlord.started,
+    return await render_template("home.html", tokens_loaded=await app.overlord.api.tokens_ready, started=app.overlord.started.is_set(),
                                  currency_system=app.overlord.api.currency_system.capitalize(), currency_name=app.overlord.currency_name,
                                  most=most, round=round, int=int)
 
@@ -87,10 +88,12 @@ async def setup():
         session = database.Session()
         if setup_form.currency_system.data and setup_form.currency_system.data != app.overlord.api.currency_system:
             if currency_system_db := session.query(database.Settings).get('currency_system'):
+                currency_system = setup_form.currency_system.data
+                app.overlord.api.token_manager.set_currency_system(getattr(CurrencySystem, currency_system.upper()))
                 app.overlord.api.mark_dirty('currency_system')
-                currency_system_db.value = setup_form.currency_system.data
+                currency_system_db.value = currency_system
                 session.commit()
-                if app.overlord.api.currency_system == 'streamlabs_local' and app.overlord.api.started:
+                if app.overlord.api.currency_system == 'streamlabs_local' and app.overlord.api.started.is_set():
                     await app.overlord.api.ping_streamlabs_local()
                 await flash('Currency System saved successfully')
         if setup_form.validate() and setup_form.currency_name.data != app.overlord.currency_name:
@@ -108,15 +111,15 @@ async def setup():
     elif app.overlord.api.currency_system == 'streamlabs_local':
         chosen_key = 'I have to write something here I guess'
 
-    return await render_template('setup.html', setup_form=setup_form, tokens_loaded=app.overlord.api.tokens_ready,
+    return await render_template('setup.html', setup_form=setup_form, tokens_loaded=await app.overlord.api.tokens_ready,
                                  twitch_key=app.overlord.api.twitch_key, chosen_key=chosen_key,
                                  currency_system=app.overlord.api.currency_system)
 
 
 @app.route('/start_minigame')
 async def start_minigame():
-    app.overlord.api.started = True
-    app.overlord.started = True
+    app.overlord.api.started.set()
+    app.overlord.started.set()
     return redirect(url_for('home'))
 
 
@@ -191,6 +194,7 @@ async def load_twitch_token():
     twitch_token = request.args.getlist('access_token')
     session = database.Session()
     await save_token(token=twitch_token, token_name='twitch_key', length=30, session=session)
+    app.overlord.api.token_manager.load_twitch_token()
     expires_in = request.args.getlist('expires_in')
     if expires_in:
         expires_at = str(int(time.time()) + int(expires_in[0]))
@@ -213,6 +217,7 @@ async def load_twitch_token():
 async def load_streamlabs_token():
     streamlabs_token = request.args.getlist('access_token')
     await save_token(token=streamlabs_token, token_name='streamlabs_key', length=40)
+    app.overlord.api.token_manager.load_currency_system_token()
 
     return redirect(url_for('token_settings'))
 
@@ -222,6 +227,7 @@ async def load_stream_elements_token():
     stream_elements = request.args.getlist('access_token')
     session = database.Session()
     await save_token(token=stream_elements, token_name='stream_elements_key', length=22, session=session)
+    app.overlord.api.token_manager.load_currency_system_token()
     expires_in = request.args.getlist('expires_in')
     if expires_in:
         expires_at = str(int(time.time()) + int(expires_in[0]))
@@ -242,17 +248,17 @@ async def load_stream_elements_token():
 
 @app.route('/settings/api/streamlabs_token/generate_token/')
 async def generate_streamlabs_token():
-    return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamlabs_login")
+    return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/streamlabs_login")
 
 
 @app.route('/settings/api/twitch_token/generate_token/')
 async def generate_twitch_token():
-    return redirect("https://razbi.funcity.org/stocks-chat-minigame/twitch_login")
+    return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/twitch_login")
 
 
-@app.route('/settings/api/stream_elements_token/generate_token/', methods=['GET', 'POST'])
+@app.route('/settings/api/stream_elements_token/generate_token/')
 async def generate_stream_elements_token():
-    return redirect("https://razbi.funcity.org/stocks-chat-minigame/streamelements_login")
+    return redirect("https://razbi.vineyard.haus/stocks-chat-minigame/streamelements_login")
 
 
 @app.route('/web_sockets_stuff')

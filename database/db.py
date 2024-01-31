@@ -1,8 +1,10 @@
-__all__ = ["engine", "Session", "Base"]
+__all__ = ["engine", "Session", "Base", "AsyncSession", "select", "get_object_by_kwargs"]
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession as AsyncSession_
 from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import sessionmaker, exc
+from sqlalchemy.future import select
 import os
 
 
@@ -14,10 +16,12 @@ def _fk_pragma_on_connect(dbapi_con, con_record):
 if os.path.exists('db.sqlite'):
     os.replace('db.sqlite', 'lib/db.sqlite')
 
-
 engine = create_engine('sqlite:///lib/db.sqlite', echo=False)
 event.listen(engine, 'connect', _fk_pragma_on_connect)
-Session = sessionmaker(bind=engine)
+Session = sessionmaker(bind=engine, expire_on_commit=False)
+
+async_engine = create_async_engine('sqlite+aiosqlite:///lib/db.sqlite', echo=False)
+AsyncSession = sessionmaker(bind=async_engine, class_=AsyncSession_, expire_on_commit=False)
 
 
 @as_declarative(bind=engine)
@@ -44,3 +48,11 @@ class Base:
         if at_least_one_attached_attribute:
             return f"<{self.__class__.__name__}({', '.join(field_strings)})>"
         return f"<{self.__class__.__name__} {id(self)}>"
+
+
+async def get_object_by_kwargs(table, session: AsyncSession, **kwargs):
+    return (await session.execute(select(table).filter_by(**kwargs))).scalars().first()
+
+
+async def get_all_objects_by_kwargs(table, session: AsyncSession, **kwargs):  # broken
+    return (await session.execute(select(table).filter_by(**kwargs))).fetch_one()

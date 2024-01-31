@@ -38,7 +38,7 @@ class SetupForm(Form):
                                                               ('', 'Please pick a currency system'),
                                                               ('streamlabs', 'Streamlabs Extension'),
                                                               ('stream_elements', 'Stream Elements'),
-                                                              ('streamlabs_local', 'Streamlabs Chatbot Local'),
+                                                              # ('streamlabs_local', 'Streamlabs Chatbot Local'),
                                                               ]
                                     )
     currency_name = f.StringField('Currency Name', [v.Length(min=4)])

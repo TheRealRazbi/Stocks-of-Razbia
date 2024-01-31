@@ -1,5 +1,5 @@
 # Stocks of Razbia
-Welcome, Stocks of Razbia is a stock exchange simulation simplified to work on a twitch chat. <br>
+Welcome, Stocks of Razbia is a stock exchange simulation simplified to work on a twitch chat made to be a better alternative to the classic !gamble. <br>
 This project was made by Razbi and Nesami.
 
 ## Installation
@@ -32,7 +32,7 @@ As long as you read the Notes on each release, before installing it, you should 
 - !my points | shows your points [in case the minigame uses a different currency system than streamer's]
 - !my income | shows your income from all companies
 - !introduction | displays a link to the Introduction document, which is a close copy to this one
-- !about | displays the dev names and the github link
+- !about | displays the dev names, and the GitHub link
 - !all commands | displays literally ALL the commands
 
 ### Note:
@@ -40,19 +40,19 @@ The minigame and all companies are hosted locally.
 As this is currently in the testing version, everything is subject to change.
 
 ### Event System:
-Each 4 months, a company [usually with fewest owned stocks] gets picked for a positive event.
-The event is announced and it increase the chance of that company making making, by 5-20% for 2-4 months.
+Each 4 months(1 month = 1 cycle = 10 mins), a company [usually with fewest owned stocks] gets picked for a positive event.
+The event is announced, and it increases the chance of that company's stock increasing in value, by 5-20% for 2-4 months.
 
 ### Supports:
  
 - Fully customizable Command Names, Command Outputs and Announcements
 - Streamlabs Extension Currency
 - StreamElements Currency
-- Streamlabs Chatbot Local Currency
-- Streamlabs Cloudbot [not yet, because it has no API support, so it will require webscrapping from my end]
+- Streamlabs Chatbot Local Currency [Dropped support due to high maintenance cost while nobody uses it anymore, will only add it back if requested]
+- Streamlabs Cloudbot [not yet, because it has no API support, so it will require webscrapping from my end. Will only add it if streamers ask for it]
 - Fully Local Currency [not yet, I will add it whenever Streamers will ask for it]
 
 ## Contributions:
 
-Discord server: https://discord.gg/yp3T7da <br>
+Discord server: https://discord.gg/PYqDyXQHEj <br>
 Currently any testing is greatly appreciated. For feedback/questions please visit the discord server.<br>

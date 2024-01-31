@@ -30,5 +30,12 @@ class ConversionError(CommandError):
 class CompanyNotFound(ConversionError):
     msg_format = 'Company "{value}" not found'
 
-# class CompanyNotFoundNorInt(ConversionError):
-#     msg_format = ''
+
+class ProperArgumentNotProvided(CommandError):
+    def __init__(self, *args, arg_name):
+        super(ProperArgumentNotProvided, self).__init__(*args, )
+        self.arg_name = arg_name
+
+    @property
+    def msg(self):
+        return f"Invalid '{self.arg_name}' or not provided"

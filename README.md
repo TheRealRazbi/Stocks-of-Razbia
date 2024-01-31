@@ -1,4 +1,13 @@
 # Stocks of Razbia
+It has been remade from scratch and moved to a private repository and it is now closed-source.
+Right now it is a discord and twitch minigame. 
+
+
+You can play it on twitch at twitch.tv/swavyl (this is not my twitch). 
+If you want to get in touch with me for any reason (such as adding the bot to your own channel), go on twitch, use !suggestions and you can find a link to the discord server of the bot.
+
+# READ ABOVE ^
+# Stocks of Razbia
 Welcome, Stocks of Razbia is a stock exchange simulation simplified to work on a twitch chat. <br>
 This project was made by Razbi and Nesami.
 
